@@ -1,0 +1,10 @@
+{
+  "exclude": ["**/node_modules"],
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "downlevelIteration": true,
+    "module": "es2022",
+    "moduleResolution": "node",
+    "outDir": "dist"
+  }
+}
