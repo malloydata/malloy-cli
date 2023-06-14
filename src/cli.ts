@@ -21,5 +21,27 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {run} from './cli';
-run();
+import {Command, Option} from 'commander';
+
+const cli = new Command();
+cli.version('0.0.1'); // todo
+cli.addOption(
+  new Option('-c, --config <file_path>', 'config file').env(
+    'MALLOY_CONFIG_FILE'
+  )
+);
+
+cli
+  .command('run <file> [outputFile]')
+  .description(
+    'run a Malloy file (.malloy or .malloysql) and optionally output results'
+  )
+  .action((source, destination) => {
+    console.log('command called');
+  });
+
+const run = async () => {
+  cli.parse(process.argv);
+};
+
+export {run};

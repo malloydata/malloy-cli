@@ -1,0 +1,37 @@
+{
+  "extends": "./node_modules/gts/",
+  "parserOptions": {
+    "warnOnUnsupportedTypeScriptVersion": false
+  },
+  "ignorePatterns": ["*.d.ts", "node_modules/", "dist/"],
+  "rules": {
+    "no-console": "warn",
+    "prettier/prettier": "error",
+    "sort-keys": "off",
+    "no-duplicate-imports": "error",
+    "no-restricted-imports": ["error"],
+    "no-throw-literal": "error",
+    "@typescript-eslint/consistent-type-imports": [
+      "error",
+      {"prefer": "no-type-imports"}
+    ],
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {"argsIgnorePattern": "^_", "varsIgnorePattern": "^_"}
+    ],
+    "@typescript-eslint/parameter-properties": [
+      "warn",
+      {"prefer": "parameter-property"}
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**", "test/**"],
+      "rules": {
+        "node/no-unpublished-import": "off",
+        "no-console": "off",
+        "no-process-exit": "off"
+      }
+    }
+  ]
+}

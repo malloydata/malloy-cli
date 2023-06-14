@@ -21,5 +21,31 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {run} from './cli';
-run();
+/* eslint-disable no-console */
+import fs from 'fs';
+
+export interface NpmPackage {
+  dependencies?: Record<string, string>;
+  homepage?: string;
+  license?: string;
+  repo?: string;
+  repository?: {
+    baseUrl?: string;
+    url?: string;
+  };
+}
+
+export function readPackageJson(path: string): NpmPackage {
+  try {
+    const fileBuffer = fs.readFileSync(path, 'utf8');
+    return JSON.parse(fileBuffer);
+  } catch (error) {
+    console.warn('Could not read package.json', error.message);
+  }
+  return {};
+}
+
+export function getDependencies(rootPackageJson: string): string[] {
+  const rootPackage = readPackageJson(rootPackageJson);
+  return Object.keys(rootPackage.dependencies || {}) || [];
+}
