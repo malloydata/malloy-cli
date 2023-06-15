@@ -22,26 +22,59 @@
  */
 
 import {Command, Option} from 'commander';
+import {runCommand} from './commands/run';
+import {loadConfig} from './config';
+
+// some options to consider:
+// truncateResults
+// abortOnExecitionError
+// outputFile
+// debug
+// verbosity
+
+// TODO quiet vs thrown errors
+// TODO update logger before running any commands
+// TODO run named malloy query
 
 const cli = new Command();
-cli.version('0.0.1'); // todo
-cli.addOption(
-  new Option('-c, --config <file_path>', 'config file').env(
-    'MALLOY_CONFIG_FILE'
-  )
-);
 
+// global
 cli
-  .command('run <file> [outputFile]')
-  .description(
-    'run a Malloy file (.malloy or .malloysql) and optionally output results'
+  .version('0.0.1')
+  .addOption(
+    new Option('-c, --config <file_path>', 'path to a config.json file').env(
+      'MALLOY_CONFIG_FILE'
+    )
   )
-  .action((source, destination) => {
-    console.log('command called');
-  });
+  .addOption(new Option('-q, --quiet', 'silence output'))
+  .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'));
 
-const run = async () => {
+// commands
+// TODO optional statement index
+cli
+  .command('run <file>')
+  .description('execute a Malloy file (.malloy or .malloysql)')
+  .action(runCommand);
+
+// TODO optional statement index
+cli
+  .command('compile <file>')
+  .description(
+    'compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
+  )
+  .action(runCommand);
+
+// config, logging
+cli.hook('preAction', (_thisCommand, _actionCommand) => {
+  loadConfig(cli.opts().config);
+
+  // TODO update logger w config + passed settings
+
+  // TODO start connection factory
+});
+
+async function run() {
   cli.parse(process.argv);
-};
+}
 
-export {run};
+export {run, cli};

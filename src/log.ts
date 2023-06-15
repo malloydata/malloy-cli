@@ -21,14 +21,30 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/out/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};
+import {
+  createLogger as createWinstonLogger,
+  transports,
+  format,
+  Logger,
+} from 'winston';
+
+function createBasicLogger(): Logger {
+  return createWinstonLogger({
+    transports: [new transports.Console()],
+    format: format.combine(
+      format.colorize(),
+      format.timestamp(),
+      format.printf(({message}) => {
+        return `${message}`;
+      })
+    ),
+    defaultMeta: {
+      service: 'MalloyCLI',
+    },
+  });
+}
+
+// eslint-disable-next-line prefer-const
+let logger = createBasicLogger();
+
+export {logger};

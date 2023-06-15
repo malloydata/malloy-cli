@@ -20,3 +20,51 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import {logger} from './log';
+
+// when in pkg, need to look at where we are executing, __dirname etc are overridden
+const directory = path.dirname(process.execPath);
+
+export function exitWithError(message: string): void {
+  logger.error(message);
+  // eslint-disable-next-line no-process-exit
+  process.exit(1);
+}
+
+export function isWindows() {
+  const sys = os.platform();
+  return sys && sys.length >= 3
+    ? sys.substring(0, 3).toLowerCase() === 'win'
+      ? true
+      : false
+    : false;
+}
+
+export function loadFile(filePath): string {
+  const absolutePath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(directory, filePath);
+
+  logger.debug(
+    `attempting to load ${filePath} at absolute path: ${absolutePath}`
+  );
+
+  if (!fs.existsSync(absolutePath)) {
+    exitWithError(`Unable to locate file: ${absolutePath}`);
+  }
+
+  try {
+    fs.accessSync(absolutePath, fs.constants.R_OK);
+  } catch (e) {
+    exitWithError(`Do not have read access to file: ${absolutePath}`);
+  }
+
+  try {
+    return fs.readFileSync(absolutePath).toString();
+  } catch (e) {
+    exitWithError(e.message);
+  }
+}

@@ -20,15 +20,3 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/out/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};

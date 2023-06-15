@@ -21,14 +21,22 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/out/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};
+import path from 'path';
+import {runMalloySQL} from '../malloy/malloySQL';
+import {exitWithError, loadFile} from '../util';
+
+export function runCommand(source: string): void {
+  const malloySQL = loadFile(source);
+  const extension = path.extname(source).toLowerCase();
+
+  if (extension === '.malloysql') {
+    runMalloySQL(malloySQL);
+  } else if (extension === '.malloy') {
+    // TODO
+  } else {
+    if (extension) exitWithError(`Unable to run file of type: ${extension}`);
+    exitWithError(
+      'Unable to determine file type - Malloy CLI requires .malloy or .malloysql files'
+    );
+  }
+}

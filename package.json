@@ -7,7 +7,8 @@
       "@malloydata/malloy",
       "@malloydata/db-bigquery",
       "@malloydata/db-duckdb",
-      "@malloydata/db-postgres"
+      "@malloydata/db-postgres",
+      "@malloydata/malloy-sql"
     ]
   },
   "engines": {
@@ -17,7 +18,7 @@
   "scripts": {
     "test": "jest",
     "build": "ts-node scripts/build",
-    "cli": "npx ts-node ./dist/cli.js",
+    "package": "ts-node scripts/package",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
     "malloy-update": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",
     "malloy-link": "npm --no-fund --no-audit link $npm_package_config_malloy_packages",
@@ -38,8 +39,11 @@
     "@malloydata/db-duckdb": "0.0.35",
     "@malloydata/db-postgres": "0.0.35",
     "@malloydata/malloy": "0.0.35",
+    "@malloydata/malloy-sql": "^0.0.39",
+    "ajv": "^8.12.0",
     "commander": "^10.0.1",
-    "inquirer": "^9.2.7"
+    "inquirer": "^9.2.7",
+    "winston": "^3.9.0"
   },
   "devDependencies": {
     "@types/jest": "^29.2.5",

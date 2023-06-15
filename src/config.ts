@@ -20,3 +20,65 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+import path from 'path';
+import fs from 'fs';
+import {loadFile, exitWithError, isWindows} from './util';
+import {logger} from './log';
+
+interface Config {
+  connections: [];
+}
+
+const couldNotFindDefaultConfigErrorMessage =
+  'Could not find default configuration file and no config file passed via arguments of env variable. Try running "malloy connections create" to create a connection and save into config';
+
+function findDefaultConfigPathOrError(): string {
+  let location;
+
+  // TODO look more at XDG spec
+  if (isWindows()) {
+    location = process.env['APPDATA'];
+  } else {
+    const home = process.env['HOME'];
+    if (home) {
+      location = path.join(home, '.config');
+    }
+  }
+
+  if (location) {
+    location = path.join(location, 'malloy', 'config.json');
+    if (!fs.existsSync(location)) {
+      exitWithError(couldNotFindDefaultConfigErrorMessage);
+    } else {
+      return location;
+    }
+  } else {
+    exitWithError(couldNotFindDefaultConfigErrorMessage);
+  }
+}
+
+let config: Config;
+export function loadConfig(filePath?: string) {
+  if (filePath) {
+    logger.debug(`Loading config from passed path ${filePath}`);
+  } else if (process.env['MALLOY_CLI_CONFIG']) {
+    logger.debug(
+      `Loading config from MALLOY_CLI_CONFIG env variable (${process.env['MALLOY_CLI_CONFIG']})`
+    );
+    filePath = process.env['MALLOY_CLI_CONFIG'];
+  } else {
+    filePath = findDefaultConfigPathOrError();
+  }
+
+  const configText = loadFile(filePath);
+
+  try {
+    config = JSON.parse(configText) as Config; // TODO json type
+  } catch (e) {
+    exitWithError(`Could not parse config file at ${filePath}: ${e.message}`);
+  }
+}
+export {config};
+
+export function saveConfig(config: JSON): void {}
