@@ -24,13 +24,16 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import {logger} from './log';
+import {cli} from './cli';
 
 // when in pkg, need to look at where we are executing, __dirname etc are overridden
 const directory = path.dirname(process.execPath);
 
+// TODO can't figure out why exitOverride doens't work appropriately, this is a hack
 export function exitWithError(message: string): void {
-  logger.error(message);
-  process.exit(1);
+  if (process.env.NODE_ENV === 'test') {
+    throw new Error(message);
+  } else cli.error(message);
 }
 
 export function isWindows() {

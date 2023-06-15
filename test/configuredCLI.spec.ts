@@ -21,16 +21,42 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {cli} from '../src/cli';
+import {Command} from 'commander';
+import {createCLI} from '../src/cli';
+import path from 'path';
 
-describe('runs CLI help', () => {
-  it('has help', () => {
-    cli.exitOverride();
-    expect(() => {
-      cli.parse(['--help']);
-    }).toThrow('(outputHelp)');
-    expect(() => {
-      cli.parse(['--h']);
-    }).toThrow('(outputHelp)');
+let cli: Command;
+let args: string[];
+beforeEach(() => {
+  cli = createCLI();
+  cli.exitOverride();
+
+  const configPath = path.resolve(
+    path.join(__dirname, 'files', 'basic_config.json')
+  );
+
+  args = ['-q', '--config', configPath];
+});
+
+async function runWith(...testArgs): Promise<Command> {
+  return cli.parseAsync([...args, ...testArgs], {from: 'user'});
+}
+
+describe('commands', () => {
+  describe('connections', () => {
+    describe('test', () => {
+      it('tests a connection', async () => {
+        await runWith('connections', 'test', 'x');
+      });
+
+      it('fails with a bad connection name', async () => {
+        expect.assertions(1);
+        try {
+          await runWith('connections', 'test', 'y');
+        } catch (e) {
+          expect(e.message).toMatch('A connection named y could not be found');
+        }
+      });
+    });
   });
 });

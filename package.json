@@ -16,7 +16,7 @@
   },
   "private": true,
   "scripts": {
-    "test": "jest",
+    "test": "NODE_ENV=test jest",
     "build": "ts-node scripts/build",
     "package": "ts-node scripts/package",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",

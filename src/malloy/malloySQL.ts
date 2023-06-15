@@ -50,9 +50,11 @@ export async function runMalloySQL(
       return;
     }
     const statements = parse.statements;
-    const malloyRuntime = new Runtime(connectionManager);
 
-    const fileURL = url.fileURLToPath(filePath);
+    const fileURL = url.pathToFileURL(filePath);
+    const malloyRuntime = new Runtime(
+      connectionManager.getConnectionLookup(fileURL)
+    );
 
     for (let i = 0; i < statements.length; i++) {
       const statement = statements[i];
