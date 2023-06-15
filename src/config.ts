@@ -81,6 +81,7 @@ export function loadConfig(filePath?: string) {
     try {
       config = JSON.parse(configText) as Config; // TODO json type
       if (!config.connections) config.connections = [];
+      logger.debug(`Configuration loaded from ${filePath}`);
     } catch (e) {
       exitWithError(`Error parsing config file at ${filePath}: ${e.message}`);
     }
@@ -95,6 +96,7 @@ export function loadConfig(filePath?: string) {
       try {
         config = JSON.parse(configText) as Config; // TODO json type
         if (!config.connections) config.connections = [];
+        logger.debug(`Configuration loaded from ${configFilePath}`);
       } catch (e) {
         exitWithError(
           `Error parsing config file at ${configFilePath}: ${e.message}`

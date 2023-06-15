@@ -57,7 +57,6 @@ export function createDirectoryOrError(path: string, message?: string): void {
 }
 
 export function fileExists(filePath): boolean {
-  logger.debug(`checking for existence of ${filePath}`);
   return fs.existsSync(filePath);
 }
 
@@ -66,6 +65,7 @@ export function loadFile(filePath): string {
     ? filePath
     : path.resolve(directory, filePath);
 
+  logger.debug(`Checking for existence of ${absolutePath}`);
   if (!fileExists(absolutePath)) {
     exitWithError(`Unable to locate file: ${absolutePath}`);
   }

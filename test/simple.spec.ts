@@ -23,7 +23,7 @@
 
 import {cli} from '../src/cli';
 
-describe('runs CLI', () => {
+describe('runs CLI help', () => {
   it('has help', () => {
     cli.exitOverride();
     expect(() => {

@@ -117,8 +117,10 @@ cli
 
 // config, logging
 cli.hook('preAction', (_thisCommand, _actionCommand) => {
-  const debug =
-    process.env['NODE_ENV'] === 'production' ? cli.opts().debug : true;
+  // if packaged, respect debug flag, but if not, debug = true
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // TODO merge w/level
+  const debug = (<any>process).pkg ? cli.opts().debug : true;
 
   // TODO remove
   createBasicLogger('debug');
