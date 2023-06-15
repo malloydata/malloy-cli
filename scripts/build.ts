@@ -29,6 +29,7 @@ import {generateDisclaimer} from './license_disclaimer';
 
 export const buildDirectory = 'dist/';
 
+// TODO make develpoment work
 export const commonCLIConfig = (development = false): BuildOptions => {
   return {
     entryPoints: ['./src/index.ts'],

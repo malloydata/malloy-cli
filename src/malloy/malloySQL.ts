@@ -21,9 +21,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import url from 'node:url';
 import {ModelMaterializer, Runtime} from '@malloydata/malloy';
-import {loadFile} from '../util';
+import {exitWithError, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
+import {connectionManager} from '../connections/connection_manager';
 
 // options:
 // compileOnly
@@ -32,13 +34,13 @@ import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 // truncateResults
 
 export async function runMalloySQL(
-  filePath,
+  filePath: string,
   statementIndex = null,
   compileOnly = false
 ) {
   const abortOnExecutionError = true;
   const contents = loadFile(filePath);
-  /*
+
   let modelMaterializer: ModelMaterializer;
 
   try {
@@ -48,7 +50,9 @@ export async function runMalloySQL(
       return;
     }
     const statements = parse.statements;
-    const malloyRuntime = new Runtime();
+    const malloyRuntime = new Runtime(connectionManager);
+
+    const fileURL = url.fileURLToPath(filePath);
 
     for (let i = 0; i < statements.length; i++) {
       const statement = statements[i];
@@ -65,14 +69,14 @@ export async function runMalloySQL(
       let compiledStatement = statement.text;
       const compileErrors = [];
 
-      const connectionLookup = connectionManager.getConnectionLookup(url);
+      const connectionLookup = connectionManager.getConnectionLookup(fileURL);
 
       if (statement.type === MalloySQLStatementType.MALLOY) {
         try {
           if (!modelMaterializer) {
-            modelMaterializer = malloyRuntime.loadModel(url);
+            modelMaterializer = malloyRuntime.loadModel(fileURL);
           } else {
-            modelMaterializer.extendModel(url);
+            modelMaterializer.extendModel(fileURL);
           }
 
           const _model = modelMaterializer.getModel();
@@ -80,7 +84,7 @@ export async function runMalloySQL(
           // the only way to know if there's a query in this statement is to try
           // to run query by index and catch if it fails.
           try {
-            const finalQuery = modelMaterializer.loadQuery(url);
+            const finalQuery = modelMaterializer.loadQuery(fileURL);
             const finalQuerySQL = await finalQuery.getSQL();
 
             if (compileOnly) {
@@ -88,18 +92,18 @@ export async function runMalloySQL(
             } else {
               try {
                 const results = await finalQuery.run();
-              } catch (error) {
+              } catch (e) {
                 // TODO
                 if (abortOnExecutionError) break;
               }
             }
-          } catch (error) {
+          } catch (e) {
             // TODO this error is thrown from Model and could be improved such that we can ensure we're catching
             // what we expect here
             // if error is ThereIsNoQueryHere:
             // else if (abortOnExecutionError) break;
           }
-        } catch (error) {
+        } catch (e) {
           // TODO
         }
       } else if (statement.type === MalloySQLStatementType.SQL) {
@@ -116,25 +120,28 @@ export async function runMalloySQL(
               `(${generatedSQL})`
             );
           } catch (e) {
-            compileErrors.push(e);
+            compileErrors.push(e.message);
           }
         }
 
         if (compileErrors.length > 0) {
           // TODO
+          exitWithError(compileErrors.join('\n'));
         } else if (!compileOnly) {
           try {
             const connection = await connectionLookup.lookupConnection(
               statement.config.connection
             );
             const sqlResults = await connection.runSQL(compiledStatement);
-          } catch (error) {
+          } catch (e) {
+            exitWithError(e.message);
             if (abortOnExecutionError) break;
           }
         }
       }
       if (i === statementIndex) break;
     }
-  } catch (error) {}
-  */
+  } catch (e) {
+    exitWithError(e.message);
+  }
 }

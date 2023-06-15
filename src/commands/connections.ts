@@ -21,9 +21,42 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-// list
-// test
-// create
-// show
-// update
-// delete
+import {ConnectionConfig, config, saveConfig} from '../config';
+import {connectionManager} from '../connections/connection_manager';
+import {ConnectionBackend} from '../connections/connection_types';
+import {logger} from '../log';
+import {exitWithError} from '../util';
+
+function connectionConfigFromName(name: string): ConnectionConfig {
+  return config.connections.find(connection => connection.name === name);
+}
+
+export function createBigQueryConnectionCommand(name: string): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.BigQuery,
+  };
+
+  config.connections.push(connection);
+  saveConfig();
+  logger.info(`Connection ${name} created`);
+}
+
+export async function testConnectionCommand(name: string): Promise<void> {
+  const connectionConfig = connectionConfigFromName(name);
+  if (!connectionConfig)
+    exitWithError(`A connection named ${name} could not be found`);
+  const connection = await connectionManager.connectionForConfig(
+    connectionConfig
+  );
+
+  try {
+    await connection.test();
+    logger.info('Connection test successful');
+  } catch (e) {
+    exitWithError(`Connection test unsuccessful: ${e.message}`);
+  }
+}

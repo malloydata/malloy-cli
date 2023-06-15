@@ -23,14 +23,26 @@
 
 import path from 'path';
 import fs from 'fs';
-import {loadFile, exitWithError, isWindows} from './util';
+import {
+  loadFile,
+  exitWithError,
+  isWindows,
+  createDirectoryOrError,
+  fileExists,
+} from './util';
 import {logger} from './log';
+import {ConnectionBackend} from './connections/connection_types';
 
-interface Config {
-  connections: [];
+export interface ConnectionConfig {
+  name: string;
+  backend: ConnectionBackend;
 }
 
-function getDefaultConfigFolderPath(): string {
+export interface Config {
+  connections: ConnectionConfig[];
+}
+
+function getDefaultOSConfigFolderPath(): string {
   let location;
 
   // TODO look more at XDG spec
@@ -51,43 +63,67 @@ function getDefaultConfigFolderPath(): string {
   return location;
 }
 
-function getDefaultConfigPathOrError(): string {
-  const folder = getDefaultConfigFolderPath();
-
-  const configPath = path.join(folder, 'malloy', 'config.json');
-  if (!fs.existsSync(configPath)) {
-    exitWithError(
-      `Could not find default configuration file at ${configPath} and no file passed
-via arguments or env variable. Try running "malloy connections create" to create a connection and save into config`
-    );
-  } else {
-    return configPath;
-  }
-}
-
 let config: Config;
+let configFilePath;
 export function loadConfig(filePath?: string) {
   if (filePath) {
-    logger.debug(`Loading config from passed path ${filePath}`);
-  } else if (process.env['MALLOY_CLI_CONFIG']) {
-    logger.debug(
-      `Loading config from MALLOY_CLI_CONFIG env variable (${process.env['MALLOY_CLI_CONFIG']})`
-    );
-    filePath = process.env['MALLOY_CLI_CONFIG'];
+    if (process.env['MALLOY_CLI_CONFIG']) {
+      logger.debug(`Loading config from passed path ${filePath}`);
+    } else {
+      logger.debug(
+        `Loading config from MALLOY_CLI_CONFIG env variable (${process.env['MALLOY_CLI_CONFIG']})`
+      );
+    }
+
+    configFilePath = filePath;
+    const configText = loadFile(filePath);
+
+    try {
+      config = JSON.parse(configText) as Config; // TODO json type
+      if (!config.connections) config.connections = [];
+    } catch (e) {
+      exitWithError(`Error parsing config file at ${filePath}: ${e.message}`);
+    }
   } else {
-    filePath = getDefaultConfigPathOrError();
-  }
+    // if config file is not passed, look in default location
+    // note: there may not be a config yet, that's ok!
+    const folder = getDefaultOSConfigFolderPath();
+    configFilePath = path.join(folder, 'malloy', 'config.json');
 
-  const configText = loadFile(filePath);
-
-  try {
-    config = JSON.parse(configText) as Config; // TODO json type
-  } catch (e) {
-    exitWithError(`Could not parse config file at ${filePath}: ${e.message}`);
+    if (fileExists(configFilePath)) {
+      const configText = loadFile(configFilePath);
+      try {
+        config = JSON.parse(configText) as Config; // TODO json type
+        if (!config.connections) config.connections = [];
+      } catch (e) {
+        exitWithError(
+          `Error parsing config file at ${configFilePath}: ${e.message}`
+        );
+      }
+    } else {
+      logger.debug(
+        'No config file passed and non found in default location, creating new config'
+      );
+      config = {
+        connections: [],
+      };
+      saveConfig();
+    }
   }
 }
 export {config};
 
-export function saveConfig(config: JSON): void {
-  const configFolderPath = getDefaultConfigFolderPath();
+export function saveConfig(): void {
+  createDirectoryOrError(
+    path.dirname(configFilePath),
+    `Attempt to create default configuation folder at ${configFilePath} failed`
+  );
+
+  try {
+    fs.writeFileSync(configFilePath, JSON.stringify(config));
+  } catch (e) {
+    exitWithError(
+      `Could not write configuration information to ${configFilePath}: ${e.message}`
+    );
+  }
 }

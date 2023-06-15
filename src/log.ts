@@ -28,14 +28,16 @@ import {
   Logger,
 } from 'winston';
 
-function createBasicLogger(): Logger {
-  return createWinstonLogger({
+let logger: Logger;
+export function createBasicLogger(level = 'info'): void {
+  logger = createWinstonLogger({
+    level,
     transports: [new transports.Console()],
     format: format.combine(
       format.colorize(),
       format.timestamp(),
-      format.printf(({message}) => {
-        return `${message}`;
+      format.printf(({level, message}) => {
+        return `${level}: ${message}`;
       })
     ),
     defaultMeta: {
@@ -43,8 +45,5 @@ function createBasicLogger(): Logger {
     },
   });
 }
-
-// eslint-disable-next-line prefer-const
-let logger = createBasicLogger();
 
 export {logger};

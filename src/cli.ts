@@ -24,6 +24,14 @@
 import {Command, Option} from 'commander';
 import {runCommand} from './commands/run';
 import {loadConfig} from './config';
+import {configShowCommand} from './commands/config';
+import {compileCommand} from './commands/compile';
+import {
+  createBigQueryConnectionCommand,
+  testConnectionCommand,
+} from './commands/connections';
+import {createBasicLogger} from './log';
+import {loadConnections} from './connections/connection_manager';
 
 // some options to consider:
 // truncateResults
@@ -33,8 +41,8 @@ import {loadConfig} from './config';
 // verbosity
 
 // TODO quiet vs thrown errors
-// TODO update logger before running any commands
 // TODO run named malloy query
+// TODO color and label inital errors with ERROR
 
 const cli = new Command();
 
@@ -42,39 +50,88 @@ const cli = new Command();
 cli
   .version('0.0.1')
   .addOption(
-    new Option('-c, --config <file_path>', 'path to a config.json file').env(
+    new Option('-c, --config <file_path>', 'Path to a config.json file').env(
       'MALLOY_CONFIG_FILE'
     )
   )
-  .addOption(new Option('-q, --quiet', 'silence output'))
-  .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'));
+  .addOption(new Option('-q, --quiet', 'Silence output'))
+  .addOption(new Option('-d, --debug', 'Print debug-level logs to stdout'));
 
 // commands
 // TODO optional statement index
 cli
   .command('run <file>')
-  .description('execute a Malloy file (.malloy or .malloysql)')
+  .description('Execute a Malloy file (.malloy or .malloysql)')
   .action(runCommand);
 
 // TODO optional statement index
 cli
   .command('compile <file>')
   .description(
-    'compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
+    'Compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
   )
-  .action(runCommand);
+  .action(compileCommand);
+
+const connections = cli
+  .command('connections')
+  .description('Manage connection configuration');
+
+connections.command('list').description('List all database connections');
+
+connections
+  .command('create-bigquery')
+  .description('Add a new BigQuery database connection')
+  .argument('<name>')
+  .action(createBigQueryConnectionCommand);
+
+connections
+  .command('create-postgres')
+  .description('Add a new Postgres database connection')
+  .argument('<name>')
+  .option('-h, --host <url>');
+
+connections
+  .command('create-duckdb')
+  .description('Add a new DuckDB database connection')
+  .argument('<name>')
+  .option('-h, --host <url>');
+
+connections
+  .command('test')
+  .description('Test a database connection')
+  .argument('<name>')
+  .action(testConnectionCommand);
+
+connections
+  .command('show')
+  .description('Show details for a database connection');
+
+connections.command('update').description('Update a database connection');
+
+connections.command('delete').description('Remove a database connection');
+
+cli
+  .command('config')
+  .description('Output the current config')
+  .action(configShowCommand);
 
 // config, logging
 cli.hook('preAction', (_thisCommand, _actionCommand) => {
+  const debug =
+    process.env['NODE_ENV'] === 'production' ? cli.opts().debug : true;
+
+  // TODO remove
+  createBasicLogger('debug');
+
   loadConfig(cli.opts().config);
 
   // TODO update logger w config + passed settings
 
-  // TODO start connection factory
+  loadConnections();
 });
 
 async function run() {
-  cli.parse(process.argv);
+  await cli.parseAsync(process.argv);
 }
 
 export {run, cli};

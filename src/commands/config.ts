@@ -20,3 +20,11 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+import {config} from '../config';
+
+// TODO filter sensitive data
+export function configShowCommand(): void {
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(config, null, 4));
+}

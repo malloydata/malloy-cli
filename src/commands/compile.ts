@@ -20,3 +20,22 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+import path from 'path';
+import {runMalloySQL} from '../malloy/malloySQL';
+import {exitWithError, loadFile} from '../util';
+
+export function compileCommand(source: string): void {
+  const malloySQL = loadFile(source);
+  const extension = path.extname(source).toLowerCase();
+
+  if (extension === '.malloysql') {
+    runMalloySQL(malloySQL, null, true);
+  } else if (extension === '.malloy') {
+    // TODO
+  } else {
+    if (extension) exitWithError(`Unable to run file of type: ${extension}`);
+    exitWithError(
+      'Unable to determine file type - Malloy CLI requires .malloy or .malloysql files'
+    );
+  }
+}

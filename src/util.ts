@@ -42,16 +42,31 @@ export function isWindows() {
     : false;
 }
 
+export function createDirectoryOrError(path: string, message?: string): void {
+  if (!fs.existsSync(path)) {
+    try {
+      fs.mkdirSync(path, {recursive: true});
+    } catch (e) {
+      exitWithError(
+        message
+          ? `${message}\n${e.message}`
+          : `Failed to create directory at ${path}`
+      );
+    }
+  }
+}
+
+export function fileExists(filePath): boolean {
+  logger.debug(`checking for existence of ${filePath}`);
+  return fs.existsSync(filePath);
+}
+
 export function loadFile(filePath): string {
   const absolutePath = path.isAbsolute(filePath)
     ? filePath
     : path.resolve(directory, filePath);
 
-  logger.debug(
-    `attempting to load ${filePath} at absolute path: ${absolutePath}`
-  );
-
-  if (!fs.existsSync(absolutePath)) {
+  if (!fileExists(absolutePath)) {
     exitWithError(`Unable to locate file: ${absolutePath}`);
   }
 
@@ -62,8 +77,25 @@ export function loadFile(filePath): string {
   }
 
   try {
-    return fs.readFileSync(absolutePath).toString();
+    return fs.readFileSync(absolutePath, 'utf8').toString();
   } catch (e) {
     exitWithError(e.message);
   }
 }
+
+const BYTE_SUFFIXES = ['k', 'm', 'g', 't', 'p'];
+const BYTE_MATCH = /^(?<bytes>\d+)((?<suffix>[kmgtp])((?<iec>i)?b)?)?$/i;
+
+export const convertToBytes = (bytes: string): string => {
+  const match = BYTE_MATCH.exec(bytes);
+  if (match?.groups ? match.groups['suffix'] : false) {
+    const value =
+      +match.groups['bytes'] *
+      Math.pow(
+        1024,
+        BYTE_SUFFIXES.indexOf(match.groups['suffix'].toLowerCase()) + 1
+      );
+    return `${value}`;
+  }
+  return bytes;
+};
