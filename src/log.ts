@@ -44,7 +44,7 @@ const cliOutputLogger: Logger = createWinstonLogger({
 
 export function silenceLoggers(): void {
   cliOutputLogger.silent = true;
-  logger.silent = true;
+  logger.level = 'error';
 }
 
 export function cliOut(message: string): void {

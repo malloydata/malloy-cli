@@ -50,92 +50,90 @@ const cli = new Command();
 cli
   .version('0.0.1')
   .addOption(
-    new Option('-c, --config <file_path>', 'Path to a config.json file').env(
+    new Option('-c, --config <file_path>', 'path to a config.json file').env(
       'MALLOY_CONFIG_FILE'
     )
   )
-  .addOption(new Option('-q, --quiet', 'Silence output'))
-  .addOption(new Option('-d, --debug', 'Print debug-level logs to stdout'));
+  .addOption(new Option('-q, --quiet', 'silence output'))
+  .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'))
+  .addOption(
+    new Option('-l, --log-level', 'log level')
+      .choices(['error', 'warn', 'info', 'debug'])
+      .default('warn')
+  );
 
 // commands
 // TODO optional statement index
 cli
   .command('run <file>')
-  .description('Execute a Malloy file (.malloy or .malloysql)')
+  .description('execute a Malloy file (.malloy or .malloysql)')
   .action(runCommand);
 
 // TODO optional statement index
 cli
   .command('compile <file>')
   .description(
-    'Compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
+    'compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
   )
   .action(compileCommand);
 
 const connections = cli
   .command('connections')
-  .description('Manage connection configuration');
+  .description('manage connection configuration');
 
 connections
   .command('list')
-  .description('List all database connections')
+  .description('list all database connections')
   .action(listConnectionsCommand);
 
 connections
   .command('create-bigquery')
-  .description('Add a new BigQuery database connection')
+  .description('add a new BigQuery database connection')
   .argument('<name>')
   .action(createBigQueryConnectionCommand);
 
 connections
   .command('create-postgres')
-  .description('Add a new Postgres database connection')
+  .description('add a new Postgres database connection')
   .argument('<name>')
   .option('-h, --host <url>');
 
 connections
   .command('create-duckdb')
-  .description('Add a new DuckDB database connection')
+  .description('add a new DuckDB database connection')
   .argument('<name>')
   .option('-h, --host <url>');
 
 connections
   .command('test')
-  .description('Test a database connection')
+  .description('test a database connection')
   .argument('<name>')
   .action(testConnectionCommand);
 
 connections
   .command('show')
-  .description('Show details for a database connection');
+  .description('show details for a database connection');
 
-connections.command('update').description('Update a database connection');
+connections.command('update').description('update a database connection');
 
-connections.command('delete').description('Remove a database connection');
+connections.command('delete').description('remove a database connection');
 
 cli
   .command('config')
-  .description('Output the current config')
+  .description('output the current config')
   .action(configShowCommand);
 
 // config, logging
 cli.hook('preAction', (_thisCommand, _actionCommand) => {
-  // TODO remove
-  createBasicLogger('debug');
-
   // if packaged, respect debug flag, but if not, debug = true
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // TODO merge w/level
   const debug = (<any>process).pkg ? cli.opts().debug : true;
+  if (debug) createBasicLogger('debug');
+  else createBasicLogger(cli.opts()['log-level']);
 
-  if (cli.opts().quiet) {
-    silenceLoggers();
-  }
+  if (cli.opts().quiet) silenceLoggers();
 
   loadConfig(cli.opts().config);
-
-  // TODO update logger w config + passed settings
-
   loadConnections();
 });
 

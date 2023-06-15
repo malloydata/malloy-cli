@@ -128,8 +128,6 @@ export class CLIConnectionFactory {
       workingDirectory: '/',
     }
   ): Promise<TestableConnection> {
-    const {workingDirectory} = configOptions;
-
     let connection: TestableConnection;
 
     switch (connectionConfig.backend) {

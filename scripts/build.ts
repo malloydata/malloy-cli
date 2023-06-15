@@ -71,6 +71,7 @@ const generateLicenseFile = (development: boolean) => {
 };
 
 export async function doBuild(target?: string): Promise<void> {
+  //const development = process.env.NODE_ENV == "development";
   const development = target === undefined;
 
   fs.rmSync(buildDirectory, {recursive: true, force: true});
