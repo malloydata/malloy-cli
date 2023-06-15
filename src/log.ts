@@ -29,6 +29,29 @@ import {
 } from 'winston';
 
 let logger: Logger;
+
+// CLI output is independent of logger
+const cliOutputLogger: Logger = createWinstonLogger({
+  level: 'info',
+  transports: [new transports.Console()],
+  format: format.combine(
+    format.colorize(),
+    format.printf(({message}) => {
+      return `${message}`;
+    })
+  ),
+});
+
+export function silenceLoggers(): void {
+  cliOutputLogger.silent = true;
+  logger.silent = true;
+}
+
+export function cliOut(message: string): void {
+  // TODO also log to filelogger if exists
+  cliOutputLogger.info(message);
+}
+
 export function createBasicLogger(level = 'info'): void {
   logger = createWinstonLogger({
     level,

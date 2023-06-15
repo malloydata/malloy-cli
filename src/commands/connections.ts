@@ -24,7 +24,7 @@
 import {ConnectionConfig, config, saveConfig} from '../config';
 import {connectionManager} from '../connections/connection_manager';
 import {ConnectionBackend} from '../connections/connection_types';
-import {logger} from '../log';
+import {cliOut, logger} from '../log';
 import {exitWithError} from '../util';
 
 function connectionConfigFromName(name: string): ConnectionConfig {
@@ -55,8 +55,18 @@ export async function testConnectionCommand(name: string): Promise<void> {
 
   try {
     await connection.test();
-    logger.info('Connection test successful');
+    cliOut('Connection test successful');
   } catch (e) {
     exitWithError(`Connection test unsuccessful: ${e.message}`);
+  }
+}
+
+export function listConnectionsCommand(): void {
+  if (config.connections.length > 0) {
+    config.connections.forEach(c => {
+      cliOut(`${c.name}:\n\ttype: ${c.backend}`);
+    });
+  } else {
+    cliOut('No connections found');
   }
 }

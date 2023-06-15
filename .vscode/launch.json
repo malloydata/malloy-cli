@@ -12,7 +12,7 @@
       "program": "${workspaceFolder}/src/index.ts",
       "preLaunchTask": "build-cli-task",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "args": "connections test x",
+      "args": "connections list",
       "console": "integratedTerminal"
     }
   ]

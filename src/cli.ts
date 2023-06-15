@@ -28,9 +28,10 @@ import {configShowCommand} from './commands/config';
 import {compileCommand} from './commands/compile';
 import {
   createBigQueryConnectionCommand,
+  listConnectionsCommand,
   testConnectionCommand,
 } from './commands/connections';
-import {createBasicLogger} from './log';
+import {createBasicLogger, silenceLoggers} from './log';
 import {loadConnections} from './connections/connection_manager';
 
 // some options to consider:
@@ -42,7 +43,6 @@ import {loadConnections} from './connections/connection_manager';
 
 // TODO quiet vs thrown errors
 // TODO run named malloy query
-// TODO color and label inital errors with ERROR
 
 const cli = new Command();
 
@@ -76,7 +76,10 @@ const connections = cli
   .command('connections')
   .description('Manage connection configuration');
 
-connections.command('list').description('List all database connections');
+connections
+  .command('list')
+  .description('List all database connections')
+  .action(listConnectionsCommand);
 
 connections
   .command('create-bigquery')
@@ -117,13 +120,17 @@ cli
 
 // config, logging
 cli.hook('preAction', (_thisCommand, _actionCommand) => {
+  // TODO remove
+  createBasicLogger('debug');
+
   // if packaged, respect debug flag, but if not, debug = true
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // TODO merge w/level
   const debug = (<any>process).pkg ? cli.opts().debug : true;
 
-  // TODO remove
-  createBasicLogger('debug');
+  if (cli.opts().quiet) {
+    silenceLoggers();
+  }
 
   loadConfig(cli.opts().config);
 
