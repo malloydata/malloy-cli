@@ -30,10 +30,7 @@ interface Config {
   connections: [];
 }
 
-const couldNotFindDefaultConfigErrorMessage =
-  'Could not find default configuration file and no config file passed via arguments of env variable. Try running "malloy connections create" to create a connection and save into config';
-
-function findDefaultConfigPathOrError(): string {
+function getDefaultConfigFolderPath(): string {
   let location;
 
   // TODO look more at XDG spec
@@ -46,15 +43,25 @@ function findDefaultConfigPathOrError(): string {
     }
   }
 
-  if (location) {
-    location = path.join(location, 'malloy', 'config.json');
-    if (!fs.existsSync(location)) {
-      exitWithError(couldNotFindDefaultConfigErrorMessage);
-    } else {
-      return location;
-    }
+  if (!location)
+    exitWithError(
+      'Could not find a default place for configuration to be stored'
+    );
+
+  return location;
+}
+
+function getDefaultConfigPathOrError(): string {
+  const folder = getDefaultConfigFolderPath();
+
+  const configPath = path.join(folder, 'malloy', 'config.json');
+  if (!fs.existsSync(configPath)) {
+    exitWithError(
+      `Could not find default configuration file at ${configPath} and no file passed
+via arguments or env variable. Try running "malloy connections create" to create a connection and save into config`
+    );
   } else {
-    exitWithError(couldNotFindDefaultConfigErrorMessage);
+    return configPath;
   }
 }
 
@@ -68,7 +75,7 @@ export function loadConfig(filePath?: string) {
     );
     filePath = process.env['MALLOY_CLI_CONFIG'];
   } else {
-    filePath = findDefaultConfigPathOrError();
+    filePath = getDefaultConfigPathOrError();
   }
 
   const configText = loadFile(filePath);
@@ -81,4 +88,6 @@ export function loadConfig(filePath?: string) {
 }
 export {config};
 
-export function saveConfig(config: JSON): void {}
+export function saveConfig(config: JSON): void {
+  const configFolderPath = getDefaultConfigFolderPath();
+}

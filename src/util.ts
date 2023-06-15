@@ -30,7 +30,6 @@ const directory = path.dirname(process.execPath);
 
 export function exitWithError(message: string): void {
   logger.error(message);
-  // eslint-disable-next-line no-process-exit
   process.exit(1);
 }
 
