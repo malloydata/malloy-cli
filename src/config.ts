@@ -46,9 +46,10 @@ function getDefaultOSConfigFolderPath(): string {
   let location;
 
   // TODO look more at XDG spec
-  // TODO $XDG_CONFIG_HOME
   // TODO $XDG_CONFIG_DIRS
-  if (isWindows()) {
+  if (process.env['XDG_CONFIG_HOME']) {
+    location = process.env['XDG_CONFIG_HOME'];
+  } else if (isWindows()) {
     location = process.env['APPDATA'];
   } else {
     const home = process.env['HOME'];
