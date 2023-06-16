@@ -20,6 +20,7 @@
   "private": true,
   "scripts": {
     "test": "NODE_ENV=test jest --runInBand",
+    "test-silent": "JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
     "package": "ts-node scripts/package",
     "postinstall": "ts-node scripts/build localProduction",
@@ -59,6 +60,7 @@
     "eslint-plugin-prettier": "^3.4.0",
     "gts": "^3.1.1",
     "jest": "^29.3.1",
+    "jest-silent-reporter": "^0.5.0",
     "pkg": "^5.8.1",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.1",
