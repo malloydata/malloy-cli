@@ -7,7 +7,7 @@ nix-shell --quiet --pure --command "$(cat <<NIXCMD
   export PGDATABASE=postgres
   export PGUSER=673673622326@cloudbuild
   cd /workspace
-  npm ci
-  npm run lint && npm run build && npm run test
+  npm ci --silent
+  npm run lint && npm run build && npm run test-silent
 NIXCMD
 )"
