@@ -21,14 +21,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};
+import {config} from '../config';
+import {cliOut} from '../log';
+
+// TODO filter sensitive data
+export function configShowCommand(): void {
+  cliOut(JSON.stringify(config, null, 4));
+}

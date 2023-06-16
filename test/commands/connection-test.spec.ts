@@ -21,14 +21,42 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};
+import {Command} from 'commander';
+import {createCLI} from '../../src/cli';
+import path from 'path';
+
+let cli: Command;
+let args: string[];
+beforeEach(() => {
+  cli = createCLI();
+  cli.exitOverride(); // TODO can't make this work so perhaps not necessary
+
+  const configPath = path.resolve(
+    path.join(__dirname, '..', 'files', 'simple_config.json')
+  );
+
+  args = ['-q', '--config', configPath];
+});
+
+async function runWith(...testArgs): Promise<Command> {
+  return cli.parseAsync([...args, ...testArgs], {from: 'user'});
+}
+
+describe('commands', () => {
+  describe('connections', () => {
+    describe('test', () => {
+      it('tests a connection', async () => {
+        await runWith('connections', 'test', 'x');
+      });
+
+      it('fails test with a bad connection name', async () => {
+        expect.assertions(1);
+        try {
+          await runWith('connections', 'test', 'y');
+        } catch (e) {
+          expect(e.message).toMatch('A connection named y could not be found');
+        }
+      });
+    });
+  });
+});

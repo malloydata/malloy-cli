@@ -20,3 +20,85 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import {logger} from './log';
+import {cli} from './cli';
+
+// when in pkg, need to look at where we are executing, __dirname etc are overridden
+const directory = process.cwd();
+
+// TODO can't figure out why exitOverride doens't work appropriately, this is a hack
+export function exitWithError(message: string): void {
+  if (process.env.NODE_ENV === 'test') {
+    throw new Error(message);
+  } else cli.error(message);
+}
+
+export function isWindows() {
+  const sys = os.platform();
+  return sys && sys.length >= 3
+    ? sys.substring(0, 3).toLowerCase() === 'win'
+      ? true
+      : false
+    : false;
+}
+
+export function createDirectoryOrError(path: string, message?: string): void {
+  if (!fs.existsSync(path)) {
+    try {
+      fs.mkdirSync(path, {recursive: true});
+    } catch (e) {
+      exitWithError(
+        message
+          ? `${message}\n${e.message}`
+          : `Failed to create directory at ${path}`
+      );
+    }
+  }
+}
+
+export function fileExists(filePath): boolean {
+  return fs.existsSync(filePath);
+}
+
+export function loadFile(filePath): string {
+  const absolutePath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(directory, filePath);
+
+  logger.debug(`Checking for existence of ${absolutePath}`);
+  if (!fileExists(absolutePath)) {
+    exitWithError(`Unable to locate file: ${absolutePath}`);
+  }
+
+  try {
+    fs.accessSync(absolutePath, fs.constants.R_OK);
+  } catch (e) {
+    exitWithError(`Do not have read access to file: ${absolutePath}`);
+  }
+
+  try {
+    return fs.readFileSync(absolutePath, 'utf8').toString();
+  } catch (e) {
+    exitWithError(e.message);
+  }
+}
+
+const BYTE_SUFFIXES = ['k', 'm', 'g', 't', 'p'];
+const BYTE_MATCH = /^(?<bytes>\d+)((?<suffix>[kmgtp])((?<iec>i)?b)?)?$/i;
+
+export const convertToBytes = (bytes: string): string => {
+  const match = BYTE_MATCH.exec(bytes);
+  if (match?.groups ? match.groups['suffix'] : false) {
+    const value =
+      +match.groups['bytes'] *
+      Math.pow(
+        1024,
+        BYTE_SUFFIXES.indexOf(match.groups['suffix'].toLowerCase()) + 1
+      );
+    return `${value}`;
+  }
+  return bytes;
+};

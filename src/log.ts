@@ -21,14 +21,52 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};
+import {
+  createLogger as createWinstonLogger,
+  transports,
+  format,
+  Logger,
+} from 'winston';
+
+let logger: Logger;
+
+// CLI output is independent of logger
+const cliOutputLogger: Logger = createWinstonLogger({
+  level: 'info',
+  transports: [new transports.Console()],
+  format: format.combine(
+    format.colorize(),
+    format.printf(({message}) => {
+      return `${message}`;
+    })
+  ),
+});
+
+export function silenceLoggers(): void {
+  cliOutputLogger.silent = true;
+  logger.level = 'error';
+}
+
+export function cliOut(message: string): void {
+  // TODO also log to filelogger if exists
+  cliOutputLogger.info(message);
+}
+
+export function createBasicLogger(level = 'info'): void {
+  logger = createWinstonLogger({
+    level,
+    transports: [new transports.Console()],
+    format: format.combine(
+      format.colorize(),
+      format.timestamp(),
+      format.printf(({level, message}) => {
+        return `${level}: ${message}`;
+      })
+    ),
+    defaultMeta: {
+      service: 'MalloyCLI',
+    },
+  });
+}
+
+export {logger};
