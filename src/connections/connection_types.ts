@@ -34,8 +34,7 @@ export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
 };
 
 /*
- * NOTE: These should be kept in sync with the "malloy.connections"
- * section of the extension "configuration" definition in package.json
+ * NOTE: These should be kept in sync with the cli options
  */
 
 export interface BaseConnectionConfig {

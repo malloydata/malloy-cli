@@ -23,7 +23,7 @@
 
 import path from 'path';
 import {runMalloySQL} from '../malloy/malloySQL';
-import {exitWithError, loadFile} from '../util';
+import {exitWithError} from '../util';
 
 export async function runCommand(source: string): Promise<void> {
   const extension = path.extname(source).toLowerCase();
@@ -35,7 +35,7 @@ export async function runCommand(source: string): Promise<void> {
   } else {
     if (extension) exitWithError(`Unable to run file of type: ${extension}`);
     exitWithError(
-      'Unable to determine file type - Malloy CLI requires .malloy or .malloysql files'
+      'Unable to determine file type - .malloy or .malloysql filetype required'
     );
   }
 }

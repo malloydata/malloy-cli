@@ -45,6 +45,20 @@ export function createBigQueryConnectionCommand(name: string): void {
   logger.info(`Connection ${name} created`);
 }
 
+export function createPostgresConnectionCommand(name: string): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.Postgres,
+  };
+
+  config.connections.push(connection);
+  saveConfig();
+  logger.info(`Connection ${name} created`);
+}
+
 export async function testConnectionCommand(name: string): Promise<void> {
   const connectionConfig = connectionConfigFromName(name);
   if (!connectionConfig)
@@ -61,6 +75,12 @@ export async function testConnectionCommand(name: string): Promise<void> {
   }
 }
 
+export function showConnectionCommand(name: string): void {
+  const connection = config.connections.find(c => c.name === name);
+  if (!connection) exitWithError(`Could not find a connection named ${name}`);
+  cliOut(JSON.stringify(connection, null, 4));
+}
+
 export function listConnectionsCommand(): void {
   if (config.connections.length > 0) {
     config.connections.forEach(c => {
@@ -68,5 +88,16 @@ export function listConnectionsCommand(): void {
     });
   } else {
     cliOut('No connections found');
+  }
+}
+
+export function removeConnectionCommand(name: string): void {
+  const i = config.connections.findIndex(c => c.name === name);
+  if (i >= 0) {
+    config.connections.splice(i, 1);
+    saveConfig();
+    cliOut(`${name} removed from connections`);
+  } else {
+    exitWithError(`Could not find a connection named ${name}`);
   }
 }

@@ -22,9 +22,9 @@
  */
 
 import {config} from '../config';
+import {cliOut} from '../log';
 
 // TODO filter sensitive data
 export function configShowCommand(): void {
-  // eslint-disable-next-line no-console
-  console.log(JSON.stringify(config, null, 4));
+  cliOut(JSON.stringify(config, null, 4));
 }
