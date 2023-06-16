@@ -19,6 +19,7 @@
   },
   "private": true,
   "scripts": {
+    "lint": "gts lint",
     "test": "NODE_ENV=test jest --runInBand",
     "test-silent": "JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
