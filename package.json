@@ -11,6 +11,9 @@
       "@malloydata/malloy-sql"
     ]
   },
+  "bin": {
+    "malloy": "dist/cli.js"
+  },
   "engines": {
     "node": ">=10"
   },
@@ -19,6 +22,7 @@
     "test": "NODE_ENV=test jest --runInBand",
     "build": "ts-node scripts/build",
     "package": "ts-node scripts/package",
+    "postinstall": "ts-node scripts/build localProduction",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
     "malloy-update": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",
     "malloy-link": "npm --no-fund --no-audit link $npm_package_config_malloy_packages",

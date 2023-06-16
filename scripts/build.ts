@@ -70,9 +70,9 @@ const generateLicenseFile = (development: boolean) => {
   }
 };
 
-export async function doBuild(target?: string): Promise<void> {
+export async function doBuild(target?: string, dev?: boolean): Promise<void> {
   //const development = process.env.NODE_ENV == "development";
-  const development = target === undefined;
+  const development = dev || target === undefined;
 
   fs.rmSync(buildDirectory, {recursive: true, force: true});
   fs.mkdirSync(buildDirectory, {recursive: true});
@@ -86,4 +86,6 @@ const args = process.argv.slice(1);
 if (args[0].endsWith('build')) {
   const target = args[1];
   doBuild(target);
+} else if (args[0].endsWith('localProduction')) {
+  doBuild(null, false);
 }
