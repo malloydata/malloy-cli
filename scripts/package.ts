@@ -61,6 +61,8 @@ async function packageServer(
     `${nodeTarget}-${target}`,
     '--output',
     `pkg/malloy-cli-${target}-${version}`,
+    '--compress',
+    'gzip',
   ]);
 }
 

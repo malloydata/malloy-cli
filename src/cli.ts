@@ -127,7 +127,19 @@ export function createCLI(): Command {
   cli.hook('preAction', (_thisCommand, _actionCommand) => {
     // if packaged, respect debug flag, but if not, debug = true
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const debug = (<any>process).pkg ? cli.opts().debug : true;
+    let debug;
+    if ((<any>process).pkg) {
+      debug = cli.opts().debug;
+    } else {
+      if (process.env.NODE_ENV !== 'test') {
+        // eslint-disable-next-line no-console
+        console.log(
+          'Running Malloy CLI unpackaged, defaulting to "debug" level output'
+        );
+      }
+      debug = true;
+    }
+
     if (debug) createBasicLogger('debug');
     else createBasicLogger(cli.opts()['log-level']);
 
