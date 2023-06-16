@@ -38,11 +38,10 @@ import {loadConnections} from './connections/connection_manager';
 // truncateResults
 // abortOnExecitionError
 // outputFile
-// debug
-// verbosity
 
 // TODO quiet vs thrown errors
 // TODO run named malloy query
+// TODO description / summary
 
 export function createCLI(): Command {
   const cli = new Command();

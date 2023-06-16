@@ -27,7 +27,8 @@ import {logger} from './log';
 import {cli} from './cli';
 
 // when in pkg, need to look at where we are executing, __dirname etc are overridden
-const directory = path.dirname(process.execPath);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const directory = (<any>process).pkg ? process.cwd() : __dirname;
 
 // TODO can't figure out why exitOverride doens't work appropriately, this is a hack
 export function exitWithError(message: string): void {

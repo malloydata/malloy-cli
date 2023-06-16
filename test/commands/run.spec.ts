@@ -21,21 +21,34 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import {Command} from 'commander';
+import {createCLI} from '../../src/cli';
 import path from 'path';
-import {runMalloySQL} from '../malloy/malloySQL';
-import {exitWithError, loadFile} from '../util';
 
-export async function runCommand(source: string): Promise<void> {
-  const extension = path.extname(source).toLowerCase();
+let cli: Command;
+let args: string[];
+beforeEach(() => {
+  cli = createCLI();
+  cli.exitOverride(); // TODO can't make this work so perhaps not necessary
 
-  if (extension === '.malloysql') {
-    await runMalloySQL(source);
-  } else if (extension === '.malloy') {
-    // TODO
-  } else {
-    if (extension) exitWithError(`Unable to run file of type: ${extension}`);
-    exitWithError(
-      'Unable to determine file type - Malloy CLI requires .malloy or .malloysql files'
-    );
-  }
+  const configPath = path.resolve(
+    path.join(__dirname, '..', 'files', 'simple_config.json')
+  );
+
+  args = ['-q', '--config', configPath];
+});
+
+async function runWith(...testArgs): Promise<Command> {
+  return cli.parseAsync([...args, ...testArgs], {from: 'user'});
 }
+
+describe('commands', () => {
+  describe('run', () => {
+    it('runs malloysql', async () => {
+      await runWith(
+        'run',
+        path.resolve(path.join(__dirname, '..', 'files', 'simple.malloysql'))
+      );
+    });
+  });
+});

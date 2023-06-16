@@ -70,11 +70,11 @@ let configFilePath;
 export function loadConfig(filePath?: string) {
   if (filePath) {
     if (process.env['MALLOY_CLI_CONFIG']) {
-      logger.debug(`Loading config from passed path ${filePath}`);
-    } else {
       logger.debug(
         `Loading config from MALLOY_CLI_CONFIG env variable (${process.env['MALLOY_CLI_CONFIG']})`
       );
+    } else {
+      logger.debug(`Loading config from passed path ${filePath}`);
     }
 
     configFilePath = filePath;
@@ -91,6 +91,7 @@ export function loadConfig(filePath?: string) {
     // if config file is not passed, look in default location
     // note: there may not be a config yet, that's ok!
     const folder = getDefaultOSConfigFolderPath();
+    logger.debug(`Loading config from default location: ${folder}`);
     configFilePath = path.join(folder, 'malloy', 'config.json');
 
     if (fileExists(configFilePath)) {

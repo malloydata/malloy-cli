@@ -26,6 +26,7 @@ import {ModelMaterializer, Runtime} from '@malloydata/malloy';
 import {exitWithError, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
+import {logger} from '../log';
 
 // options:
 // compileOnly
@@ -38,16 +39,24 @@ export async function runMalloySQL(
   statementIndex = null,
   compileOnly = false
 ) {
-  const abortOnExecutionError = true;
   const contents = loadFile(filePath);
+
+  if (statementIndex) {
+    logger.debug(
+      `Running malloysql query from ${filePath} at statement index: ${statementIndex}`
+    );
+  } else logger.debug(`Running malloysql file: ${filePath}`);
 
   let modelMaterializer: ModelMaterializer;
 
   try {
     const parse = MalloySQLParser.parse(contents);
     if (parse.errors.length > 0) {
-      // TODO
-      return;
+      exitWithError(
+        `Parse errors encountered: ${parse.errors
+          .map(parseError => parseError.message)
+          .join('\n')}`
+      );
     }
     const statements = parse.statements;
 
@@ -69,7 +78,6 @@ export async function runMalloySQL(
         continue;
 
       let compiledStatement = statement.text;
-      const compileErrors = [];
 
       const connectionLookup = connectionManager.getConnectionLookup(fileURL);
 
@@ -85,28 +93,22 @@ export async function runMalloySQL(
 
           // the only way to know if there's a query in this statement is to try
           // to run query by index and catch if it fails.
-          try {
-            const finalQuery = modelMaterializer.loadQuery(fileURL);
-            const finalQuerySQL = await finalQuery.getSQL();
 
-            if (compileOnly) {
-              // TODO
-            } else {
-              try {
-                const results = await finalQuery.run();
-              } catch (e) {
-                // TODO
-                if (abortOnExecutionError) break;
-              }
+          const finalQuery = modelMaterializer.loadQuery(fileURL);
+          const finalQuerySQL = await finalQuery.getSQL();
+
+          if (compileOnly) {
+            // TODO
+          } else {
+            try {
+              const results = await finalQuery.run();
+              // TODO deal with results
+            } catch (e) {
+              exitWithError(e.message);
             }
-          } catch (e) {
-            // TODO this error is thrown from Model and could be improved such that we can ensure we're catching
-            // what we expect here
-            // if error is ThereIsNoQueryHere:
-            // else if (abortOnExecutionError) break;
           }
         } catch (e) {
-          // TODO
+          exitWithError(e.message);
         }
       } else if (statement.type === MalloySQLStatementType.SQL) {
         for (const malloyQuery of statement.embeddedMalloyQueries) {
@@ -122,22 +124,22 @@ export async function runMalloySQL(
               `(${generatedSQL})`
             );
           } catch (e) {
-            compileErrors.push(e.message);
+            exitWithError(e.message);
           }
         }
 
-        if (compileErrors.length > 0) {
-          // TODO
-          exitWithError(compileErrors.join('\n'));
-        } else if (!compileOnly) {
+        if (!compileOnly) {
           try {
             const connection = await connectionLookup.lookupConnection(
               statement.config.connection
             );
+
+            // TODO different meta
+            logger.debug(`Executing SQL: ${compiledStatement}`);
+
             const sqlResults = await connection.runSQL(compiledStatement);
           } catch (e) {
             exitWithError(e.message);
-            if (abortOnExecutionError) break;
           }
         }
       }
