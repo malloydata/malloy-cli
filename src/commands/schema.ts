@@ -20,34 +20,3 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
-import path from 'path';
-import {runMalloySQL} from '../malloy/malloySQL';
-import {exitWithError} from '../util';
-
-export async function runCommand(
-  source: string,
-  options,
-  _command
-): Promise<void> {
-  const extension = path.extname(source).toLowerCase();
-
-  if (options.index) {
-    if (options.index < 1) exitWithError('Index must be greater than 0');
-  }
-
-  if (extension === '.malloysql') {
-    if (options.queryName) {
-      exitWithError('--query-name and .malloysql are not compatible');
-    }
-
-    await runMalloySQL(source);
-  } else if (extension === '.malloy') {
-    // TODO
-  } else {
-    if (extension) exitWithError(`Unable to run file of type: ${extension}`);
-    exitWithError(
-      'Unable to determine file type - .malloy or .malloysql filetype required'
-    );
-  }
-}

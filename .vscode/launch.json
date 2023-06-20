@@ -12,8 +12,16 @@
       "program": "${workspaceFolder}/src/index.ts",
       "preLaunchTask": "build-cli-task",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "args": "connections delete y",
+      "args": "${input:cli-command}",
       "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "cli-command",
+      "description": "Enter CLI arguments, i.e. 'run file.malloy'",
+      "default": "--help"
     }
   ]
 }
