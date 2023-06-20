@@ -109,8 +109,15 @@ export async function doWatch(target?: string, dev?: boolean): Promise<void> {
 }
 
 const args = process.argv.slice(1);
-if (args[1] && args[1].endsWith('localProduction')) {
+if (args[1] && args[1].endsWith('npmBin')) {
   doBuild(null, false);
+
+  fs.writeFileSync(
+    path.join(buildDirectory, 'index.js'),
+    // process.pkg is used by pkg but also we can set it here
+    // so that debug output is not the default
+    "#!/usr/bin/env node\nprocess.pkg = true;\nrequire('./cli.js')"
+  );
 } else if (args[1] && args[1].endsWith('watch')) {
   doWatch(null, true);
 } else if (args[0].endsWith('build')) {

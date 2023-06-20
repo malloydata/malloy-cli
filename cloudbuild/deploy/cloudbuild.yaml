@@ -25,6 +25,20 @@ steps:
       - -c
       - 'wget -q -O /workspace/cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.linux.386 && chmod +x /workspace/cloud_sql_proxy'
     waitFor: ['nix-quiet-install']
+  - id: deploy-npm
+    name: 'nixos/nix'
+    entrypoint: sh
+    args:
+      - -c
+      - '(/workspace/cloud_sql_proxy -enable_iam_login -instances=malloy-303216:us-central1:pg-test=tcp:5432 -log_debug_stdout > /dev/null & sleep 2) && (./cloudbuild/deploy/$TRIGGER_NAME.sh)'
+    timeout: '1800s'
+    secretEnv: ['NPM_TOKEN', 'GITHUB_SSH_KEY']
+    env:
+      - 'BRANCH_NAME=$BRANCH_NAME'
+    volumes:
+      - name: 'ssh'
+        path: /root/.ssh
+    waitFor: ['git-ssh-key', 'proxy-install']
 options:
   logging: CLOUD_LOGGING_ONLY
 timeout: '1800s'
