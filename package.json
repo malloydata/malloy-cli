@@ -23,6 +23,7 @@
     "test": "NODE_ENV=test jest --runInBand",
     "test-silent": "JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
+    "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
     "postinstall": "ts-node scripts/build localProduction",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
