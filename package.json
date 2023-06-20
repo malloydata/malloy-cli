@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.1",
+  "version": "0.0.7",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -12,22 +12,24 @@
     ]
   },
   "bin": {
-    "malloy": "dist/cli.js"
+    "malloy-cli": "dist/index.js"
   },
+  "files": [
+    "dist/**"
+  ],
   "engines": {
     "node": ">=10"
   },
-  "private": true,
   "scripts": {
     "lint": "gts lint",
     "test": "NODE_ENV=test jest --runInBand",
-    "test-silent": "JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
+    "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
     "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
-    "postinstall": "ts-node scripts/build localProduction",
+    "prepare": "ts-node scripts/build npmBin",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
-    "malloy-update": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",
+    "malloy-update": "npm install --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",
     "malloy-link": "npm --no-fund --no-audit link $npm_package_config_malloy_packages",
     "malloy-unlink": "npm --no-fund --no-save --no-audit unlink $npm_package_config_malloy_packages && npm --no-fund --no-audit install --force"
   },
@@ -41,21 +43,20 @@
     "url": "https://github.com/malloydata/malloy-cli/issues"
   },
   "homepage": "https://github.com/malloydata/malloy-cli#readme",
-  "dependencies": {
-    "@malloydata/db-bigquery": "0.0.35",
-    "@malloydata/db-duckdb": "0.0.35",
-    "@malloydata/db-postgres": "0.0.35",
-    "@malloydata/malloy": "0.0.35",
-    "@malloydata/malloy-sql": "^0.0.39",
-    "ajv": "^8.12.0",
-    "commander": "^10.0.1",
-    "winston": "^3.9.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/jest": "^29.2.5",
     "@types/node": "^14.11.2",
     "@typescript-eslint/eslint-plugin": "^5.48.2",
     "@typescript-eslint/parser": "^5.48.2",
+    "@malloydata/db-bigquery": "0.0.42",
+    "@malloydata/db-duckdb": "0.0.42",
+    "@malloydata/db-postgres": "0.0.42",
+    "@malloydata/malloy": "0.0.42",
+    "@malloydata/malloy-sql": "0.0.42",
+    "ajv": "^8.12.0",
+    "commander": "^10.0.1",
+    "winston": "^3.9.0",
     "esbuild": "0.17.4",
     "eslint": "^8.32.0",
     "eslint-config-prettier": "^8.3.0",
