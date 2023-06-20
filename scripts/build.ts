@@ -23,6 +23,7 @@
 
 /* eslint-disable no-console */
 import {build, BuildOptions} from 'esbuild';
+import * as esbuild from 'esbuild';
 import * as path from 'path';
 import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
@@ -82,10 +83,37 @@ export async function doBuild(target?: string, dev?: boolean): Promise<void> {
   await build(commonCLIConfig(development)).catch(errorHandler);
 }
 
+export async function doWatch(target?: string, dev?: boolean): Promise<void> {
+  //const development = process.env.NODE_ENV == "development";
+  const development = dev || target === undefined;
+
+  fs.rmSync(buildDirectory, {recursive: true, force: true});
+  fs.mkdirSync(buildDirectory, {recursive: true});
+
+  const watchRebuildLogPlugin = {
+    name: 'watchRebuildLogPlugin',
+    setup(build) {
+      build.onStart(() => {
+        console.log('building');
+      });
+    },
+  };
+
+  const ctx = await esbuild.context({
+    plugins: [watchRebuildLogPlugin],
+    ...commonCLIConfig(development),
+  });
+
+  console.log('watching...');
+  await ctx.watch();
+}
+
 const args = process.argv.slice(1);
-if (args[0].endsWith('build')) {
+if (args[1] && args[1].endsWith('localProduction')) {
+  doBuild(null, false);
+} else if (args[1] && args[1].endsWith('watch')) {
+  doWatch(null, true);
+} else if (args[0].endsWith('build')) {
   const target = args[1];
   doBuild(target);
-} else if (args[0].endsWith('localProduction')) {
-  doBuild(null, false);
 }
