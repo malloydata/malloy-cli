@@ -109,9 +109,9 @@ export async function doWatch(target?: string, dev?: boolean): Promise<void> {
 }
 
 const args = process.argv.slice(1);
-if (args[1].endsWith('localProduction')) {
+if (args[1] && args[1].endsWith('localProduction')) {
   doBuild(null, false);
-} else if (args[1].endsWith('watch')) {
+} else if (args[1] && args[1].endsWith('watch')) {
   doWatch(null, true);
 } else if (args[0].endsWith('build')) {
   const target = args[1];
