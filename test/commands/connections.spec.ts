@@ -29,7 +29,6 @@ let cli: Command;
 let args: string[];
 beforeEach(() => {
   cli = createCLI();
-  cli.exitOverride(); // TODO can't make this work so perhaps not necessary
 
   const configPath = path.resolve(
     path.join(__dirname, '..', 'files', 'simple_config.json')
@@ -51,11 +50,9 @@ describe('commands', () => {
 
       it('fails test with a bad connection name', async () => {
         expect.assertions(1);
-        try {
-          await runWith('connections', 'test', 'y');
-        } catch (e) {
-          expect(e.message).toMatch('A connection named y could not be found');
-        }
+        return runWith('connections', 'test', 'y').catch(e =>
+          expect(e.message).toMatch('A connection named y could not be found')
+        );
       });
     });
   });

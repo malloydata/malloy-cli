@@ -29,7 +29,6 @@ let cli: Command;
 let args: string[];
 beforeEach(() => {
   cli = createCLI();
-  cli.exitOverride(); // TODO can't make this work so perhaps not necessary
 
   const configPath = path.resolve(
     path.join(__dirname, '..', 'files', 'simple_config.json')
@@ -48,6 +47,23 @@ describe('commands', () => {
       await runWith(
         'run',
         path.resolve(path.join(__dirname, '..', 'files', 'simple.malloysql'))
+      );
+    });
+
+    it('fails if index is < 1', async () => {
+      expect.assertions(1);
+      return runWith('run', '-i', '0', 'file.malloy').catch(e =>
+        expect(e.message).toMatch('Index must be greater than 0')
+      );
+    });
+
+    it('fails if index and query name are both passed', async () => {
+      expect.assertions(1);
+      return runWith('run', '-i', '1', '-n', 'queryName', 'file.malloy').catch(
+        e =>
+          expect(e.message).toMatch(
+            "error: option '-n, --query-name <name>' cannot be used with option '-i, --index <number>"
+          )
       );
     });
   });
