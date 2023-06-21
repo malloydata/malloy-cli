@@ -27,6 +27,7 @@ import {
   format,
   Logger,
 } from 'winston';
+import chalk from 'chalk';
 
 let logger: Logger;
 
@@ -42,17 +43,32 @@ const cliOutputLogger: Logger = createWinstonLogger({
   ),
 });
 
-export function silenceLoggers(): void {
+export function silenceOut(): void {
   cliOutputLogger.silent = true;
-  logger.level = 'error';
 }
 
-export function cliOut(message: string): void {
+export function outSQL(message: string): void {
+  out(chalk.cyan(message));
+}
+export function outMalloy(message: string): void {
+  out(chalk.blueBright(message));
+}
+export function outTable(rows: any[]): void {
+  // TODO
+  //cliOut(chalk.cyan(message));
+  console.table(rows);
+}
+
+export function out(message: string): void {
   // TODO also log to filelogger if exists
+  // in debug mode, this will double-output
+  // TODO will still double-output for any log-level <= info
+
   cliOutputLogger.info(message);
+  //logger.info(message);
 }
 
-export function createBasicLogger(level = 'info'): void {
+export function createBasicLogger(level = 'warning'): void {
   logger = createWinstonLogger({
     level,
     transports: [new transports.Console()],

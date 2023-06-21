@@ -21,10 +21,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {ConnectionConfig, config, saveConfig} from '../config';
+import {config, saveConfig} from '../config';
 import {connectionManager} from '../connections/connection_manager';
-import {ConnectionBackend} from '../connections/connection_types';
-import {cliOut, logger} from '../log';
+import {
+  ConnectionBackend,
+  ConnectionConfig,
+} from '../connections/connection_types';
+import {out} from '../log';
 import {exitWithError} from '../util';
 
 function connectionConfigFromName(name: string): ConnectionConfig {
@@ -38,11 +41,13 @@ export function createBigQueryConnectionCommand(name: string): void {
   const connection: ConnectionConfig = {
     name,
     backend: ConnectionBackend.BigQuery,
+    isGenerated: false,
+    isDefault: false,
   };
 
   config.connections.push(connection);
   saveConfig();
-  logger.info(`Connection ${name} created`);
+  out(`Connection ${name} created`);
 }
 
 export function createPostgresConnectionCommand(name: string): void {
@@ -52,11 +57,13 @@ export function createPostgresConnectionCommand(name: string): void {
   const connection: ConnectionConfig = {
     name,
     backend: ConnectionBackend.Postgres,
+    isGenerated: false,
+    isDefault: false,
   };
 
   config.connections.push(connection);
   saveConfig();
-  logger.info(`Connection ${name} created`);
+  out(`Connection ${name} created`);
 }
 
 export async function testConnectionCommand(name: string): Promise<void> {
@@ -69,7 +76,7 @@ export async function testConnectionCommand(name: string): Promise<void> {
 
   try {
     await connection.test();
-    cliOut('Connection test successful');
+    out('Connection test successful');
   } catch (e) {
     exitWithError(`Connection test unsuccessful: ${e.message}`);
   }
@@ -78,16 +85,16 @@ export async function testConnectionCommand(name: string): Promise<void> {
 export function showConnectionCommand(name: string): void {
   const connection = config.connections.find(c => c.name === name);
   if (!connection) exitWithError(`Could not find a connection named ${name}`);
-  cliOut(JSON.stringify(connection, null, 4));
+  out(JSON.stringify(connection, null, 4));
 }
 
 export function listConnectionsCommand(): void {
   if (config.connections.length > 0) {
     config.connections.forEach(c => {
-      cliOut(`${c.name}:\n\ttype: ${c.backend}`);
+      out(`${c.name}:\n\ttype: ${c.backend}`);
     });
   } else {
-    cliOut('No connections found');
+    out('No connections found');
   }
 }
 
@@ -96,7 +103,7 @@ export function removeConnectionCommand(name: string): void {
   if (i >= 0) {
     config.connections.splice(i, 1);
     saveConfig();
-    cliOut(`${name} removed from connections`);
+    out(`${name} removed from connections`);
   } else {
     exitWithError(`Could not find a connection named ${name}`);
   }

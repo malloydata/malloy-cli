@@ -31,12 +31,7 @@ import {
   fileExists,
 } from './util';
 import {logger} from './log';
-import {ConnectionBackend} from './connections/connection_types';
-
-export interface ConnectionConfig {
-  name: string;
-  backend: ConnectionBackend;
-}
+import {ConnectionConfig} from './connections/connection_types';
 
 export interface Config {
   connections: ConnectionConfig[];

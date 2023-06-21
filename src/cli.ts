@@ -22,10 +22,9 @@
  */
 
 import {Command, Option} from 'commander';
-import {runCommand} from './commands/run';
+import {RunOutputType, runCommand} from './commands/run';
 import {loadConfig} from './config';
 import {configShowCommand} from './commands/config';
-import {compileCommand} from './commands/compile';
 import {
   createBigQueryConnectionCommand,
   createPostgresConnectionCommand,
@@ -34,7 +33,7 @@ import {
   showConnectionCommand,
   testConnectionCommand,
 } from './commands/connections';
-import {createBasicLogger, silenceLoggers} from './log';
+import {createBasicLogger, silenceOut} from './log';
 import {loadConnections} from './connections/connection_manager';
 
 export function createCLI(): Command {
@@ -57,30 +56,15 @@ export function createCLI(): Command {
     cli.configureOutput({
       outputError: (str, write) => write(`\x1b[31mError:\x1b[0m ${str}`),
     });
-    cli.showHelpAfterError('(add --help for additional information)');
   }
 
   // config, logging, connections
   cli.hook('preAction', (_thisCommand, _actionCommand) => {
     // if packaged, respect debug flag, but if not, debug = true
-    let debug;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((<any>process).pkg) {
-      debug = cli.opts().debug;
-    } else {
-      if (process.env.NODE_ENV !== 'test') {
-        // eslint-disable-next-line no-console
-        console.log(
-          'Running Malloy CLI unpackaged, defaulting to "debug" level output'
-        );
-      }
-      debug = true;
-    }
+    if (cli.opts().debug) createBasicLogger('debug');
+    else createBasicLogger(cli.opts().logLevel);
 
-    if (debug) createBasicLogger('debug');
-    else createBasicLogger(cli.opts()['log-level']);
-
-    if (cli.opts().quiet) silenceLoggers();
+    if (cli.opts().quiet) silenceOut();
 
     loadConfig(cli.opts().config);
     loadConnections();
@@ -95,7 +79,7 @@ export function createCLI(): Command {
         'MALLOY_CONFIG_FILE'
       )
     )
-    .addOption(new Option('-q, --quiet', 'silence output'))
+    .addOption(new Option('--quiet', 'silence output'))
     .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'))
     .addOption(
       new Option('-l, --log-level', 'log level')
@@ -104,23 +88,34 @@ export function createCLI(): Command {
     );
 
   // commands
-  // TODO optional statement index
+  // TODO json
   // TODO dry run
   // TODO cost query?
   // TODO output format
-  // TODO truncation
-  // TODO named malloy query
+  // TODO results truncation
+  // TODO run malloy query -q "source->query"
   const runDescription = `execute a Malloy file (.malloy or .malloysql)
 
-When executing a MalloySQL file, all statements in the file get run. If --index is passed,
-the statement at that 1-based index is executed. If this statement is a SQL statement,
-all Malloy statments above that statement are also executed (in case the SQL statement
-has embedded Malloy).
+When executing a MalloySQL file, all statements in the file are executed sequentially.
+If --index is passed, the statement at that 1-based index is executed. If this statement
+is a SQL statement, all Malloy statments (but no SQL statments) above that statement are
+also executed.
 
 When executing a Malloy file, only the final runnable query in file is executed. If one does
 not exist, nothing will be executed, unles --index is passed. If --index is passd, the query
 at that 1-based index will be executed. If --query-name is passed, the named query will be
 executed`;
+
+  const afterHelp = `
+
+Examples:
+
+Run a MalloySQL file and output the malloy, the compiled SQL, and results:
+run file.malloysql -o malloy compiled-sql results
+
+Run the second MalloySQL statement in a file and output the results:
+run file.malloysql -i 2 -o results
+  `;
   cli
     .command('run <file>')
     .summary('execute a Malloy file (.malloy or .malloysql)')
@@ -137,16 +132,23 @@ executed`;
         'run a named query (.malloy file only)'
       ).conflicts('index')
     )
+    .addOption(
+      new Option(
+        '-o, --output <options...>',
+        'determine what to output to stdout (more than one accepted)'
+      ).choices(Object.values(RunOutputType))
+    )
+    .addHelpText('after', afterHelp)
     .action(runCommand);
 
   // TODO optional statement index
   // TODO output - how?
-  cli
-    .command('compile <file>')
-    .description(
-      'compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
-    )
-    .action(compileCommand);
+  // cli
+  //   .command('compile <file>')
+  //   .description(
+  //     'compile a Malloy file (.malloy or .malloysql) and output resulting SQL'
+  //   )
+  //   .action(compileCommand);
 
   const connections = cli
     .command('connections')

@@ -25,6 +25,13 @@ import path from 'path';
 import {runMalloySQL} from '../malloy/malloySQL';
 import {exitWithError} from '../util';
 
+export enum RunOutputType {
+  Malloy = 'malloy',
+  CompiledSQL = 'compiled-sql',
+  Results = 'results',
+  All = 'all',
+}
+
 export async function runCommand(
   source: string,
   options,
@@ -41,7 +48,7 @@ export async function runCommand(
       exitWithError('--query-name and .malloysql are not compatible');
     }
 
-    await runMalloySQL(source);
+    await runMalloySQL(source, options.index, false, options.output);
   } else if (extension === '.malloy') {
     // TODO
   } else {

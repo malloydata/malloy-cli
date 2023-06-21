@@ -39,6 +39,8 @@ export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
 
 export interface BaseConnectionConfig {
   name: string;
+  isGenerated: boolean;
+  isDefault: boolean;
 }
 
 export interface BigQueryConnectionConfig extends BaseConnectionConfig {

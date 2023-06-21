@@ -34,7 +34,7 @@ beforeEach(() => {
     path.join(__dirname, '..', 'files', 'simple_config.json')
   );
 
-  args = ['-q', '--config', configPath];
+  args = ['--quiet', '--config', configPath];
 });
 
 async function runWith(...testArgs): Promise<Command> {
