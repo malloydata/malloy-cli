@@ -21,12 +21,14 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import url from 'node:url';
-import {ModelMaterializer, Runtime} from '@malloydata/malloy';
+import url, {fileURLToPath as fileURLToPath} from 'node:url';
+import fs from 'fs';
+import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {exitWithError, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
-import {logger} from '../log';
+import {out, logger, outMalloy, outSQL, outTable} from '../log';
+import {RunOutputType} from '../commands/run';
 
 // options:
 // compileOnly
@@ -34,18 +36,52 @@ import {logger} from '../log';
 // silent
 // truncateResults
 
+// default logging - output statment index
+// optionally - results
+// optionally - SQL to be executed
+
+class VirtualURIFileHandler implements URLReader {
+  private uriReader: URLReader;
+  private url: URL;
+  private contents: string;
+
+  constructor(uriReader: URLReader) {
+    this.uriReader = uriReader;
+  }
+
+  public setVirtualFile(url: URL, contents: string): void {
+    this.url = url;
+    this.contents = contents;
+  }
+
+  async readURL(uri: URL): Promise<string> {
+    if (uri.toString() === this.url.toString()) {
+      return this.contents;
+    } else {
+      const contents = await this.uriReader.readURL(uri);
+      return contents;
+    }
+  }
+}
+
 export async function runMalloySQL(
   filePath: string,
   statementIndex = null,
-  compileOnly = false
+  compileOnly = false,
+  output: RunOutputType[] = []
 ) {
   const contents = loadFile(filePath);
 
+  const all = output.includes(RunOutputType.All);
+  const outputMalloy = all ? true : output.includes(RunOutputType.Malloy);
+  const outputSQL = all ? true : output.includes(RunOutputType.CompiledSQL);
+  const outputResults = all ? true : output.includes(RunOutputType.Results);
+
   if (statementIndex) {
-    logger.debug(
+    logger.info(
       `Running malloysql query from ${filePath} at statement index: ${statementIndex}`
     );
-  } else logger.debug(`Running malloysql file: ${filePath}`);
+  } else logger.info(`Running malloysql file: ${filePath}`);
 
   let modelMaterializer: ModelMaterializer;
 
@@ -61,7 +97,15 @@ export async function runMalloySQL(
     const statements = parse.statements;
 
     const fileURL = url.pathToFileURL(filePath);
+
+    const virturlURIFileHandler = new VirtualURIFileHandler({
+      readURL: async (url: URL) => {
+        return fs.readFileSync(fileURLToPath(url), 'utf8');
+      },
+    });
+
     const malloyRuntime = new Runtime(
+      virturlURIFileHandler,
       connectionManager.getConnectionLookup(fileURL)
     );
 
@@ -74,14 +118,20 @@ export async function runMalloySQL(
         statement.type === MalloySQLStatementType.SQL &&
         statementIndex !== null &&
         statementIndex !== i
-      )
+      ) {
+        logger.info(`Skipping statment: ${i}`);
         continue;
+      }
 
       let compiledStatement = statement.text;
-
       const connectionLookup = connectionManager.getConnectionLookup(fileURL);
 
+      out(`Running statment: ${i + 1}`);
+      out('');
+
       if (statement.type === MalloySQLStatementType.MALLOY) {
+        virturlURIFileHandler.setVirtualFile(fileURL, statement.text);
+
         try {
           if (!modelMaterializer) {
             modelMaterializer = malloyRuntime.loadModel(fileURL);
@@ -91,21 +141,36 @@ export async function runMalloySQL(
 
           const _model = modelMaterializer.getModel();
 
+          if (outputMalloy) {
+            out('Compiling Malloy:');
+            outMalloy(statement.text);
+          }
+
           // the only way to know if there's a query in this statement is to try
           // to run query by index and catch if it fails.
 
-          const finalQuery = modelMaterializer.loadQuery(fileURL);
-          const finalQuerySQL = await finalQuery.getSQL();
+          try {
+            const finalQuery = modelMaterializer.loadQuery(fileURL);
+            const finalQuerySQL = await finalQuery.getSQL();
 
-          if (compileOnly) {
-            // TODO
-          } else {
-            try {
+            if (compileOnly) {
+              if (outputSQL) {
+                out('Compiled SQL:');
+                outSQL(finalQuerySQL);
+              }
+            } else {
+              out('Running Malloy');
+
               const results = await finalQuery.run();
-              // TODO deal with results
-            } catch (e) {
-              exitWithError(e.message);
+
+              if (results && outputResults) {
+                out('Results:');
+                // TODO console.table?
+                //cliOut(results.data);
+              }
             }
+          } catch (e) {
+            // nothing to do here - there isn't a query to run
           }
         } catch (e) {
           exitWithError(e.message);
@@ -113,6 +178,11 @@ export async function runMalloySQL(
       } else if (statement.type === MalloySQLStatementType.SQL) {
         for (const malloyQuery of statement.embeddedMalloyQueries) {
           try {
+            if (outputMalloy) {
+              out('Compiling Malloy:');
+              outMalloy(malloyQuery.query);
+            }
+
             // TODO assumes modelMaterializer exists, because >>>malloy always happens before >>>sql with embedded malloy
             const runnable = modelMaterializer.loadQuery(
               `\nquery: ${malloyQuery.query}`
@@ -128,16 +198,30 @@ export async function runMalloySQL(
           }
         }
 
+        if (outputSQL) {
+          out('Compiled SQL:');
+          outSQL(compiledStatement);
+        }
+
         if (!compileOnly) {
           try {
             const connection = await connectionLookup.lookupConnection(
               statement.config.connection
             );
 
-            // TODO different meta
             logger.debug(`Executing SQL: ${compiledStatement}`);
 
             const sqlResults = await connection.runSQL(compiledStatement);
+
+            if (sqlResults && outputResults) {
+              out('Results:');
+
+              if (sqlResults.rows.length === 0) {
+                out('Statement successfully completed with no results');
+              } else {
+                outTable(sqlResults.rows);
+              }
+            }
           } catch (e) {
             exitWithError(e.message);
           }

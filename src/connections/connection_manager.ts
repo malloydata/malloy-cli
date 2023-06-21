@@ -165,6 +165,31 @@ export class CLIConnectionFactory {
       return '.';
     }
   }
+
+  addDefaults(configs: ConnectionConfig[]): ConnectionConfig[] {
+    // Create a default bigquery connection if one isn't configured
+    if (
+      !configs.find(config => config.backend === ConnectionBackend.BigQuery)
+    ) {
+      configs.push({
+        name: 'bigquery',
+        backend: ConnectionBackend.BigQuery,
+        isDefault: !configs.find(config => config.isDefault),
+        isGenerated: true,
+      });
+    }
+
+    // Create a default duckdb connection if one isn't configured
+    // if (!configs.find(config => config.name === 'duckdb')) {
+    //   configs.push({
+    //     name: 'duckdb',
+    //     backend: ConnectionBackend.DuckDB,
+    //     isDefault: false,
+    //     isGenerated: true,
+    //   });
+    // }
+    return configs;
+  }
 }
 
 export class DynamicConnectionLookup implements LookupConnection<Connection> {
@@ -192,6 +217,31 @@ export class DynamicConnectionLookup implements LookupConnection<Connection> {
       }
     }
     return this.connections[connectionKey];
+  }
+
+  addDefaults(configs: ConnectionConfig[]): ConnectionConfig[] {
+    // Create a default bigquery connection if one isn't configured
+    if (
+      !configs.find(config => config.backend === ConnectionBackend.BigQuery)
+    ) {
+      configs.push({
+        name: 'bigquery',
+        backend: ConnectionBackend.BigQuery,
+        isDefault: !configs.find(config => config.isDefault),
+        isGenerated: true,
+      });
+    }
+
+    // Create a default duckdb connection if one isn't configured
+    if (!configs.find(config => config.name === 'duckdb')) {
+      configs.push({
+        name: 'duckdb',
+        backend: ConnectionBackend.DuckDB,
+        isDefault: false,
+        isGenerated: true,
+      });
+    }
+    return configs;
   }
 }
 
@@ -248,11 +298,19 @@ export class ConnectionManager {
     return this.currentRowLimit;
   }
 
+  public getAllConnectionConfigs() {
+    return this.configList;
+  }
+
   private buildConfigMap(): void {
     this.connectionLookups = {};
     this.connectionCache = {};
 
-    this.configList.forEach(config => {
+    const configs = this.connectionFactory.addDefaults(this.configList);
+    configs.forEach(config => {
+      if (config.isDefault) {
+        this.configMap[DEFAULT_CONFIG] = config;
+      }
       this.configMap[config.name] = config;
     });
   }

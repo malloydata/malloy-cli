@@ -22,9 +22,9 @@
  */
 
 import {config} from '../config';
-import {cliOut} from '../log';
+import {out} from '../log';
 
 // TODO filter sensitive data
 export function configShowCommand(): void {
-  cliOut(JSON.stringify(config, null, 4));
+  out(JSON.stringify(config, null, 4));
 }
