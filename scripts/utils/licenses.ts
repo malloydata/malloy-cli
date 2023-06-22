@@ -26,6 +26,7 @@ import fs from 'fs';
 
 export interface NpmPackage {
   dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   homepage?: string;
   license?: string;
   repo?: string;
@@ -48,4 +49,9 @@ export function readPackageJson(path: string): NpmPackage {
 export function getDependencies(rootPackageJson: string): string[] {
   const rootPackage = readPackageJson(rootPackageJson);
   return Object.keys(rootPackage.dependencies || {}) || [];
+}
+
+export function getDevDependencies(rootPackageJson: string): string[] {
+  const rootPackage = readPackageJson(rootPackageJson);
+  return Object.keys(rootPackage.devDependencies || {}) || [];
 }
