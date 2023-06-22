@@ -51,15 +51,33 @@ export function generateDisclaimer(
 
   seen = {};
   console.log('Generating third party licenses');
-  doDependencies(nodeModulesPath, rootPackageJson);
+
+  // include dev dependencies b/c we put all dependencies there so that npx malloy-cli
+  // doesn't have to install dependencies for no good reason, as everything is bundled
+  // when shipped to npm. This means that the license file also includes things we don't actually
+  // ship, but it's a very short list anyways.
+  doDependencies(nodeModulesPath, rootPackageJson, true);
   console.log(`Wrote ${filePath}`);
 }
 
-function doDependencies(nodeModulesPath: string, packageJson: any): void {
+function doDependencies(
+  nodeModulesPath: string,
+  packageJson: any,
+  includeDevDependencies = false
+): void {
   // eslint-disable-next-line no-prototype-builtins
-  if (packageJson.hasOwnProperty('dependencies')) {
-    const dependencies = packageJson.dependencies;
 
+  // eslint-disable-next-line no-prototype-builtins
+  let dependencies = packageJson.hasOwnProperty('dependencies')
+    ? packageJson.dependencies
+    : {};
+
+  // eslint-disable-next-line no-prototype-builtins
+  if (includeDevDependencies && packageJson.hasOwnProperty('devDependencies')) {
+    dependencies = {...dependencies, ...packageJson.devDependencies};
+  }
+
+  if (Object.keys(dependencies).length > 0) {
     for (const dependency of Object.keys(dependencies)) {
       if (seen[dependency] === true || !(typeof dependency === 'string')) {
         continue;

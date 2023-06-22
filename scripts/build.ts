@@ -72,7 +72,6 @@ const generateLicenseFile = (development: boolean) => {
 };
 
 export async function doBuild(target?: string, dev?: boolean): Promise<void> {
-  //const development = process.env.NODE_ENV == "development";
   const development = dev || target === undefined;
 
   fs.rmSync(buildDirectory, {recursive: true, force: true});
@@ -84,7 +83,6 @@ export async function doBuild(target?: string, dev?: boolean): Promise<void> {
 }
 
 export async function doWatch(target?: string, dev?: boolean): Promise<void> {
-  //const development = process.env.NODE_ENV == "development";
   const development = dev || target === undefined;
 
   fs.rmSync(buildDirectory, {recursive: true, force: true});
