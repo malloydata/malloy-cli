@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.9",
+  "version": "0.0.13",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -12,7 +12,7 @@
     ]
   },
   "bin": {
-    "malloy-cli": "dist/index.js"
+    "malloy-cli": "dist/cli.js"
   },
   "files": [
     "dist/**"
@@ -25,9 +25,12 @@
     "test": "NODE_ENV=test jest --runInBand",
     "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
+    "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
-    "prepare": "ts-node scripts/build npmBin",
+    "prepublishOnly": "ts-node scripts/build npmBin",
+    "publish": "npm run prepublishOnly && npm publish && npm run build",
+    "postinstall": "node -e \"try{require('./dist/post-install')} catch {}\"",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
     "malloy-update": "npm install --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",
     "malloy-link": "npm --no-fund --no-audit link $npm_package_config_malloy_packages",
@@ -63,7 +66,9 @@
     "gts": "^3.1.1",
     "jest": "^29.3.1",
     "jest-silent-reporter": "^0.5.0",
+    "node-fetch": "^3.3.1",
     "pkg": "^5.8.1",
+    "tar-stream": "^3.1.4",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.1",
     "typescript": "^4.8.4",
