@@ -22,7 +22,7 @@
  */
 
 /* eslint-disable no-console */
-import {build, BuildOptions} from 'esbuild';
+import {build, BuildOptions, Plugin} from 'esbuild';
 import * as esbuild from 'esbuild';
 import * as path from 'path';
 import fs from 'fs';
@@ -30,10 +30,10 @@ import {generateDisclaimer} from './license_disclaimer';
 
 export const buildDirectory = 'dist/';
 
-export const commonCLIConfig = (development = false): BuildOptions => {
+export const commonCLIConfig = (development = false, target?): BuildOptions => {
   return {
-    entryPoints: ['./src/index.ts'],
-    outfile: path.join(buildDirectory, 'cli.js'),
+    entryPoints: ['./src/index.ts', './scripts/post-install.ts'],
+    outdir: buildDirectory,
     minify: !development,
     sourcemap: development,
     bundle: true,
@@ -41,6 +41,8 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     define: {
       'process.env.NODE_DEBUG': 'false', // TODO this is a hack because some package we include assumed process.env exists :(
     },
+    plugins: [makeDuckdbNoNodePreGypPlugin(target)],
+    external: ['duckdb/lib/binding/duckdb.node'],
   };
 };
 
@@ -71,6 +73,47 @@ const generateLicenseFile = (development: boolean) => {
   }
 };
 
+function makeDuckdbNoNodePreGypPlugin(target: string | undefined): Plugin {
+  // eslint-disable-next-line node/no-extraneous-require
+  const localPath = require.resolve('duckdb/lib/binding/duckdb.node');
+  return {
+    name: 'duckdbNoNodePreGypPlugin',
+    setup(build) {
+      build.onResolve({filter: /duckdb-binding\.js/}, args => {
+        return {
+          path: args.path,
+          namespace: 'duckdb-no-node-pre-gyp-plugin',
+        };
+      });
+      build.onLoad(
+        {
+          filter: /duckdb-binding\.js/,
+          namespace: 'duckdb-no-node-pre-gyp-plugin',
+        },
+        _args => {
+          return {
+            contents: `
+              var path = require("path");
+              var os = require("os");
+
+              var binding_path = ${
+                target
+                  ? 'require.resolve("./duckdb-native.node")'
+                  : `"${localPath}"`
+              };
+
+              // dlopen is used because we need to specify the RTLD_GLOBAL flag to be able to resolve duckdb symbols
+              // on linux where RTLD_LOCAL is the default.
+              process.dlopen(module, binding_path, os.constants.dlopen.RTLD_NOW | os.constants.dlopen.RTLD_GLOBAL);
+            `,
+            resolveDir: '.',
+          };
+        }
+      );
+    },
+  };
+}
+
 export async function doBuild(target?: string, dev?: boolean): Promise<void> {
   //const development = process.env.NODE_ENV == "development";
   const development = dev || target === undefined;
@@ -80,7 +123,7 @@ export async function doBuild(target?: string, dev?: boolean): Promise<void> {
 
   generateLicenseFile(development);
 
-  await build(commonCLIConfig(development)).catch(errorHandler);
+  await build(commonCLIConfig(development, target)).catch(errorHandler);
 }
 
 export async function doWatch(target?: string, dev?: boolean): Promise<void> {
@@ -101,7 +144,7 @@ export async function doWatch(target?: string, dev?: boolean): Promise<void> {
 
   const ctx = await esbuild.context({
     plugins: [watchRebuildLogPlugin],
-    ...commonCLIConfig(development),
+    ...commonCLIConfig(development, target),
   });
 
   console.log('watching...');
@@ -116,7 +159,7 @@ if (args[1] && args[1].endsWith('npmBin')) {
     path.join(buildDirectory, 'index.js'),
     // process.pkg is used by pkg but also we can set it here
     // so that debug output is not the default
-    "#!/usr/bin/env node\nprocess.pkg = true;\nrequire('./cli.js')"
+    "#!/usr/bin/env node\nprocess.pkg = true;\nrequire('./src/index.js')"
   );
 } else if (args[1] && args[1].endsWith('watch')) {
   doWatch(null, true);

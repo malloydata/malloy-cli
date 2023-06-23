@@ -31,12 +31,13 @@ import {
   ConfigOptions,
   ConnectionBackend,
   ConnectionConfig,
+  DuckDBConnectionConfig,
   PostgresConnectionConfig,
 } from './connection_types';
 import {fileURLToPath} from 'url';
 import {BigQueryConnection} from '@malloydata/db-bigquery';
-import {convertToBytes} from '../util';
-// import {DuckDBConnection} from '@malloydata/db-duckdb';
+import {convertToBytes, exitWithError} from '../util';
+import {DuckDBConnection} from '@malloydata/db-duckdb';
 import {PostgresConnection} from '@malloydata/db-postgres';
 import {config} from '../config';
 
@@ -62,7 +63,6 @@ const createBigQueryConnection = async (
   return connection;
 };
 
-/*
 const createDuckDbConnection = async (
   connectionConfig: DuckDBConnectionConfig,
   {workingDirectory, rowLimit}: ConfigOptions
@@ -79,7 +79,6 @@ const createDuckDbConnection = async (
     exitWithError(`Could not create DuckDB connection: ${error.message}`);
   }
 };
-*/
 
 const createPostgresConnection = async (
   connectionConfig: PostgresConnectionConfig,
@@ -144,13 +143,13 @@ export class CLIConnectionFactory {
         );
         break;
       }
-      /*case ConnectionBackend.DuckDB: {
+      case ConnectionBackend.DuckDB: {
         connection = await createDuckDbConnection(
           connectionConfig,
           configOptions
         );
         break;
-      }*/
+      }
     }
 
     return connection;
@@ -180,14 +179,14 @@ export class CLIConnectionFactory {
     }
 
     // Create a default duckdb connection if one isn't configured
-    // if (!configs.find(config => config.name === 'duckdb')) {
-    //   configs.push({
-    //     name: 'duckdb',
-    //     backend: ConnectionBackend.DuckDB,
-    //     isDefault: false,
-    //     isGenerated: true,
-    //   });
-    // }
+    if (!configs.find(config => config.name === 'duckdb')) {
+      configs.push({
+        name: 'duckdb',
+        backend: ConnectionBackend.DuckDB,
+        isDefault: false,
+        isGenerated: true,
+      });
+    }
     return configs;
   }
 }
