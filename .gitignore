@@ -8,3 +8,4 @@ npm-debug.log*
 .idea/
 .idea*
 .vscode/settings.json
+third_party/github.com/duckdb/duckdb/*

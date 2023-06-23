@@ -34,7 +34,7 @@ export const commonCLIConfig = (development = false, target?): BuildOptions => {
   return {
     entryPoints: ['./src/index.ts', './scripts/post-install.ts'],
     outdir: buildDirectory,
-    minify: !development,
+    minify: false,
     sourcemap: development,
     bundle: true,
     platform: 'node',
