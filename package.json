@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.13",
+  "version": "0.0.18",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -12,7 +12,7 @@
     ]
   },
   "bin": {
-    "malloy-cli": "dist/cli.js"
+    "malloy-cli": "dist/index.js"
   },
   "files": [
     "dist/**"
@@ -28,8 +28,8 @@
     "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
-    "prepublishOnly": "ts-node scripts/build npmBin",
-    "publish": "npm run prepublishOnly && npm publish && npm run build",
+    "prepublishOnly": "ts-node scripts/build npmBin && npm version -git-tag-version=false patch",
+    "postpack": "npm run build",
     "postinstall": "node -e \"try{require('./dist/post-install')} catch {}\"",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
     "malloy-update": "npm install --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",

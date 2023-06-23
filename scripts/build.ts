@@ -168,9 +168,13 @@ if (args[1] && args[1].endsWith('npmBin')) {
   // for the platform/arch being installed into
   doBuild(null, false);
   doPostInstallBuild();
+  fs.writeFileSync(
+    path.join(buildDirectory, 'index.js'),
+    "#!/usr/bin/env node\nrequire('./cli.js')"
+  );
 } else if (args[1] && args[1].endsWith('watch')) {
   doWatch(true);
 } else if (args[0].endsWith('build')) {
   const target = args[1];
-  doBuild(target);
+  doBuild(target, false);
 }

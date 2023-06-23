@@ -33,6 +33,6 @@ if (duckDBBinaryName === undefined) {
 fetchDuckDB(target).then(fileName => {
   fs.copyFileSync(
     fileName,
-    path.join(__dirname, '..', 'src', 'duckdb-native.node')
+    path.join(__dirname, '..', 'dist', 'duckdb-native.node')
   );
 });
