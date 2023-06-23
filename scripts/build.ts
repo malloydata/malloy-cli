@@ -136,8 +136,7 @@ export async function doPostInstallBuild(development = false): Promise<void> {
   await build(config).catch(errorHandler);
 }
 
-export async function doWatch(target?: string, dev?: boolean): Promise<void> {
-  const development = dev || target === undefined;
+export async function doWatch(development = false): Promise<void> {
   wipeBuildDirectory(buildDirectory);
 
   const watchRebuildLogPlugin = {
@@ -149,11 +148,12 @@ export async function doWatch(target?: string, dev?: boolean): Promise<void> {
     },
   };
 
+  const config = commonCLIConfig(development);
+  config.plugins.push(watchRebuildLogPlugin);
   const ctx = await esbuild.context({
-    ...commonCLIConfig(development, target),
-    plugins: [watchRebuildLogPlugin],
+    ...config,
     entryPoints: ['./src/index.ts'],
-    outFile: 'dist/post-install.js',
+    outfile: './dist/cli.js',
   });
 
   console.log('watching...');
@@ -169,7 +169,7 @@ if (args[1] && args[1].endsWith('npmBin')) {
   doBuild(null, false);
   doPostInstallBuild();
 } else if (args[1] && args[1].endsWith('watch')) {
-  doWatch(null, true);
+  doWatch(true);
 } else if (args[0].endsWith('build')) {
   const target = args[1];
   doBuild(target);
