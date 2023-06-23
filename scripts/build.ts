@@ -32,9 +32,7 @@ export const buildDirectory = 'dist/';
 
 export const commonCLIConfig = (development = false, target?): BuildOptions => {
   return {
-    entryPoints: ['./src/index.ts', './scripts/post-install.ts'],
-    outdir: buildDirectory,
-    minify: false,
+    minify: !development,
     sourcemap: development,
     bundle: true,
     platform: 'node',
@@ -72,6 +70,11 @@ const generateLicenseFile = (development: boolean) => {
     fs.writeFileSync(fullLicenseFilePath, 'LICENSES GO HERE\n');
   }
 };
+
+function wipeBuildDirectory(buildDirectory: string): void {
+  fs.rmSync(buildDirectory, {recursive: true, force: true});
+  fs.mkdirSync(buildDirectory, {recursive: true});
+}
 
 function makeDuckdbNoNodePreGypPlugin(target: string | undefined): Plugin {
   // eslint-disable-next-line node/no-extraneous-require
@@ -117,21 +120,27 @@ function makeDuckdbNoNodePreGypPlugin(target: string | undefined): Plugin {
 export async function doBuild(target?: string, dev?: boolean): Promise<void> {
   //const development = process.env.NODE_ENV == "development";
   const development = dev || target === undefined;
-
-  fs.rmSync(buildDirectory, {recursive: true, force: true});
-  fs.mkdirSync(buildDirectory, {recursive: true});
-
+  wipeBuildDirectory(buildDirectory);
   generateLicenseFile(development);
 
-  await build(commonCLIConfig(development, target)).catch(errorHandler);
+  const config = commonCLIConfig(development, target);
+  config.entryPoints = ['./src/index.ts'];
+  config.outfile = 'dist/cli.js';
+
+  await build(config).catch(errorHandler);
+}
+
+export async function doPostInstallBuild(development = false): Promise<void> {
+  const config = commonCLIConfig(development);
+  config.entryPoints = ['./scripts/post-install.ts'];
+  config.outfile = 'dist/post-install.js';
+  await build(config).catch(errorHandler);
 }
 
 export async function doWatch(target?: string, dev?: boolean): Promise<void> {
   //const development = process.env.NODE_ENV == "development";
   const development = dev || target === undefined;
-
-  fs.rmSync(buildDirectory, {recursive: true, force: true});
-  fs.mkdirSync(buildDirectory, {recursive: true});
+  wipeBuildDirectory(buildDirectory);
 
   const watchRebuildLogPlugin = {
     name: 'watchRebuildLogPlugin',
@@ -143,8 +152,10 @@ export async function doWatch(target?: string, dev?: boolean): Promise<void> {
   };
 
   const ctx = await esbuild.context({
-    plugins: [watchRebuildLogPlugin],
     ...commonCLIConfig(development, target),
+    plugins: [watchRebuildLogPlugin],
+    entryPoints: ['./src/index.ts'],
+    outFile: 'dist/post-install.js',
   });
 
   console.log('watching...');
@@ -153,14 +164,12 @@ export async function doWatch(target?: string, dev?: boolean): Promise<void> {
 
 const args = process.argv.slice(1);
 if (args[1] && args[1].endsWith('npmBin')) {
+  // this is run before publishing to NPM - places
+  // built file in dist/, and also a post-install script
+  // into dist that will run to fetch appropriate duckdb.node
+  // for the platform/arch being installed into
   doBuild(null, false);
-
-  fs.writeFileSync(
-    path.join(buildDirectory, 'index.js'),
-    // process.pkg is used by pkg but also we can set it here
-    // so that debug output is not the default
-    "#!/usr/bin/env node\nprocess.pkg = true;\nrequire('./src/index.js')"
-  );
+  doPostInstallBuild();
 } else if (args[1] && args[1].endsWith('watch')) {
   doWatch(null, true);
 } else if (args[0].endsWith('build')) {
