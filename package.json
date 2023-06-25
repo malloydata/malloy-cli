@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.18",
+  "version": "0.0.22",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -48,10 +48,10 @@
   "homepage": "https://github.com/malloydata/malloy-cli#readme",
   "devDependencies": {
     "@malloydata/db-bigquery": "next",
-    "@malloydata/db-duckdb": "0.0.42",
-    "@malloydata/db-postgres": "0.0.42",
-    "@malloydata/malloy": "0.0.42",
-    "@malloydata/malloy-sql": "0.0.42",
+    "@malloydata/db-duckdb": "next",
+    "@malloydata/db-postgres": "next",
+    "@malloydata/malloy": "next",
+    "@malloydata/malloy-sql": "next",
     "@types/jest": "^29.2.5",
     "@types/node": "^14.11.2",
     "@typescript-eslint/eslint-plugin": "^5.48.2",

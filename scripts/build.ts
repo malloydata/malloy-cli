@@ -30,7 +30,7 @@ import {generateDisclaimer} from './license_disclaimer';
 
 export const buildDirectory = 'dist/';
 
-export const commonCLIConfig = (development = false, target?): BuildOptions => {
+export const commonCLIConfig = (development = false): BuildOptions => {
   return {
     minify: !development,
     sourcemap: development,
@@ -39,8 +39,8 @@ export const commonCLIConfig = (development = false, target?): BuildOptions => {
     define: {
       'process.env.NODE_DEBUG': 'false', // TODO this is a hack because some package we include assumed process.env exists :(
     },
-    plugins: [makeDuckdbNoNodePreGypPlugin(target)],
-    external: ['duckdb/lib/binding/duckdb.node'],
+    plugins: [makeDuckdbNoNodePreGypPlugin(development)],
+    external: ['duckdb/lib/binding/duckdb.node', './duckdb-native.node'],
   };
 };
 
@@ -76,7 +76,7 @@ function wipeBuildDirectory(buildDirectory: string): void {
   fs.mkdirSync(buildDirectory, {recursive: true});
 }
 
-function makeDuckdbNoNodePreGypPlugin(target: string | undefined): Plugin {
+function makeDuckdbNoNodePreGypPlugin(development = false): Plugin {
   // eslint-disable-next-line node/no-extraneous-require
   const localPath = require.resolve('duckdb/lib/binding/duckdb.node');
   return {
@@ -100,9 +100,9 @@ function makeDuckdbNoNodePreGypPlugin(target: string | undefined): Plugin {
               var os = require("os");
 
               var binding_path = ${
-                target
-                  ? 'require.resolve("./duckdb-native.node")'
-                  : `"${localPath}"`
+                development
+                  ? `"${localPath}"`
+                  : 'require.resolve("./duckdb-native.node")'
               };
 
               // dlopen is used because we need to specify the RTLD_GLOBAL flag to be able to resolve duckdb symbols
@@ -117,12 +117,11 @@ function makeDuckdbNoNodePreGypPlugin(target: string | undefined): Plugin {
   };
 }
 
-export async function doBuild(target?: string, dev?: boolean): Promise<void> {
-  const development = dev || target === undefined;
+export async function doBuild(development = false): Promise<void> {
   wipeBuildDirectory(buildDirectory);
   generateLicenseFile(development);
 
-  const config = commonCLIConfig(development, target);
+  const config = commonCLIConfig(development);
   config.entryPoints = ['./src/index.ts'];
   config.outfile = 'dist/cli.js';
 
@@ -166,7 +165,7 @@ if (args[1] && args[1].endsWith('npmBin')) {
   // built file in dist/, and also a post-install script
   // into dist that will run to fetch appropriate duckdb.node
   // for the platform/arch being installed into
-  doBuild(null, false);
+  doBuild();
   doPostInstallBuild();
   fs.writeFileSync(
     path.join(buildDirectory, 'index.js'),
@@ -175,6 +174,5 @@ if (args[1] && args[1].endsWith('npmBin')) {
 } else if (args[1] && args[1].endsWith('watch')) {
   doWatch(true);
 } else if (args[0].endsWith('build')) {
-  const target = args[1];
-  doBuild(target, false);
+  doBuild(true);
 }
