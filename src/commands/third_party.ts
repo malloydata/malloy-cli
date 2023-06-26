@@ -21,4 +21,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-export async function runMalloy(filePath: string, compileOnly = false) {}
+import path from 'path';
+import {out} from '../log';
+import fs from 'fs';
+
+export function showThirdPartyCommand(): void {
+  out(
+    fs.readFileSync(path.join(__dirname, 'third_party_notices.txt')).toString()
+  );
+}

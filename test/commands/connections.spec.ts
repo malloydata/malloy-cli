@@ -44,8 +44,21 @@ async function runWith(...testArgs): Promise<Command> {
 describe('commands', () => {
   describe('connections', () => {
     describe('test', () => {
-      it('tests a connection', async () => {
+      it('tests a BigQuery connection', async () => {
         await runWith('connections', 'test', 'x');
+      });
+
+      it('does not have a default BigQuery connection one is configured', async () => {
+        expect.assertions(1);
+        return runWith('connections', 'test', 'bigquery').catch(e =>
+          expect(e.message).toMatch(
+            'A connection named bigquery could not be found'
+          )
+        );
+      });
+
+      it('tests a DuckDB default connection', async () => {
+        await runWith('connections', 'test', 'duckdb');
       });
 
       it('fails test with a bad connection name', async () => {
