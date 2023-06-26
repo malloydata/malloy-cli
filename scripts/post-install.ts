@@ -31,8 +31,5 @@ if (duckDBBinaryName === undefined) {
   throw new Error(`No DuckDB binary for ${target} is available`);
 }
 fetchDuckDB(target).then(fileName => {
-  fs.copyFileSync(
-    fileName,
-    path.join(__dirname, '..', 'dist', 'duckdb-native.node')
-  );
+  fs.copyFileSync(fileName, path.join(__dirname, 'duckdb-native.node'));
 });

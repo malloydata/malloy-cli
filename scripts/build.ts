@@ -29,7 +29,7 @@ import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
 import {readPackageJson} from './utils/licenses';
 
-export const buildDirectory = 'dist/';
+let buildDirectory = 'dist/';
 
 export const commonCLIConfig = (development = false): BuildOptions => {
   return {
@@ -52,8 +52,6 @@ const errorHandler = (e: unknown) => {
 
 const generateLicenseFile = (development: boolean) => {
   const fullLicenseFilePath = path.join(
-    __dirname,
-    '..',
     buildDirectory,
     'third_party_notices.txt'
   );
@@ -124,7 +122,7 @@ export async function doBuild(development = false): Promise<void> {
 
   const config = commonCLIConfig(development);
   config.entryPoints = ['./src/index.ts'];
-  config.outfile = 'dist/cli.js';
+  config.outfile = path.join(buildDirectory, 'cli.js');
 
   await build(config).catch(errorHandler);
 }
@@ -132,7 +130,7 @@ export async function doBuild(development = false): Promise<void> {
 export async function doPostInstallBuild(development = false): Promise<void> {
   const config = commonCLIConfig(development);
   config.entryPoints = ['./scripts/post-install.ts'];
-  config.outfile = 'dist/post-install.js';
+  config.outfile = path.join(buildDirectory, 'post-install.js');
   await build(config).catch(errorHandler);
 }
 
@@ -162,6 +160,11 @@ export async function doWatch(development = false): Promise<void> {
 
 const args = process.argv.slice(1);
 if (args[1] && args[1].endsWith('npmBin')) {
+  // passing "test" as 2nd argument builds a test build for e2e tests
+  if (args[2] && args[2] === 'test') {
+    buildDirectory = path.join(__dirname, '..', 'test', '.build', 'npmBin');
+  }
+
   // this is run before publishing to NPM - places
   // built file in dist/, and also a post-install script
   // into dist that will run to fetch appropriate duckdb.node

@@ -21,19 +21,31 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/dist/',
-    '/pkg/',
-    '/test/ci-only/',
-  ],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testTimeout: 100000,
-  verbose: true,
-  testEnvironment: 'node',
-};
+import path from 'path';
+import {spawnSync} from 'child_process';
+import {readPackageJson} from '../../scripts/utils/licenses';
+
+describe('commands', () => {
+  describe('vesion', () => {
+    it('builds npmBin with proper version', () => {
+      const packageVersion = readPackageJson(
+        path.join(__dirname, '..', '..', 'package.json')
+      ).version;
+
+      const buildPath = path.join(
+        __dirname,
+        '..',
+        '.build',
+        'npmBin',
+        'index.js'
+      );
+
+      const result = spawnSync('node', [buildPath, '-V'], {
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
+
+      expect(result.stdout.trim()).toBe(packageVersion);
+    });
+  });
+});

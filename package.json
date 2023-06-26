@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -24,6 +24,8 @@
     "lint": "gts lint",
     "test": "NODE_ENV=test jest --runInBand",
     "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
+    "test-ci": "npm run build npmBin test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --config=jest-ci.config.js --runInBand",
+    "test-silent-ci": "npm run build npmBin test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --config=jest-ci.config.js --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
     "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
