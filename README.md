@@ -10,7 +10,7 @@ The folder contains a binary named `malloy`. Try running it in the terminal via 
 
 ### NPM
 
-If you have NPM installed, you can run the Malloy CLI with `npx malloy-cli`.
+If you have NPM installed, you can run the Malloy CLI with `npx malloy-cli {command}`, or install it globally with `npm install -g malloy-cli` and run it with `malloy-cli {command}`
 
 ## Setup
 
