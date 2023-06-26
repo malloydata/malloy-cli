@@ -28,7 +28,7 @@
     "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
-    "prepublishOnly": "ts-node scripts/build npmBin && npm version -git-tag-version=false patch",
+    "prepublishOnly": "npm version -git-tag-version=false patch && ts-node scripts/build npmBin",
     "postpack": "npm run build",
     "postinstall": "node -e \"try{require('./dist/post-install')} catch {}\"",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",

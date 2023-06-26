@@ -34,6 +34,7 @@ export interface NpmPackage {
     baseUrl?: string;
     url?: string;
   };
+  version?: string;
 }
 
 export function readPackageJson(path: string): NpmPackage {

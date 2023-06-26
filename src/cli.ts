@@ -73,7 +73,11 @@ export function createCLI(): Command {
 
   // global options
   cli
-    .version('0.0.1')
+    .version(
+      (<any>process).MALLOY_CLI_VERSION
+        ? (<any>process).MALLOY_CLI_VERSION
+        : 'development'
+    )
     .name('malloy')
     .addOption(
       new Option('-c, --config <file_path>', 'path to a config.json file').env(

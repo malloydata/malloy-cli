@@ -38,7 +38,8 @@ async function packageServer(
 ) {
   let target = `${platform}-${architecture}`;
 
-  await doBuild(target);
+  // TODO need to get version into this somehow
+  await doBuild(false);
 
   if (sign) {
     console.log('Signing not yet implemented');

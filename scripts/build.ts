@@ -27,6 +27,7 @@ import * as esbuild from 'esbuild';
 import * as path from 'path';
 import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
+import {readPackageJson} from './utils/licenses';
 
 export const buildDirectory = 'dist/';
 
@@ -167,9 +168,14 @@ if (args[1] && args[1].endsWith('npmBin')) {
   // for the platform/arch being installed into
   doBuild();
   doPostInstallBuild();
+
+  const version = readPackageJson(
+    path.join(__dirname, '..', 'package.json')
+  ).version;
+
   fs.writeFileSync(
     path.join(buildDirectory, 'index.js'),
-    "#!/usr/bin/env node\nrequire('./cli.js')"
+    `#!/usr/bin/env node\nprocess.MALLOY_CLI_VERSION="${version}";\nrequire('./cli.js')`
   );
 } else if (args[1] && args[1].endsWith('watch')) {
   doWatch(true);
