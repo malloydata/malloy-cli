@@ -20,3 +20,19 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+import {createCLI} from '../../src/cli';
+
+describe('Malloy', () => {
+  beforeAll(() => {
+    const cli = createCLI();
+    // call 'preAction' hooks
+    // so that things like logger, connectionManager are created
+    const preAction: [Function] = cli['_lifeCycleHooks']['preAction'];
+    preAction.forEach(action => action.call(cli));
+  });
+
+  it('runs Malloy, outputs results', () => {
+    // TODO
+  });
+});

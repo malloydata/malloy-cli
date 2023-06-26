@@ -21,4 +21,34 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-export async function runMalloy(filePath: string, compileOnly = false) {}
+import fs from 'fs';
+import {ModelMaterializer, Runtime} from '@malloydata/malloy';
+import url, {fileURLToPath as fileURLToPath} from 'node:url';
+import {connectionManager} from '../connections/connection_manager';
+
+export async function runMalloy(filePath: string, compileOnly = false) {
+  let modelMaterializer: ModelMaterializer;
+  const fileURL = url.pathToFileURL(filePath);
+
+  const malloyRuntime = new Runtime(
+    {
+      readURL: async (url: URL) => {
+        return fs.readFileSync(fileURLToPath(url), 'utf8');
+      },
+    },
+    connectionManager.getConnectionLookup(fileURL)
+  );
+
+  try {
+    if (!modelMaterializer) {
+      modelMaterializer = malloyRuntime.loadModel(fileURL);
+    } else {
+      modelMaterializer.extendModel(fileURL);
+    }
+
+    //const query = modelMaterializer.loadQuery(fileURL);
+    //const finalQuerySQL = await finalQuery.getSQL();
+  } catch (e) {
+    //TODO
+  }
+}

@@ -20,3 +20,25 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+import path from 'path';
+import {createCLI} from '../../src/cli';
+import {runMalloySQL} from '../../src/malloy/malloySQL';
+
+describe('MalloySQL', () => {
+  beforeAll(() => {
+    const cli = createCLI();
+    // call 'preAction' hooks
+    // so that things like logger, connectionManager are created
+    const preAction: [Function] = cli['_lifeCycleHooks']['preAction'];
+    preAction.forEach(action => action.call(cli));
+  });
+
+  it('runs MalloySQL, outputs results', () => {
+    runMalloySQL(
+      path.join(__dirname, '..', 'files', 'duckdb.malloysql'),
+      null,
+      false
+    );
+  });
+});
