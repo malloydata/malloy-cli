@@ -25,6 +25,9 @@ import path from 'path';
 import fs from 'fs';
 import {targetDuckDBMap, fetchDuckDB} from './utils/fetch-duckdb';
 
+// This is run after a user installs the CLI from npm, and allows us to download
+// a duckdb .node file that matches their target platform/arch
+
 const target = `${process.platform}-${process.arch}`;
 const duckDBBinaryName = targetDuckDBMap[target];
 if (duckDBBinaryName === undefined) {

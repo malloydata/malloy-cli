@@ -74,8 +74,10 @@ export function createCLI(): Command {
   // global options
   cli
     .version(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (<any>process).MALLOY_CLI_VERSION
-        ? (<any>process).MALLOY_CLI_VERSION
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (<any>process).MALLOY_CLI_VERSION
         : 'development'
     )
     .name('malloy')

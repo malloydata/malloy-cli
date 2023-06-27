@@ -22,26 +22,30 @@
  */
 
 import path from 'path';
-import {createCLI} from '../../src/cli';
-import {runMalloySQL} from '../../src/malloy/malloySQL';
-import {silenceOut} from '../../src/log';
+import fs from 'fs';
+import {defaultBuildDirctory, doBuild, doPostInstallBuild} from './build';
+import {readPackageJson} from './utils/licenses';
 
-describe('MalloySQL', () => {
-  beforeAll(() => {
-    const cli = createCLI();
-    // call 'preAction' hooks
-    // so that things like logger, connectionManager are created
-    const preAction: [Function] = cli['_lifeCycleHooks']['preAction'];
-    preAction.forEach(action => action.call(cli));
+const args = process.argv.slice(1);
 
-    silenceOut();
-  });
+// passing "test" as 1st argument builds a test build for e2e tests
+const buildDirectory =
+  args[1] && args[1] === 'test'
+    ? path.join(__dirname, '..', 'test', '.build', 'npmBin')
+    : defaultBuildDirctory;
 
-  it('runs MalloySQL, outputs results', () => {
-    runMalloySQL(
-      path.join(__dirname, '..', 'files', 'duckdb.malloysql'),
-      null,
-      false
-    );
-  });
-});
+// this is run before publishing to NPM - places
+// built file in dist/, and also a post-install script
+// into dist that will run to fetch appropriate duckdb.node
+// for the platform/arch being installed into
+doBuild(false, buildDirectory);
+doPostInstallBuild();
+
+const version = readPackageJson(
+  path.join(__dirname, '..', 'package.json')
+).version;
+
+fs.writeFileSync(
+  path.join(buildDirectory, 'index.js'),
+  `#!/usr/bin/env node\nprocess.MALLOY_CLI_VERSION="${version}";\nrequire('./cli.js')`
+);

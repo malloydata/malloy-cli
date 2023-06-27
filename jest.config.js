@@ -24,12 +24,7 @@
 module.exports = {
   moduleFileExtensions: ['js', 'ts'],
   testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/dist/',
-    '/pkg/',
-    '/test/ci-only/',
-  ],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/', '/test/e2e/'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
   },

@@ -27,8 +27,8 @@ import * as esbuild from 'esbuild';
 import * as path from 'path';
 import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
-import {readPackageJson} from './utils/licenses';
 
+export const defaultBuildDirctory = 'dist/';
 let buildDirectory = 'dist/';
 
 export const commonCLIConfig = (development = false): BuildOptions => {
@@ -116,7 +116,12 @@ function makeDuckdbNoNodePreGypPlugin(development = false): Plugin {
   };
 }
 
-export async function doBuild(development = false): Promise<void> {
+export async function doBuild(
+  development = false,
+  changeBuildDirectory?: string
+): Promise<void> {
+  if (changeBuildDirectory) buildDirectory = changeBuildDirectory;
+
   wipeBuildDirectory(buildDirectory);
   generateLicenseFile(development);
 
@@ -159,28 +164,7 @@ export async function doWatch(development = false): Promise<void> {
 }
 
 const args = process.argv.slice(1);
-if (args[1] && args[1].endsWith('npmBin')) {
-  // passing "test" as 2nd argument builds a test build for e2e tests
-  if (args[2] && args[2] === 'test') {
-    buildDirectory = path.join(__dirname, '..', 'test', '.build', 'npmBin');
-  }
-
-  // this is run before publishing to NPM - places
-  // built file in dist/, and also a post-install script
-  // into dist that will run to fetch appropriate duckdb.node
-  // for the platform/arch being installed into
-  doBuild();
-  doPostInstallBuild();
-
-  const version = readPackageJson(
-    path.join(__dirname, '..', 'package.json')
-  ).version;
-
-  fs.writeFileSync(
-    path.join(buildDirectory, 'index.js'),
-    `#!/usr/bin/env node\nprocess.MALLOY_CLI_VERSION="${version}";\nrequire('./cli.js')`
-  );
-} else if (args[1] && args[1].endsWith('watch')) {
+if (args[1] && args[1].endsWith('watch')) {
   doWatch(true);
 } else if (args[0].endsWith('build')) {
   doBuild(true);

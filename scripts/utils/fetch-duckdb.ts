@@ -38,14 +38,15 @@ export const targetDuckDBMap: Record<string, string> = {
   'win32-x64': `duckdb-v${DUCKDB_VERSION}-node-v93-win32-x64.node`,
 };
 
+export const duckdbPath = path.resolve(
+  path.join('third_party', 'github.com', 'duckdb', 'duckdb')
+);
+
 export const fetchDuckDB = async (target: string): Promise<string> => {
   const file = targetDuckDBMap[target];
   const url = `https://duckdb-node.s3.amazonaws.com/duckdb-v${DUCKDB_VERSION}-node-v93-${target}.tar.gz`;
-  const directoryPath = path.resolve(
-    path.join('third_party', 'github.com', 'duckdb', 'duckdb')
-  );
-  fs.mkdirSync(directoryPath, {recursive: true});
-  const filePath = path.join(directoryPath, file);
+  fs.mkdirSync(duckdbPath, {recursive: true});
+  const filePath = path.join(duckdbPath, file);
 
   await fetchNode(filePath, url);
 
