@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -22,13 +22,16 @@
   },
   "scripts": {
     "lint": "gts lint",
-    "test": "NODE_ENV=test jest --runInBand",
-    "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
+    "test": "NODE_ENV=test jest --projects jest.config.js --runInBand",
+    "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest  --projects jest.config.js --runInBand --reporters jest-silent-reporter",
+    "test-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
+    "test-silent-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --projects=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
     "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
-    "prepublishOnly": "ts-node scripts/build npmBin && npm version -git-tag-version=false patch",
+    "package-npm": "ts-node scripts/package-npm",
+    "prepublishOnly": "npm version -git-tag-version=false patch && ts-node scripts/build npmBin",
     "postpack": "npm run build",
     "postinstall": "node -e \"try{require('./dist/post-install')} catch {}\"",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
@@ -46,6 +49,12 @@
     "url": "https://github.com/malloydata/malloy-cli/issues"
   },
   "homepage": "https://github.com/malloydata/malloy-cli#readme",
+  "jest": {
+    "projects": [
+      "<rootDir>/jest.config.js",
+      "<rootDir>/jest-e2e.config.js"
+    ]
+  },
   "devDependencies": {
     "@malloydata/db-bigquery": "0.0.47",
     "@malloydata/db-duckdb": "0.0.47",

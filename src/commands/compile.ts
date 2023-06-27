@@ -23,15 +23,18 @@
 import path from 'path';
 import {runMalloySQL} from '../malloy/malloySQL';
 import {exitWithError, loadFile} from '../util';
+import {runMalloy} from '../malloy/malloy';
 
 export function compileCommand(source: string): void {
   const malloySQL = loadFile(source);
   const extension = path.extname(source).toLowerCase();
 
+  // TODO output
+
   if (extension === '.malloysql') {
     runMalloySQL(malloySQL, null, true);
   } else if (extension === '.malloy') {
-    // TODO
+    runMalloy(source, true);
   } else {
     if (extension) exitWithError(`Unable to run file of type: ${extension}`);
     exitWithError(

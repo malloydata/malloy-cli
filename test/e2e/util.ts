@@ -21,34 +21,16 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import fs from 'fs';
-import {ModelMaterializer, Runtime} from '@malloydata/malloy';
-import url, {fileURLToPath as fileURLToPath} from 'node:url';
-import {connectionManager} from '../connections/connection_manager';
+import {spawnSync} from 'child_process';
+import path from 'path';
 
-export async function runMalloy(filePath: string, compileOnly = false) {
-  let modelMaterializer: ModelMaterializer;
-  const fileURL = url.pathToFileURL(filePath);
+export function withNpmCli(...args: string[]): string {
+  const buildPath = path.join(__dirname, '..', '.build', 'npmBin', 'index.js');
 
-  const malloyRuntime = new Runtime(
-    {
-      readURL: async (url: URL) => {
-        return fs.readFileSync(fileURLToPath(url), 'utf8');
-      },
-    },
-    connectionManager.getConnectionLookup(fileURL)
-  );
+  const result = spawnSync('node', [buildPath, ...args], {
+    stdio: 'pipe',
+    encoding: 'utf-8',
+  });
 
-  try {
-    if (!modelMaterializer) {
-      modelMaterializer = malloyRuntime.loadModel(fileURL);
-    } else {
-      modelMaterializer.extendModel(fileURL);
-    }
-
-    //const query = modelMaterializer.loadQuery(fileURL);
-    //const finalQuerySQL = await finalQuery.getSQL();
-  } catch (e) {
-    //TODO
-  }
+  return result.stdout.trim();
 }

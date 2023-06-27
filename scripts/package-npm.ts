@@ -21,34 +21,31 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import path from 'path';
 import fs from 'fs';
-import {ModelMaterializer, Runtime} from '@malloydata/malloy';
-import url, {fileURLToPath as fileURLToPath} from 'node:url';
-import {connectionManager} from '../connections/connection_manager';
+import {defaultBuildDirctory, doBuild, doPostInstallBuild} from './build';
+import {readPackageJson} from './utils/licenses';
 
-export async function runMalloy(filePath: string, compileOnly = false) {
-  let modelMaterializer: ModelMaterializer;
-  const fileURL = url.pathToFileURL(filePath);
+const args = process.argv.slice(1);
 
-  const malloyRuntime = new Runtime(
-    {
-      readURL: async (url: URL) => {
-        return fs.readFileSync(fileURLToPath(url), 'utf8');
-      },
-    },
-    connectionManager.getConnectionLookup(fileURL)
-  );
+// passing "test" as 1st argument builds a test build for e2e tests
+const buildDirectory =
+  args[1] && args[1] === 'test'
+    ? path.join(__dirname, '..', 'test', '.build', 'npmBin')
+    : defaultBuildDirctory;
 
-  try {
-    if (!modelMaterializer) {
-      modelMaterializer = malloyRuntime.loadModel(fileURL);
-    } else {
-      modelMaterializer.extendModel(fileURL);
-    }
+// this is run before publishing to NPM - places
+// built file in dist/, and also a post-install script
+// into dist that will run to fetch appropriate duckdb.node
+// for the platform/arch being installed into
+doBuild(false, buildDirectory);
+doPostInstallBuild();
 
-    //const query = modelMaterializer.loadQuery(fileURL);
-    //const finalQuerySQL = await finalQuery.getSQL();
-  } catch (e) {
-    //TODO
-  }
-}
+const version = readPackageJson(
+  path.join(__dirname, '..', 'package.json')
+).version;
+
+fs.writeFileSync(
+  path.join(buildDirectory, 'index.js'),
+  `#!/usr/bin/env node\nprocess.MALLOY_CLI_VERSION="${version}";\nrequire('./cli.js')`
+);

@@ -24,7 +24,7 @@
 import {Command, Option} from 'commander';
 import {RunOutputType, runCommand} from './commands/run';
 import {loadConfig} from './config';
-import {configShowCommand} from './commands/config';
+import {configShowCommand as showConfigCommand} from './commands/config';
 import {
   createBigQueryConnectionCommand,
   createPostgresConnectionCommand,
@@ -35,6 +35,7 @@ import {
 } from './commands/connections';
 import {createBasicLogger, silenceOut} from './log';
 import {loadConnections} from './connections/connection_manager';
+import {showThirdPartyCommand} from './commands/third_party';
 
 export function createCLI(): Command {
   const cli = new Command();
@@ -72,7 +73,13 @@ export function createCLI(): Command {
 
   // global options
   cli
-    .version('0.0.1')
+    .version(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (<any>process).MALLOY_CLI_VERSION
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (<any>process).MALLOY_CLI_VERSION
+        : 'development'
+    )
     .name('malloy')
     .addOption(
       new Option('-c, --config <file_path>', 'path to a config.json file').env(
@@ -213,7 +220,12 @@ run file.malloysql -i 2 -o results
   cli
     .command('config')
     .description('output the current config')
-    .action(configShowCommand);
+    .action(showConfigCommand);
+
+  cli
+    .command('third-party')
+    .description('output third party license information')
+    .action(showThirdPartyCommand);
 
   return cli;
 }

@@ -24,11 +24,9 @@
 module.exports = {
   moduleFileExtensions: ['js', 'ts'],
   testMatch: ['**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/', '/test/e2e/'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
   },
-  testTimeout: 100000,
-  verbose: true,
   testEnvironment: 'node',
 };

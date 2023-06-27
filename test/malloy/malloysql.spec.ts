@@ -21,34 +21,27 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import fs from 'fs';
-import {ModelMaterializer, Runtime} from '@malloydata/malloy';
-import url, {fileURLToPath as fileURLToPath} from 'node:url';
-import {connectionManager} from '../connections/connection_manager';
+import path from 'path';
+import {createCLI} from '../../src/cli';
+import {runMalloySQL} from '../../src/malloy/malloySQL';
+import {silenceOut} from '../../src/log';
 
-export async function runMalloy(filePath: string, compileOnly = false) {
-  let modelMaterializer: ModelMaterializer;
-  const fileURL = url.pathToFileURL(filePath);
+describe('MalloySQL', () => {
+  beforeAll(() => {
+    const cli = createCLI();
+    // call 'preAction' hooks
+    // so that things like logger, connectionManager are created
+    const preAction: [Function] = cli['_lifeCycleHooks']['preAction'];
+    preAction.forEach(action => action.call(cli));
 
-  const malloyRuntime = new Runtime(
-    {
-      readURL: async (url: URL) => {
-        return fs.readFileSync(fileURLToPath(url), 'utf8');
-      },
-    },
-    connectionManager.getConnectionLookup(fileURL)
-  );
+    silenceOut();
+  });
 
-  try {
-    if (!modelMaterializer) {
-      modelMaterializer = malloyRuntime.loadModel(fileURL);
-    } else {
-      modelMaterializer.extendModel(fileURL);
-    }
-
-    //const query = modelMaterializer.loadQuery(fileURL);
-    //const finalQuerySQL = await finalQuery.getSQL();
-  } catch (e) {
-    //TODO
-  }
-}
+  it('runs MalloySQL, outputs results', () => {
+    runMalloySQL(
+      path.join(__dirname, '..', 'files', 'duckdb.malloysql'),
+      null,
+      false
+    );
+  });
+});

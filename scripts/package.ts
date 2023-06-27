@@ -24,12 +24,14 @@
 /* eslint-disable no-console */
 import {doBuild} from './build';
 import * as pkg from 'pkg';
+import path from 'path';
 import * as fs from 'fs';
 import {Command} from 'commander';
+import {duckdbPath, targetDuckDBMap} from './utils/fetch-duckdb';
 
 const nodeTarget = 'node16';
 
-async function packageServer(
+async function packageCLI(
   platform: string,
   architecture: string,
   sign = true,
@@ -38,11 +40,22 @@ async function packageServer(
 ) {
   let target = `${platform}-${architecture}`;
 
-  await doBuild(target);
+  // TODO need to get version into this somehow
+  await doBuild(false);
 
   if (sign) {
     console.log('Signing not yet implemented');
   }
+
+  if (!targetDuckDBMap[target]) {
+    throw new Error(`No DuckDb defined for target: ${target}`);
+  }
+
+  fs.copyFileSync(
+    path.resolve(__dirname, `${duckdbPath}/${targetDuckDBMap[target]}`),
+    path.resolve(__dirname, '../dist/duckdb-native.node'),
+    fs.constants.COPYFILE_FICLONE
+  );
 
   if (platform === 'darwin') {
     target = `macos-${architecture}`;
@@ -144,7 +157,7 @@ interface PackageTarget {
     console.log(
       `Packaging Malloy CLI for ${target.platform}-${target.architecture}`
     );
-    await packageServer(
+    await packageCLI(
       target.platform,
       target.architecture,
       options.sign,

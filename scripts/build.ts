@@ -28,7 +28,8 @@ import * as path from 'path';
 import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
 
-export const buildDirectory = 'dist/';
+export const defaultBuildDirctory = 'dist/';
+let buildDirectory = 'dist/';
 
 export const commonCLIConfig = (development = false): BuildOptions => {
   return {
@@ -51,8 +52,6 @@ const errorHandler = (e: unknown) => {
 
 const generateLicenseFile = (development: boolean) => {
   const fullLicenseFilePath = path.join(
-    __dirname,
-    '..',
     buildDirectory,
     'third_party_notices.txt'
   );
@@ -117,13 +116,18 @@ function makeDuckdbNoNodePreGypPlugin(development = false): Plugin {
   };
 }
 
-export async function doBuild(development = false): Promise<void> {
+export async function doBuild(
+  development = false,
+  changeBuildDirectory?: string
+): Promise<void> {
+  if (changeBuildDirectory) buildDirectory = changeBuildDirectory;
+
   wipeBuildDirectory(buildDirectory);
   generateLicenseFile(development);
 
   const config = commonCLIConfig(development);
   config.entryPoints = ['./src/index.ts'];
-  config.outfile = 'dist/cli.js';
+  config.outfile = path.join(buildDirectory, 'cli.js');
 
   await build(config).catch(errorHandler);
 }
@@ -131,7 +135,7 @@ export async function doBuild(development = false): Promise<void> {
 export async function doPostInstallBuild(development = false): Promise<void> {
   const config = commonCLIConfig(development);
   config.entryPoints = ['./scripts/post-install.ts'];
-  config.outfile = 'dist/post-install.js';
+  config.outfile = path.join(buildDirectory, 'post-install.js');
   await build(config).catch(errorHandler);
 }
 
@@ -160,18 +164,7 @@ export async function doWatch(development = false): Promise<void> {
 }
 
 const args = process.argv.slice(1);
-if (args[1] && args[1].endsWith('npmBin')) {
-  // this is run before publishing to NPM - places
-  // built file in dist/, and also a post-install script
-  // into dist that will run to fetch appropriate duckdb.node
-  // for the platform/arch being installed into
-  doBuild();
-  doPostInstallBuild();
-  fs.writeFileSync(
-    path.join(buildDirectory, 'index.js'),
-    "#!/usr/bin/env node\nrequire('./cli.js')"
-  );
-} else if (args[1] && args[1].endsWith('watch')) {
+if (args[1] && args[1].endsWith('watch')) {
   doWatch(true);
 } else if (args[0].endsWith('build')) {
   doBuild(true);

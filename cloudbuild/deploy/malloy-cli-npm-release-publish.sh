@@ -16,7 +16,7 @@ nix-shell --pure --keep NPM_TOKEN --keep PACKAGES --keep BRANCH_NAME --command "
   git config --global user.name "Malloy CI Bot"
   # Build
   npm --no-audit --no-fund ci --loglevel error
-  npm run lint && npm run build && npm run test-silent
+  npm run lint && npm run build && npm run test-silent-e2e
   # Publish
   echo Publishing malloy-cli
   VERSION=\$(jq -r .version ./lerna.json)

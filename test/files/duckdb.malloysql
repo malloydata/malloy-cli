@@ -1,0 +1,2 @@
+>>>sql connection:duckdb
+SELECT 1;

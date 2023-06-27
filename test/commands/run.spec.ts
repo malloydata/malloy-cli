@@ -43,10 +43,17 @@ async function runWith(...testArgs): Promise<Command> {
 
 describe('commands', () => {
   describe('run', () => {
-    it('runs malloysql', async () => {
+    it('runs BigQuery malloysql', async () => {
       await runWith(
         'run',
-        path.resolve(path.join(__dirname, '..', 'files', 'simple.malloysql'))
+        path.resolve(path.join(__dirname, '..', 'files', 'bigquery.malloysql'))
+      );
+    });
+
+    it('runs DuckDB malloysql', async () => {
+      await runWith(
+        'run',
+        path.resolve(path.join(__dirname, '..', 'files', 'duckdb.malloysql'))
       );
     });
 

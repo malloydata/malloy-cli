@@ -25,14 +25,14 @@ import path from 'path';
 import fs from 'fs';
 import {targetDuckDBMap, fetchDuckDB} from './utils/fetch-duckdb';
 
+// This is run after a user installs the CLI from npm, and allows us to download
+// a duckdb .node file that matches their target platform/arch
+
 const target = `${process.platform}-${process.arch}`;
 const duckDBBinaryName = targetDuckDBMap[target];
 if (duckDBBinaryName === undefined) {
   throw new Error(`No DuckDB binary for ${target} is available`);
 }
 fetchDuckDB(target).then(fileName => {
-  fs.copyFileSync(
-    fileName,
-    path.join(__dirname, '..', 'dist', 'duckdb-native.node')
-  );
+  fs.copyFileSync(fileName, path.join(__dirname, 'duckdb-native.node'));
 });

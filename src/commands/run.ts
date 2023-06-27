@@ -24,6 +24,7 @@
 import path from 'path';
 import {runMalloySQL} from '../malloy/malloySQL';
 import {exitWithError} from '../util';
+import {runMalloy} from '../malloy/malloy';
 
 export enum RunOutputType {
   Malloy = 'malloy',
@@ -50,7 +51,7 @@ export async function runCommand(
 
     await runMalloySQL(source, options.index, false, options.output);
   } else if (extension === '.malloy') {
-    // TODO
+    await runMalloy(source);
   } else {
     if (extension) exitWithError(`Unable to run file of type: ${extension}`);
     exitWithError(
