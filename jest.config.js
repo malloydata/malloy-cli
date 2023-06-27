@@ -28,7 +28,5 @@ module.exports = {
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
   },
-  testTimeout: 100000,
-  verbose: true,
   testEnvironment: 'node',
 };

@@ -21,12 +21,16 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-module.exports = {
-  moduleFileExtensions: ['js', 'ts'],
-  testMatch: ['<rootDir>/test/e2e/**/?(*.)spec.(ts|js)?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/pkg/'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {tsconfig: '<rootDir>/tsconfig.json'}],
-  },
-  testEnvironment: 'node',
-};
+import {spawnSync} from 'child_process';
+import path from 'path';
+
+export function withNpmCli(...args: string[]): string {
+  const buildPath = path.join(__dirname, '..', '.build', 'npmBin', 'index.js');
+
+  const result = spawnSync('node', [buildPath, ...args], {
+    stdio: 'pipe',
+    encoding: 'utf-8',
+  });
+
+  return result.stdout.trim();
+}

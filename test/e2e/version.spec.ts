@@ -22,8 +22,8 @@
  */
 
 import path from 'path';
-import {spawnSync} from 'child_process';
 import {readPackageJson} from '../../scripts/utils/licenses';
+import {withNpmCli} from './util';
 
 describe('commands', () => {
   describe('vesion', () => {
@@ -32,20 +32,7 @@ describe('commands', () => {
         path.join(__dirname, '..', '..', 'package.json')
       ).version;
 
-      const buildPath = path.join(
-        __dirname,
-        '..',
-        '.build',
-        'npmBin',
-        'index.js'
-      );
-
-      const result = spawnSync('node', [buildPath, '-V'], {
-        stdio: 'pipe',
-        encoding: 'utf-8',
-      });
-
-      expect(result.stdout.trim()).toBe(packageVersion);
+      expect(withNpmCli('-V')).toBe(packageVersion);
     });
   });
 });

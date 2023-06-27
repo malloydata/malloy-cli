@@ -22,10 +22,10 @@
   },
   "scripts": {
     "lint": "gts lint",
-    "test": "NODE_ENV=test jest --runInBand",
-    "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --runInBand --reporters jest-silent-reporter",
-    "test-e2e": "npm run package-npm > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --config=jest-e2e.config.js --runInBand",
-    "test-silent-e2e": "npm run package-npm > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --config=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
+    "test": "NODE_ENV=test jest --projects jest.config.js --runInBand",
+    "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest  --projects jest.config.js --runInBand --reporters jest-silent-reporter",
+    "test-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
+    "test-silent-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --projects=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
     "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
@@ -49,6 +49,12 @@
     "url": "https://github.com/malloydata/malloy-cli/issues"
   },
   "homepage": "https://github.com/malloydata/malloy-cli#readme",
+  "jest": {
+    "projects": [
+      "<rootDir>/jest.config.js",
+      "<rootDir>/jest-e2e.config.js"
+    ]
+  },
   "devDependencies": {
     "@malloydata/db-bigquery": "0.0.47",
     "@malloydata/db-duckdb": "0.0.47",
