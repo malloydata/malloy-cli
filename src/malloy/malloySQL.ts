@@ -163,7 +163,7 @@ export async function runMalloySQL(
 
             if (compileOnly) {
               resultsLog.logSQL('Compiled SQL:');
-              resultsLog.logSQL(finalQuerySQL);
+              resultsLog.logSQL(finalQuerySQL.trim());
             } else {
               resultsLog.logTasks('Running Malloy');
 
@@ -202,13 +202,12 @@ export async function runMalloySQL(
         }
 
         resultsLog.logSQL('Compiled SQL:');
-        resultsLog.logSQL(compiledStatement);
-
-        json[`statement_${i}`]['sql'] = compiledStatement.trim();
+        resultsLog.logSQL(compiledStatement.trim());
 
         if (compileOnly) {
-          json[`statement_${i}`] = compiledStatement;
+          json[`statement_${i}`] = compiledStatement.trim();
         } else {
+          json[`statement_${i}`]['sql'] = compiledStatement.trim();
           try {
             const connection = await connectionLookup.lookupConnection(
               statement.config.connection
