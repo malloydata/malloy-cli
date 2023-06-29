@@ -22,7 +22,7 @@
  */
 
 import {Command, Option} from 'commander';
-import {RunOutputType, runCommand} from './commands/run';
+import {FormatType, StandardOutputType, runCommand} from './commands/run';
 import {loadConfig} from './config';
 import {configShowCommand as showConfigCommand} from './commands/config';
 import {
@@ -120,6 +120,9 @@ Examples:
 Run a MalloySQL file and output the malloy, the compiled SQL, and results:
 run file.malloysql -o malloy compiled-sql results
 
+Run a MalloySQL file and output each statement as SQL:
+run file.malloysql -f json
+
 Run the second MalloySQL statement in a file and output the results:
 run file.malloysql -i 2 -o results
   `;
@@ -141,9 +144,17 @@ run file.malloysql -i 2 -o results
     )
     .addOption(
       new Option(
-        '-o, --output <options...>',
-        'determine what to output to stdout (more than one accepted)'
-      ).choices(Object.values(RunOutputType))
+        '-o, --outputs <options...>',
+        'determine what to output to stdout (more than one accepted) if format is stdout'
+      )
+        .choices(Object.values(StandardOutputType))
+        .implies({format: 'stdout'})
+    )
+    .addOption(
+      new Option(
+        '-f, --format <options>',
+        'output format (json or standard)'
+      ).choices(Object.values(FormatType))
     )
     .addHelpText('after', afterHelp)
     .action(runCommand);

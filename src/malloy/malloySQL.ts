@@ -27,8 +27,8 @@ import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {exitWithError, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
-import {out, logger, outMalloy, outSQL, outTable} from '../log';
-import {RunOutputType} from '../commands/run';
+import {FormatType, StandardOutputType} from '../commands/run';
+import {getResultsLogger as getFilteredResultsLogger} from './util';
 
 // options:
 // compileOnly
@@ -68,20 +68,29 @@ export async function runMalloySQL(
   filePath: string,
   statementIndex = null,
   compileOnly = false,
-  output: RunOutputType[] = []
+  format: FormatType,
+  output: StandardOutputType[] = []
 ) {
   const contents = loadFile(filePath);
-
-  const all = output.includes(RunOutputType.All);
-  const outputMalloy = all ? true : output.includes(RunOutputType.Malloy);
-  const outputSQL = all ? true : output.includes(RunOutputType.CompiledSQL);
-  const outputResults = all ? true : output.includes(RunOutputType.Results);
+  const json = {};
+  const resultsLog = getFilteredResultsLogger(
+    format === FormatType.JSON
+      ? 'json'
+      : output.includes(StandardOutputType.All)
+      ? [
+          StandardOutputType.Malloy,
+          StandardOutputType.CompiledSQL,
+          StandardOutputType.Results,
+          StandardOutputType.Tasks,
+        ]
+      : output
+  );
 
   if (statementIndex) {
-    logger.info(
+    resultsLog.logTasks(
       `Running malloysql query from ${filePath} at statement index: ${statementIndex}`
     );
-  } else logger.info(`Running malloysql file: ${filePath}`);
+  } else resultsLog.logTasks(`Running malloysql file: ${filePath}`);
 
   let modelMaterializer: ModelMaterializer;
 
@@ -119,15 +128,14 @@ export async function runMalloySQL(
         statementIndex !== null &&
         statementIndex !== i
       ) {
-        logger.info(`Skipping statment: ${i}`);
+        resultsLog.logTasks(`Skipping statment: ${i}`);
         continue;
       }
 
       let compiledStatement = statement.text;
       const connectionLookup = connectionManager.getConnectionLookup(fileURL);
 
-      out(`Running statment: ${i + 1}`);
-      out('');
+      resultsLog.logTasks(`Running statment: ${i + 1}`);
 
       if (statement.type === MalloySQLStatementType.MALLOY) {
         virturlURIFileHandler.setVirtualFile(fileURL, statement.text);
@@ -141,10 +149,8 @@ export async function runMalloySQL(
 
           const _model = modelMaterializer.getModel();
 
-          if (outputMalloy) {
-            out('Compiling Malloy:');
-            outMalloy(statement.text);
-          }
+          resultsLog.logMalloy('Compiling Malloy:');
+          resultsLog.logMalloy(statement.text);
 
           // the only way to know if there's a query in this statement is to try
           // to run query by index and catch if it fails.
@@ -154,19 +160,20 @@ export async function runMalloySQL(
             const finalQuerySQL = await finalQuery.getSQL();
 
             if (compileOnly) {
-              if (outputSQL) {
-                out('Compiled SQL:');
-                outSQL(finalQuerySQL);
+              if (format === FormatType.JSON && finalQuerySQL) {
+                format[`statement_${i}`] = finalQuerySQL;
               }
+
+              resultsLog.logSQL('Compiled SQL:');
+              resultsLog.logSQL(finalQuerySQL);
             } else {
-              out('Running Malloy');
+              resultsLog.logTasks('Running Malloy');
 
               const results = await finalQuery.run();
 
-              if (results && outputResults) {
-                out('Results:');
+              if (results) {
+                resultsLog.logResults('Results:');
                 // TODO console.table?
-                //cliOut(results.data);
               }
             }
           } catch (e) {
@@ -178,10 +185,8 @@ export async function runMalloySQL(
       } else if (statement.type === MalloySQLStatementType.SQL) {
         for (const malloyQuery of statement.embeddedMalloyQueries) {
           try {
-            if (outputMalloy) {
-              out('Compiling Malloy:');
-              outMalloy(malloyQuery.query);
-            }
+            resultsLog.logMalloy('Compiling Malloy:');
+            resultsLog.logMalloy(malloyQuery.query);
 
             // TODO assumes modelMaterializer exists, because >>>malloy always happens before >>>sql with embedded malloy
             const runnable = modelMaterializer.loadQuery(
@@ -198,28 +203,31 @@ export async function runMalloySQL(
           }
         }
 
-        if (outputSQL) {
-          out('Compiled SQL:');
-          outSQL(compiledStatement);
-        }
+        resultsLog.logSQL('Compiled SQL:');
+        resultsLog.logSQL(compiledStatement);
 
-        if (!compileOnly) {
+        if (compileOnly) {
+          json[`statement_${i}`] = compiledStatement;
+        } else {
           try {
             const connection = await connectionLookup.lookupConnection(
               statement.config.connection
             );
 
-            logger.debug(`Executing SQL: ${compiledStatement}`);
+            resultsLog.logTasks(`Executing SQL: ${compiledStatement}`);
 
             const sqlResults = await connection.runSQL(compiledStatement);
 
-            if (sqlResults && outputResults) {
-              out('Results:');
+            if (sqlResults) {
+              resultsLog.logTasks('Results:');
 
               if (sqlResults.rows.length === 0) {
-                out('Statement successfully completed with no results');
+                resultsLog.logResults(
+                  'Statement successfully completed with no results'
+                );
               } else {
-                outTable(sqlResults.rows);
+                // TODO
+                // resultsLog.logResults(sqlResults.rows);
               }
             }
           } catch (e) {
@@ -232,4 +240,6 @@ export async function runMalloySQL(
   } catch (e) {
     exitWithError(e.message);
   }
+
+  resultsLog.logJSON(JSON.stringify(json));
 }

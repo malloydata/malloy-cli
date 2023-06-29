@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
@@ -75,6 +75,7 @@
     "gts": "^3.1.1",
     "jest": "^29.3.1",
     "jest-silent-reporter": "^0.5.0",
+    "logform": "^2.5.1",
     "node-fetch": "^3.3.1",
     "pkg": "^5.8.1",
     "tar-stream": "^3.1.4",

@@ -26,11 +26,17 @@ import {runMalloySQL} from '../malloy/malloySQL';
 import {exitWithError} from '../util';
 import {runMalloy} from '../malloy/malloy';
 
-export enum RunOutputType {
+export enum StandardOutputType {
   Malloy = 'malloy',
   CompiledSQL = 'compiled-sql',
   Results = 'results',
+  Tasks = 'tasks',
   All = 'all',
+}
+
+export enum FormatType {
+  JSON = 'json',
+  STANDARD = 'standard',
 }
 
 export async function runCommand(
@@ -43,13 +49,14 @@ export async function runCommand(
   if (options.index) {
     if (options.index < 1) exitWithError('Index must be greater than 0');
   }
+  const format = options.format;
 
   if (extension === '.malloysql') {
     if (options.queryName) {
       exitWithError('--query-name and .malloysql are not compatible');
     }
 
-    await runMalloySQL(source, options.index, false, options.output);
+    await runMalloySQL(source, options.index, false, format, options.outputs);
   } else if (extension === '.malloy') {
     await runMalloy(source);
   } else {
