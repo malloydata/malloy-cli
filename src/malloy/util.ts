@@ -22,9 +22,53 @@
  */
 
 import {transports, format, createLogger as createWinstonLogger} from 'winston';
-import {StandardOutputType} from '../commands/run';
 import {TransformFunction} from 'logform';
 import {out as cliLogger, silent} from '../log';
+import path from 'path';
+import {runMalloySQL} from '../malloy/malloySQL';
+import {exitWithError} from '../util';
+import {runMalloy} from '../malloy/malloy';
+
+export enum StandardOutputType {
+  Malloy = 'malloy',
+  CompiledSQL = 'compiled-sql',
+  Results = 'results',
+  Tasks = 'tasks',
+  All = 'all',
+}
+
+export async function runOrCompile(
+  source: string,
+  options,
+  compileOnly = false
+): Promise<void> {
+  const extension = path.extname(source).toLowerCase();
+
+  if (options.index) {
+    if (options.index < 1) exitWithError('Index must be greater than 0');
+  }
+
+  if (extension === '.malloysql') {
+    if (options.queryName) {
+      exitWithError('--query-name and .malloysql are not compatible');
+    }
+
+    await runMalloySQL(
+      source,
+      options.index,
+      compileOnly,
+      options.json,
+      options.outputs
+    );
+  } else if (extension === '.malloy') {
+    await runMalloy(source);
+  } else {
+    if (extension) exitWithError(`Unable to run file of type: ${extension}`);
+    exitWithError(
+      'Unable to determine file type - .malloy or .malloysql filetype required'
+    );
+  }
+}
 
 export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
   const sends = outputs;

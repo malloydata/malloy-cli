@@ -22,7 +22,7 @@
  */
 
 import {Command, Option} from 'commander';
-import {StandardOutputType, runCommand} from './commands/run';
+import {runCommand} from './commands/run';
 import {loadConfig} from './config';
 import {configShowCommand as showConfigCommand} from './commands/config';
 import {
@@ -36,6 +36,7 @@ import {
 import {createBasicLogger, silenceOut} from './log';
 import {loadConnections} from './connections/connection_manager';
 import {showThirdPartyCommand} from './commands/third_party';
+import {StandardOutputType} from './malloy/util';
 
 export function createCLI(): Command {
   const cli = new Command();

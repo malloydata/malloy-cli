@@ -27,8 +27,10 @@ import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {exitWithError, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
-import {StandardOutputType} from '../commands/run';
-import {getResultsLogger as getFilteredResultsLogger} from './util';
+import {
+  StandardOutputType,
+  getResultsLogger as getFilteredResultsLogger,
+} from './util';
 
 // options:
 // abortOnExecutionError
