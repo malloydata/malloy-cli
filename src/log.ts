@@ -30,6 +30,8 @@ import {
 import chalk from 'chalk';
 
 let logger: Logger;
+let silent = false;
+export {silent};
 
 // CLI output is independent of logger
 const cliOutputLogger: Logger = createWinstonLogger({
@@ -45,18 +47,7 @@ const cliOutputLogger: Logger = createWinstonLogger({
 
 export function silenceOut(): void {
   cliOutputLogger.silent = true;
-}
-
-export function outSQL(message: string): void {
-  out(chalk.cyan(message));
-}
-export function outMalloy(message: string): void {
-  out(chalk.blueBright(message));
-}
-export function outTable(rows: any[]): void {
-  // TODO
-  //cliOut(chalk.cyan(message));
-  console.table(rows);
+  silent = true;
 }
 
 export function out(message: string): void {

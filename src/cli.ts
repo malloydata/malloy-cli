@@ -22,7 +22,7 @@
  */
 
 import {Command, Option} from 'commander';
-import {FormatType, StandardOutputType, runCommand} from './commands/run';
+import {StandardOutputType, runCommand} from './commands/run';
 import {loadConfig} from './config';
 import {configShowCommand as showConfigCommand} from './commands/config';
 import {
@@ -145,17 +145,12 @@ run file.malloysql -i 2 -o results
     .addOption(
       new Option(
         '-o, --outputs <options...>',
-        'determine what to output to stdout (more than one accepted) if format is stdout'
+        'determine what to output to stdout (more than one accepted)'
       )
         .choices(Object.values(StandardOutputType))
-        .implies({format: 'stdout'})
+        .conflicts('json')
     )
-    .addOption(
-      new Option(
-        '-f, --format <options>',
-        'output format (json or standard)'
-      ).choices(Object.values(FormatType))
-    )
+    .addOption(new Option('-j, --json', 'output json').conflicts('outputs'))
     .addHelpText('after', afterHelp)
     .action(runCommand);
 

@@ -27,11 +27,10 @@ import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {exitWithError, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
-import {FormatType, StandardOutputType} from '../commands/run';
+import {StandardOutputType} from '../commands/run';
 import {getResultsLogger as getFilteredResultsLogger} from './util';
 
 // options:
-// compileOnly
 // abortOnExecutionError
 // silent
 // truncateResults
@@ -68,13 +67,13 @@ export async function runMalloySQL(
   filePath: string,
   statementIndex = null,
   compileOnly = false,
-  format: FormatType,
+  outputJson = false,
   output: StandardOutputType[] = []
 ) {
   const contents = loadFile(filePath);
   const json = {};
   const resultsLog = getFilteredResultsLogger(
-    format === FormatType.JSON
+    outputJson
       ? 'json'
       : output.includes(StandardOutputType.All)
       ? [
@@ -120,6 +119,7 @@ export async function runMalloySQL(
 
     for (let i = 0; i < statements.length; i++) {
       const statement = statements[i];
+      json[`statement_${i}`] = {};
 
       // don't evaluate SQL statements if statmentIndex passed unless we're on
       // the exact index
@@ -160,10 +160,6 @@ export async function runMalloySQL(
             const finalQuerySQL = await finalQuery.getSQL();
 
             if (compileOnly) {
-              if (format === FormatType.JSON && finalQuerySQL) {
-                format[`statement_${i}`] = finalQuerySQL;
-              }
-
               resultsLog.logSQL('Compiled SQL:');
               resultsLog.logSQL(finalQuerySQL);
             } else {
@@ -206,6 +202,8 @@ export async function runMalloySQL(
         resultsLog.logSQL('Compiled SQL:');
         resultsLog.logSQL(compiledStatement);
 
+        json[`statement_${i}`]['sql'] = compiledStatement.trim();
+
         if (compileOnly) {
           json[`statement_${i}`] = compiledStatement;
         } else {
@@ -214,7 +212,8 @@ export async function runMalloySQL(
               statement.config.connection
             );
 
-            resultsLog.logTasks(`Executing SQL: ${compiledStatement}`);
+            resultsLog.logSQL('Executing SQL:');
+            resultsLog.logSQL(compiledStatement);
 
             const sqlResults = await connection.runSQL(compiledStatement);
 
@@ -225,9 +224,10 @@ export async function runMalloySQL(
                 resultsLog.logResults(
                   'Statement successfully completed with no results'
                 );
+                json[`statement_${i}`]['results'] = undefined;
               } else {
-                // TODO
-                // resultsLog.logResults(sqlResults.rows);
+                resultsLog.logResults(JSON.stringify(sqlResults.rows, null, 2));
+                json[`statement_${i}`]['results'] = sqlResults.rows;
               }
             }
           } catch (e) {
@@ -241,5 +241,5 @@ export async function runMalloySQL(
     exitWithError(e.message);
   }
 
-  resultsLog.logJSON(JSON.stringify(json));
+  resultsLog.logJSON(JSON.stringify(json, null, 2));
 }

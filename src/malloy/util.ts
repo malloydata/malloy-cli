@@ -24,7 +24,7 @@
 import {transports, format, createLogger as createWinstonLogger} from 'winston';
 import {StandardOutputType} from '../commands/run';
 import {TransformFunction} from 'logform';
-import {out as cliLogger} from '../log';
+import {out as cliLogger, silent} from '../log';
 
 export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
   const sends = outputs;
@@ -44,6 +44,8 @@ export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
     ),
   });
 
+  if (silent) logger.silent = true;
+
   return {
     logJSON: (message: string) => {
       logger.log('info', message, {type: 'json'});
@@ -55,7 +57,9 @@ export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
       logger.log('info', message, {type: StandardOutputType.Malloy});
     },
     logTasks: (message: string) => {
-      cliLogger(message);
+      // tasks are just normal CLI output and can go through normal out logger
+      // unless we're in json format
+      if (sends !== 'json') cliLogger(message);
     },
     logResults: (message: string) => {
       logger.log('info', message, {type: StandardOutputType.Results});

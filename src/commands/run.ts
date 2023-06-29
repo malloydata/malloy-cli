@@ -34,11 +34,6 @@ export enum StandardOutputType {
   All = 'all',
 }
 
-export enum FormatType {
-  JSON = 'json',
-  STANDARD = 'standard',
-}
-
 export async function runCommand(
   source: string,
   options,
@@ -49,14 +44,19 @@ export async function runCommand(
   if (options.index) {
     if (options.index < 1) exitWithError('Index must be greater than 0');
   }
-  const format = options.format;
 
   if (extension === '.malloysql') {
     if (options.queryName) {
       exitWithError('--query-name and .malloysql are not compatible');
     }
 
-    await runMalloySQL(source, options.index, false, format, options.outputs);
+    await runMalloySQL(
+      source,
+      options.index,
+      false,
+      options.json,
+      options.outputs
+    );
   } else if (extension === '.malloy') {
     await runMalloy(source);
   } else {
