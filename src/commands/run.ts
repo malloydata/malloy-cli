@@ -24,5 +24,5 @@
 import {runOrCompile} from '../malloy/util';
 
 export async function runCommand(source: string, options): Promise<void> {
-  runOrCompile(source, options);
+  await runOrCompile(source, options);
 }

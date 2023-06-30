@@ -23,6 +23,6 @@
 
 import {runOrCompile} from '../malloy/util';
 
-export function compileCommand(source: string, options): void {
-  runOrCompile(source, options, true);
+export async function compileCommand(source: string, options): Promise<void> {
+  await runOrCompile(source, options, true);
 }
