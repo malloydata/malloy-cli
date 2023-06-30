@@ -166,7 +166,7 @@ If --index is passed, the statement at that 1-based index is compiled. If this s
 is a SQL statement, all Malloy statments (but no SQL statments) above that statement are
 also compiled.
 
-When executing a Malloy file, only the final runnable query in file is executed. If one does
+When compiling a Malloy file, only the final runnable query in file is executed. If one does
 not exist, nothing will be executed, unles --index is passed. If --index is passd, the query
 at that 1-based index will be executed. If --query-name is passed, the named query will be
 executed`;
@@ -176,10 +176,10 @@ executed`;
 Examples:
 
 Compile a MalloySQL file and output SQL:
-run file.malloysql -o malloy compiled-sql results
+compile file.malloysql -o malloy compiled-sql
 
-Run a MalloySQL file and output each statement as SQL using JSON:
-run file.malloysql -f json
+Compile a MalloySQL file and output each statement as SQL using JSON:
+compile file.malloysql -f json
   `;
   const compile = cli
     .command('compile <file>')
@@ -250,10 +250,10 @@ run file.malloysql -f json
     .argument('<name>')
     .action(removeConnectionCommand);
 
-  cli
-    .command('config')
-    .description('output the current config')
-    .action(showConfigCommand);
+  // cli
+  //   .command('config')
+  //   .description('output the current config')
+  //   .action(showConfigCommand);
 
   cli
     .command('third-party')

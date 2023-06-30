@@ -28,6 +28,7 @@ import path from 'path';
 import {runMalloySQL} from '../malloy/malloySQL';
 import {exitWithError} from '../util';
 import {runMalloy} from '../malloy/malloy';
+import chalk from 'chalk';
 
 export enum StandardOutputType {
   Malloy = 'malloy',
@@ -36,6 +37,13 @@ export enum StandardOutputType {
   Tasks = 'tasks',
   All = 'all',
 }
+
+export const ResultsColors = {
+  malloy: chalk.blue,
+  'compiled-sql': chalk.magenta,
+  results: chalk.grey,
+  tasks: chalk.yellowBright,
+};
 
 export async function runOrCompile(
   source: string,
@@ -95,18 +103,29 @@ export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
       logger.log('info', message, {type: 'json'});
     },
     logSQL: (message: string) => {
-      logger.log('info', message, {type: StandardOutputType.CompiledSQL});
+      logger.log(
+        'info',
+        ResultsColors[StandardOutputType.CompiledSQL](message),
+        {
+          type: StandardOutputType.CompiledSQL,
+        }
+      );
     },
     logMalloy: (message: string) => {
-      logger.log('info', message, {type: StandardOutputType.Malloy});
+      logger.log('info', ResultsColors[StandardOutputType.Malloy](message), {
+        type: StandardOutputType.Malloy,
+      });
     },
     logTasks: (message: string) => {
       // tasks are just normal CLI output and can go through normal out logger
       // unless we're in json format
-      if (sends !== 'json') cliLogger(message);
+      if (sends !== 'json')
+        cliLogger(ResultsColors[StandardOutputType.Tasks](message));
     },
     logResults: (message: string) => {
-      logger.log('info', message, {type: StandardOutputType.Results});
+      logger.log('info', ResultsColors[StandardOutputType.Results](message), {
+        type: StandardOutputType.Results,
+      });
     },
   };
 }

@@ -201,10 +201,10 @@ export async function runMalloySQL(
           }
         }
 
-        resultsLog.logSQL('Compiled SQL:');
-        resultsLog.logSQL(compiledStatement.trim());
-
         if (compileOnly) {
+          resultsLog.logSQL('Compiled SQL:');
+          resultsLog.logSQL(compiledStatement.trim());
+
           json[`statement_${i}`] = compiledStatement.trim();
         } else {
           json[`statement_${i}`]['sql'] = compiledStatement.trim();
