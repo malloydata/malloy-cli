@@ -24,7 +24,7 @@
 import url, {fileURLToPath as fileURLToPath} from 'node:url';
 import fs from 'fs';
 import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
-import {exitWithError, loadFile} from '../util';
+import {loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
 import {
@@ -32,15 +32,8 @@ import {
   getResultsLogger as getFilteredResultsLogger,
 } from './util';
 
-// options:
-// abortOnExecutionError
-// silent
+// TODO
 // truncateResults
-
-// default logging - output statment index
-// optionally - results
-// optionally - SQL to be executed
-
 class VirtualURIFileHandler implements URLReader {
   private uriReader: URLReader;
   private url: URL;
@@ -71,7 +64,7 @@ export async function runMalloySQL(
   compileOnly = false,
   outputJson = false,
   output: StandardOutputType[] = []
-) {
+): Promise<string> {
   const contents = loadFile(filePath);
   const json = {};
   const resultsLog = getFilteredResultsLogger(
@@ -87,24 +80,35 @@ export async function runMalloySQL(
       : output
   );
 
-  if (statementIndex) {
-    resultsLog.logTasks(
-      `Running malloysql query from ${filePath} at statement index: ${statementIndex}`
-    );
-  } else resultsLog.logTasks(`Running malloysql file: ${filePath}`);
-
   let modelMaterializer: ModelMaterializer;
 
   try {
     const parse = MalloySQLParser.parse(contents);
     if (parse.errors.length > 0) {
-      exitWithError(
+      resultsLog.logError(
         `Parse errors encountered: ${parse.errors
           .map(parseError => parseError.message)
           .join('\n')}`
       );
     }
     const statements = parse.statements;
+
+    if (statementIndex !== null) {
+      resultsLog.logTasks(
+        `Running malloysql query from ${filePath} at statement index: ${statementIndex}`
+      );
+
+      if (statementIndex === 0)
+        resultsLog.logError(
+          'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
+        );
+
+      if (statementIndex > statements.length) {
+        resultsLog.logError(
+          `Statement index ${statementIndex} is greater than number of possible statements ${statements.length}`
+        );
+      }
+    } else resultsLog.logTasks(`Running malloysql file: ${filePath}`);
 
     const fileURL = url.pathToFileURL(filePath);
 
@@ -178,7 +182,7 @@ export async function runMalloySQL(
             // nothing to do here - there isn't a query to run
           }
         } catch (e) {
-          exitWithError(e.message);
+          resultsLog.logError(e.message);
         }
       } else if (statement.type === MalloySQLStatementType.SQL) {
         for (const malloyQuery of statement.embeddedMalloyQueries) {
@@ -197,17 +201,18 @@ export async function runMalloySQL(
               `(${generatedSQL})`
             );
           } catch (e) {
-            exitWithError(e.message);
+            resultsLog.logError(e.message);
           }
         }
+
+        json[`statement_${i}`]['sql'] = compiledStatement.trim();
 
         if (compileOnly) {
           resultsLog.logSQL('Compiled SQL:');
           resultsLog.logSQL(compiledStatement.trim());
 
-          json[`statement_${i}`] = compiledStatement.trim();
+          return JSON.stringify(json);
         } else {
-          json[`statement_${i}`]['sql'] = compiledStatement.trim();
           try {
             const connection = await connectionLookup.lookupConnection(
               statement.config.connection
@@ -232,15 +237,16 @@ export async function runMalloySQL(
               }
             }
           } catch (e) {
-            exitWithError(e.message);
+            resultsLog.logError(e.message);
           }
         }
       }
       if (i === statementIndex) break;
     }
   } catch (e) {
-    exitWithError(e.message);
+    resultsLog.logError(e.message);
   }
 
   resultsLog.logJSON(JSON.stringify(json, null, 2));
+  return JSON.stringify(json);
 }

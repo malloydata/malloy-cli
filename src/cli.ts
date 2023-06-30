@@ -24,7 +24,7 @@
 import {Command, Option} from 'commander';
 import {runCommand} from './commands/run';
 import {loadConfig} from './config';
-import {configShowCommand as showConfigCommand} from './commands/config';
+//import {configShowCommand as showConfigCommand} from './commands/config';
 import {
   createBigQueryConnectionCommand,
   createPostgresConnectionCommand,
