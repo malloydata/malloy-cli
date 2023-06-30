@@ -9,7 +9,7 @@ nix-shell --pure --keep NPM_TOKEN --command "$(cat <<NIXCMD
   cd /workspace
   git branch -m main
   npm --no-audit --no-fund ci --loglevel error
-  npm run lint && npm run build && npm run test-silent-e2e
+  npm run lint && npm run build && npm run test-silent && npm run test-silent-e2e
   echo Publishing malloy-cli
   PRERELEASE=\$(date +%y%m%d%H%M%S)
 
