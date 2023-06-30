@@ -21,41 +21,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import path from 'path';
-import {runMalloySQL} from '../malloy/malloySQL';
-import {exitWithError} from '../util';
-import {runMalloy} from '../malloy/malloy';
+import {runOrCompile} from '../malloy/util';
 
-export enum RunOutputType {
-  Malloy = 'malloy',
-  CompiledSQL = 'compiled-sql',
-  Results = 'results',
-  All = 'all',
-}
-
-export async function runCommand(
-  source: string,
-  options,
-  _command
-): Promise<void> {
-  const extension = path.extname(source).toLowerCase();
-
-  if (options.index) {
-    if (options.index < 1) exitWithError('Index must be greater than 0');
-  }
-
-  if (extension === '.malloysql') {
-    if (options.queryName) {
-      exitWithError('--query-name and .malloysql are not compatible');
-    }
-
-    await runMalloySQL(source, options.index, false, options.output);
-  } else if (extension === '.malloy') {
-    await runMalloy(source);
-  } else {
-    if (extension) exitWithError(`Unable to run file of type: ${extension}`);
-    exitWithError(
-      'Unable to determine file type - .malloy or .malloysql filetype required'
-    );
-  }
+export async function runCommand(source: string, options): Promise<void> {
+  runOrCompile(source, options);
 }

@@ -26,7 +26,11 @@ import {ModelMaterializer, Runtime} from '@malloydata/malloy';
 import url, {fileURLToPath as fileURLToPath} from 'node:url';
 import {connectionManager} from '../connections/connection_manager';
 
-export async function runMalloy(filePath: string, compileOnly = false) {
+export async function runMalloy(
+  filePath: string,
+  query: string = undefined,
+  compileOnly = false
+) {
   let modelMaterializer: ModelMaterializer;
   const fileURL = url.pathToFileURL(filePath);
 
@@ -46,8 +50,9 @@ export async function runMalloy(filePath: string, compileOnly = false) {
       modelMaterializer.extendModel(fileURL);
     }
 
-    //const query = modelMaterializer.loadQuery(fileURL);
-    //const finalQuerySQL = await finalQuery.getSQL();
+    //const query = await modelMaterializer.getQueryByName(name);
+
+    //const sql = query.preparedResult.sql;
   } catch (e) {
     //TODO
   }
