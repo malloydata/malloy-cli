@@ -3,9 +3,9 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "noEmit": true,
+    "module": "commonjs",
     "allowSyntheticDefaultImports": true,
     "downlevelIteration": true,
-    "outDir": "out",
     "resolveJsonModule": true,
     "skipLibCheck": true
   }
