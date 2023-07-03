@@ -60,7 +60,9 @@ describe('commands', () => {
     it('fails if index is < 1', async () => {
       expect.assertions(1);
       return runWith('run', '-i', '0', 'file.malloy').catch(e =>
-        expect(e.message).toMatch('Index must be greater than 0')
+        expect(e.message).toMatch(
+          'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
+        )
       );
     });
 
