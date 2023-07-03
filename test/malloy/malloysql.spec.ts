@@ -84,7 +84,7 @@ describe('MalloySQL', () => {
   // TODO move to duckdb, make faster
   it('handles multiple embedded malloy statements in same sql statement', async () => {
     return await runMalloySQL(complex1);
-  }, 5000);
+  }, 10000);
 
   it('handles multiple malloy statements', async () => {
     // TODO
