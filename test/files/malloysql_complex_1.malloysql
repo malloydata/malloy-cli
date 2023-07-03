@@ -1,0 +1,17 @@
+>>>malloy
+
+import "./hacker_news.malloy"
+
+>>>sql connection: bigquery
+
+SELECT
+  post_count
+FROM %{
+  stories -> { aggregate: post_count }
+}%;
+
+SELECT
+  post_count
+FROM %{
+  stories -> top_posters
+}%

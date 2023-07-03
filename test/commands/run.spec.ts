@@ -31,7 +31,7 @@ beforeEach(() => {
   cli = createCLI();
 
   const configPath = path.resolve(
-    path.join(__dirname, '..', 'files', 'simple_config.json')
+    path.join(__dirname, '..', 'files', 'merged_config.json')
   );
 
   args = ['--quiet', '--config', configPath];
@@ -59,7 +59,7 @@ describe('commands', () => {
 
     it('fails if index is < 1', async () => {
       expect.assertions(1);
-      return runWith('run', '-i', '0', 'file.malloy').catch(e =>
+      return await runWith('run', '-i', '0', 'file.malloy').catch(e =>
         expect(e.message).toMatch(
           'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
         )
@@ -68,11 +68,17 @@ describe('commands', () => {
 
     it('fails if index and query name are both passed', async () => {
       expect.assertions(1);
-      return runWith('run', '-i', '1', '-n', 'queryName', 'file.malloy').catch(
-        e =>
-          expect(e.message).toMatch(
-            "error: option '-n, --query-name <name>' cannot be used with option '-i, --index <number>"
-          )
+      return await runWith(
+        'run',
+        '-i',
+        '1',
+        '-n',
+        'queryName',
+        'file.malloy'
+      ).catch(e =>
+        expect(e.message).toMatch(
+          "error: option '-n, --query-name <name>' cannot be used with option '-i, --index <number>"
+        )
       );
     });
   });

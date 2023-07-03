@@ -27,17 +27,19 @@ import path from 'path';
 
 let cli: Command;
 let args: string[];
-beforeEach(() => {
-  cli = createCLI();
 
-  const configPath = path.resolve(
-    path.join(__dirname, '..', 'files', 'simple_config.json')
-  );
+const bigQueryConfigPath = path.resolve(
+  path.join(__dirname, '..', 'files', 'bigquery_config.json')
+);
 
-  args = ['--quiet', '--config', configPath];
-});
+const duckDBConfigPath = path.resolve(
+  path.join(__dirname, '..', 'files', 'duckdb_config.json')
+);
 
 async function runWith(...testArgs): Promise<Command> {
+  cli = createCLI();
+
+  args = ['--quiet'];
   return cli.parseAsync([...args, ...testArgs], {from: 'user'});
 }
 
@@ -45,12 +47,22 @@ describe('commands', () => {
   describe('connections', () => {
     describe('test', () => {
       it('tests a BigQuery connection', async () => {
-        await runWith('connections', 'test', 'x');
+        await runWith('-c', bigQueryConfigPath, 'connections', 'test', 'x');
+      });
+
+      it('tests a DuckDB connection', async () => {
+        await runWith('-c', duckDBConfigPath, 'connections', 'test', 'y');
       });
 
       it('does not have a default BigQuery connection one is configured', async () => {
         expect.assertions(1);
-        return runWith('connections', 'test', 'bigquery').catch(e =>
+        return await runWith(
+          '-c',
+          bigQueryConfigPath,
+          'connections',
+          'test',
+          'bigquery'
+        ).catch(e =>
           expect(e.message).toMatch(
             'A connection named bigquery could not be found'
           )
@@ -58,12 +70,24 @@ describe('commands', () => {
       });
 
       it('tests a DuckDB default connection', async () => {
-        await runWith('connections', 'test', 'duckdb');
+        await runWith(
+          '-c',
+          bigQueryConfigPath,
+          'connections',
+          'test',
+          'duckdb'
+        );
       });
 
       it('fails test with a bad connection name', async () => {
         expect.assertions(1);
-        return runWith('connections', 'test', 'y').catch(e =>
+        return await runWith(
+          '-c',
+          bigQueryConfigPath,
+          'connections',
+          'test',
+          'y'
+        ).catch(e =>
           expect(e.message).toMatch('A connection named y could not be found')
         );
       });
