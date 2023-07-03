@@ -52,8 +52,10 @@ export async function runOrCompile(
 ): Promise<void> {
   const extension = path.extname(source).toLowerCase();
 
-  if (options.index) {
-    if (options.index < 1) exitWithError('Index must be greater than 0');
+  if (options.index && options.index < 1) {
+    exitWithError(
+      'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
+    );
   }
 
   if (extension === '.malloysql') {
@@ -126,6 +128,17 @@ export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
       logger.log('info', ResultsColors[StandardOutputType.Results](message), {
         type: StandardOutputType.Results,
       });
+    },
+    logError: (message: string) => {
+      if (sends === 'json') {
+        logger.log('info', JSON.stringify({error: message}), {type: 'json'});
+        // TODO this wonky
+        if (process.env.NODE_ENV === 'test') {
+          throw new Error(message);
+        } else process.exit(1);
+      } else {
+        exitWithError(message);
+      }
     },
   };
 }

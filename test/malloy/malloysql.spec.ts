@@ -26,6 +26,8 @@ import {createCLI} from '../../src/cli';
 import {runMalloySQL} from '../../src/malloy/malloySQL';
 import {silenceOut} from '../../src/log';
 
+const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
+
 describe('MalloySQL', () => {
   beforeAll(() => {
     const cli = createCLI();
@@ -37,11 +39,45 @@ describe('MalloySQL', () => {
     silenceOut();
   });
 
-  it('runs MalloySQL, outputs results', () => {
-    runMalloySQL(
-      path.join(__dirname, '..', 'files', 'duckdb.malloysql'),
-      null,
-      false
+  it('runs MalloySQL, outputs results', async () => {
+    expect(await runMalloySQL(duckdbMalloySQL, null, false)).toStrictEqual(
+      '{"statement_0":{"sql":"SELECT 1;","results":[{"1":1}]}}'
     );
   });
+
+  it('runs MalloySQL, gets JSON', async () => {
+    expect(
+      JSON.parse(await runMalloySQL(duckdbMalloySQL, null, false, true))
+    ).toStrictEqual({statement_0: {sql: 'SELECT 1;', results: [{1: 1}]}});
+  });
+
+  it('compiles MalloySQL, gets JSON', async () => {
+    expect(
+      JSON.parse(await runMalloySQL(duckdbMalloySQL, null, true, true))
+    ).toStrictEqual({statement_0: {sql: 'SELECT 1;'}});
+  });
+
+  it('errors when index is beyond', async () => {
+    expect.assertions(1);
+    runMalloySQL(duckdbMalloySQL, 2).catch(e => {
+      expect(e.message).toStrictEqual(
+        'Statement index 2 is greater than number of possible statements 1'
+      );
+    });
+  });
+
+  it('errors when index is 0', async () => {
+    expect.assertions(1);
+    runMalloySQL(duckdbMalloySQL, 0).catch(e => {
+      expect(e.message).toStrictEqual(
+        'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
+      );
+    });
+  });
+
+  // output
+  // multi-malloy
+  // multi-embedded-malloy
+  // embedded w parens
+  // embedded without parens
 });
