@@ -104,9 +104,10 @@ export async function runMalloy(
     }
 
     const results = await query.run();
-    const jsonResults = JSON.stringify(results.toJSON().queryResult.result);
-    resultsLog.result(jsonResults);
-    json['results'] = jsonResults;
+    resultsLog.result(
+      JSON.stringify(results.toJSON().queryResult.result, null, 2)
+    );
+    json['results'] = JSON.stringify(results.toJSON().queryResult.result);
 
     return JSON.stringify(json);
   } catch (e) {
