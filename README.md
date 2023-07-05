@@ -26,6 +26,10 @@ malloy connections create-bigquery <name>
 
 [`gCloud`](https://cloud.google.com/cli) is a command-line tool to work with Google Cloud. Among other things, it can store authentication information for BigQuery. If you already use gCloud to query BigQuery, setting up a connection is as simple as `malloy connections create-bigquery <name>` - no additional authentication information is required. Note that there are other options that you might want to set, such as billing limits - to see possible options, use `malloy connections create-bigquery --help`.
 
+#### Default connections
+
+By default, two connections are created if you don't already have a name that overrides them - "bigquery" and "duckdb". If malloy or malloySQL files reference these connections, they are created automatically. DuckDB uses a built-in instance of DuckDB, and BigQuery attempts to connect to BigQuery using any existing authentication already stored on your computer (like if you have gcloud installed).
+
 ## Usage
 
 ### Run MalloySQL
