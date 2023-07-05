@@ -81,7 +81,7 @@ export function createCLI(): Command {
           (<any>process).MALLOY_CLI_VERSION
         : 'development'
     )
-    .name('malloy')
+    .name('malloy-cli')
     .addOption(
       new Option('-c, --config <file_path>', 'path to a config.json file').env(
         'MALLOY_CONFIG_FILE'
