@@ -22,15 +22,37 @@
  */
 
 import fs from 'fs';
-import {ModelMaterializer, Runtime} from '@malloydata/malloy';
+import {
+  ModelMaterializer,
+  PreparedQuery,
+  QueryMaterializer,
+  Runtime,
+} from '@malloydata/malloy';
 import url, {fileURLToPath as fileURLToPath} from 'node:url';
 import {connectionManager} from '../connections/connection_manager';
+import {
+  QueryOptionsType,
+  RunOrCompileOptions,
+  StandardOutputType,
+  getFilteredResultsLogger,
+} from './util';
 
 export async function runMalloy(
   filePath: string,
-  query: string = undefined,
-  compileOnly = false
+  options: RunOrCompileOptions
 ) {
+  const resultsLog = getFilteredResultsLogger(
+    options.json
+      ? 'json'
+      : [
+          StandardOutputType.Malloy,
+          StandardOutputType.CompiledSQL,
+          StandardOutputType.Results,
+          StandardOutputType.Tasks,
+        ]
+  );
+  const json = {};
+
   let modelMaterializer: ModelMaterializer;
   const fileURL = url.pathToFileURL(filePath);
 
@@ -50,10 +72,43 @@ export async function runMalloy(
       modelMaterializer.extendModel(fileURL);
     }
 
-    //const query = await modelMaterializer.getQueryByName(name);
+    let query: QueryMaterializer;
+    if (options.queryOptions) {
+      switch (options.queryOptions.type) {
+        case QueryOptionsType.Index:
+          query = await modelMaterializer.loadQueryByIndex(
+            options.queryOptions.index
+          );
+          break;
+        case QueryOptionsType.Name:
+          query = await modelMaterializer.loadQueryByName(
+            options.queryOptions.name
+          );
+          break;
+        case QueryOptionsType.String:
+          query = await modelMaterializer.loadQuery(
+            `query: ${options.queryOptions.query}`
+          );
+          break;
+      }
+    } else query = await modelMaterializer.loadFinalQuery();
 
-    //const sql = query.preparedResult.sql;
+    const sql = await query.getSQL();
+    json['sql'] = sql.trim();
+
+    if (options.compileOnly) {
+      resultsLog.sql('Compiled SQL:');
+      resultsLog.sql(sql);
+
+      return JSON.stringify(json);
+    }
+
+    const results = await query.run();
+    resultsLog.result(JSON.stringify(results.data));
+    json['results'] = results.data;
+
+    return JSON.stringify(json);
   } catch (e) {
-    //TODO
+    resultsLog.error(e);
   }
 }

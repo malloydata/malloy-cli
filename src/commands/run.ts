@@ -21,8 +21,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import {Option} from 'commander';
 import {runOrCompile} from '../malloy/util';
 
-export async function runCommand(source: string, options): Promise<void> {
-  await runOrCompile(source, options);
+export async function runCommand(
+  source: string,
+  query: string | undefined,
+  options: Option[]
+): Promise<void> {
+  await runOrCompile(source, query, options);
 }

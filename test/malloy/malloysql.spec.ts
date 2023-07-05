@@ -25,6 +25,7 @@ import path from 'path';
 import {createCLI} from '../../src/cli';
 import {runMalloySQL} from '../../src/malloy/malloySQL';
 import {silenceOut} from '../../src/log';
+import {QueryOptionsType} from '../../src/malloy/util';
 
 const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
 const complex1 = path.join(
@@ -46,26 +47,46 @@ describe('MalloySQL', () => {
   });
 
   it('runs MalloySQL, outputs results', async () => {
-    expect(await runMalloySQL(duckdbMalloySQL, null, false)).toStrictEqual(
-      '{"statement_0":{"sql":"SELECT 1;","results":[{"1":1}]}}'
-    );
+    expect(
+      await runMalloySQL(duckdbMalloySQL, {
+        compileOnly: false,
+        json: true,
+      })
+    ).toStrictEqual('{"statement_0":{"sql":"SELECT 1;","results":[{"1":1}]}}');
   });
 
   it('runs MalloySQL, gets JSON', async () => {
     expect(
-      JSON.parse(await runMalloySQL(duckdbMalloySQL, null, false, true))
+      JSON.parse(
+        await runMalloySQL(duckdbMalloySQL, {
+          compileOnly: false,
+          json: true,
+        })
+      )
     ).toStrictEqual({statement_0: {sql: 'SELECT 1;', results: [{1: 1}]}});
   });
 
   it('compiles MalloySQL, gets JSON', async () => {
     expect(
-      JSON.parse(await runMalloySQL(duckdbMalloySQL, null, true, true))
+      JSON.parse(
+        await runMalloySQL(duckdbMalloySQL, {
+          compileOnly: true,
+          json: true,
+        })
+      )
     ).toStrictEqual({statement_0: {sql: 'SELECT 1;'}});
   });
 
   it('errors when index is beyond', async () => {
     expect.assertions(1);
-    return await runMalloySQL(duckdbMalloySQL, 2).catch(e => {
+    return await runMalloySQL(duckdbMalloySQL, {
+      compileOnly: false,
+      json: false,
+      queryOptions: {
+        type: QueryOptionsType.Index,
+        index: 2,
+      },
+    }).catch(e => {
       expect(e.message).toStrictEqual(
         'Statement index 2 is greater than number of possible statements 1'
       );
@@ -74,7 +95,14 @@ describe('MalloySQL', () => {
 
   it('errors when index is 0', async () => {
     expect.assertions(1);
-    return await runMalloySQL(duckdbMalloySQL, 0).catch(e => {
+    return await runMalloySQL(duckdbMalloySQL, {
+      compileOnly: false,
+      json: false,
+      queryOptions: {
+        type: QueryOptionsType.Index,
+        index: 0,
+      },
+    }).catch(e => {
       expect(e.message).toStrictEqual(
         'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
       );
@@ -83,7 +111,10 @@ describe('MalloySQL', () => {
 
   // TODO move to duckdb, make faster
   it('handles multiple embedded malloy statements in same sql statement', async () => {
-    return await runMalloySQL(complex1);
+    return await runMalloySQL(complex1, {
+      compileOnly: false,
+      json: false,
+    });
   });
 
   it('handles multiple malloy statements', async () => {
