@@ -84,12 +84,13 @@ describe('MalloySQL', () => {
   // TODO move to duckdb, make faster
   it('handles multiple embedded malloy statements in same sql statement', async () => {
     return await runMalloySQL(complex1);
-  }, 10000);
+  });
 
   it('handles multiple malloy statements', async () => {
     // TODO
   });
 
+  // TODO
   // output
   // embedded w parens
   // embedded without parens

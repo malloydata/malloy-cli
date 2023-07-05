@@ -1,17 +1,17 @@
 >>>malloy
 
-import "./hacker_news.malloy"
+import "./auto_recalls.malloy"
 
->>>sql connection: bigquery
+>>>sql connection: duckdb
 
 SELECT
-  post_count
+  recall_count
 FROM %{
-  stories -> { aggregate: post_count }
+  recalls -> { aggregate: recall_count }
 }%;
 
 SELECT
-  post_count
+  recall_count
 FROM %{
-  stories -> top_posters
+  recalls -> by_manufacturer
 }%
