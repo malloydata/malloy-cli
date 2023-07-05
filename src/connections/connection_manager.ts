@@ -220,6 +220,7 @@ export class DynamicConnectionLookup implements LookupConnection<Connection> {
 
   addDefaults(configs: ConnectionConfig[]): ConnectionConfig[] {
     // Create a default bigquery connection if one isn't configured
+    // TODO do we want to do this?
     if (
       !configs.find(config => config.backend === ConnectionBackend.BigQuery)
     ) {
@@ -231,8 +232,8 @@ export class DynamicConnectionLookup implements LookupConnection<Connection> {
       });
     }
 
-    // Create a default duckdb connection if one isn't configured
-    if (!configs.find(config => config.name === 'duckdb')) {
+    // Create a default duckdb connection if one isn't named duckdb
+    if (!configs.find(config => config.backend === 'duckdb')) {
       configs.push({
         name: 'duckdb',
         backend: ConnectionBackend.DuckDB,

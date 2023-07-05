@@ -1,0 +1,17 @@
+>>>malloy
+
+import "./auto_recalls.malloy"
+
+>>>sql connection: duckdb
+
+SELECT
+  recall_count
+FROM %{
+  recalls -> { aggregate: recall_count }
+}%;
+
+SELECT
+  recall_count
+FROM %{
+  recalls -> by_manufacturer
+}%

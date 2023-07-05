@@ -27,6 +27,12 @@ import {runMalloySQL} from '../../src/malloy/malloySQL';
 import {silenceOut} from '../../src/log';
 
 const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
+const complex1 = path.join(
+  __dirname,
+  '..',
+  'files',
+  'malloysql_complex_1.malloysql'
+);
 
 describe('MalloySQL', () => {
   beforeAll(() => {
@@ -59,7 +65,7 @@ describe('MalloySQL', () => {
 
   it('errors when index is beyond', async () => {
     expect.assertions(1);
-    runMalloySQL(duckdbMalloySQL, 2).catch(e => {
+    return await runMalloySQL(duckdbMalloySQL, 2).catch(e => {
       expect(e.message).toStrictEqual(
         'Statement index 2 is greater than number of possible statements 1'
       );
@@ -68,16 +74,24 @@ describe('MalloySQL', () => {
 
   it('errors when index is 0', async () => {
     expect.assertions(1);
-    runMalloySQL(duckdbMalloySQL, 0).catch(e => {
+    return await runMalloySQL(duckdbMalloySQL, 0).catch(e => {
       expect(e.message).toStrictEqual(
         'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
       );
     });
   });
 
+  // TODO move to duckdb, make faster
+  it('handles multiple embedded malloy statements in same sql statement', async () => {
+    return await runMalloySQL(complex1);
+  });
+
+  it('handles multiple malloy statements', async () => {
+    // TODO
+  });
+
+  // TODO
   // output
-  // multi-malloy
-  // multi-embedded-malloy
   // embedded w parens
   // embedded without parens
 });

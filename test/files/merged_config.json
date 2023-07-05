@@ -1,0 +1,6 @@
+{
+  "connections": [
+    {"name": "x", "backend": "bigquery"},
+    {"name": "y", "backend": "duckdb"}
+  ]
+}
