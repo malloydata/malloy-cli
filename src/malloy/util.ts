@@ -35,7 +35,6 @@ export enum StandardOutputType {
   CompiledSQL = 'compiled-sql',
   Results = 'results',
   Tasks = 'tasks',
-  All = 'all',
 }
 
 export const ResultsColors = {
@@ -45,8 +44,41 @@ export const ResultsColors = {
   tasks: chalk.yellowBright,
 };
 
+export enum QueryOptionsType {
+  Index = 'index',
+  Name = 'name',
+  String = 'string',
+}
+
+interface QueryOptionsIndex {
+  type: QueryOptionsType.Index;
+  index: number;
+}
+
+interface QueryOptionsName {
+  type: QueryOptionsType.Name;
+  name: string;
+}
+
+interface QueryOptionsString {
+  type: QueryOptionsType.String;
+  query: string | undefined;
+}
+
+export type QueryOptions =
+  | QueryOptionsIndex
+  | QueryOptionsName
+  | QueryOptionsString;
+
+export interface RunOrCompileOptions {
+  compileOnly: boolean;
+  queryOptions?: QueryOptions;
+  json: boolean;
+}
+
 export async function runOrCompile(
   source: string,
+  query: string | undefined = undefined,
   options,
   compileOnly = false
 ): Promise<void> {
@@ -58,20 +90,54 @@ export async function runOrCompile(
     );
   }
 
-  if (extension === '.malloysql') {
-    if (options.queryName) {
-      exitWithError('--query-name and .malloysql are not compatible');
+  let queryOptions: QueryOptions | undefined;
+  if (query) {
+    if (options.index) {
+      exitWithError(
+        'Passing a query string is incompatible with also passing a query index'
+      );
     }
 
-    await runMalloySQL(
-      source,
-      options.index,
-      compileOnly,
-      options.json,
-      options.outputs
-    );
+    if (options.name) {
+      exitWithError(
+        'Passing a query string is incompatible with also passing a query name'
+      );
+    }
+
+    queryOptions = {
+      type: QueryOptionsType.String,
+      query: query,
+    };
+  } else if (options.index) {
+    if (options.name) {
+      exitWithError(
+        'Passing a query name is incompatible with also passing a query index'
+      );
+    }
+
+    // TODO verify index
+
+    queryOptions = {
+      type: QueryOptionsType.Index,
+      index: options.index,
+    };
+  } else if (options.name) {
+    queryOptions = {
+      type: QueryOptionsType.Name,
+      name: options.name,
+    };
+  }
+
+  const runOrCompileOptions: RunOrCompileOptions = {
+    compileOnly,
+    json: options.json === 'true',
+    queryOptions,
+  };
+
+  if (extension === '.malloysql') {
+    await runMalloySQL(source, runOrCompileOptions);
   } else if (extension === '.malloy') {
-    await runMalloy(source);
+    await runMalloy(source, runOrCompileOptions);
   } else {
     if (extension) exitWithError(`Unable to run file of type: ${extension}`);
     exitWithError(
@@ -80,7 +146,9 @@ export async function runOrCompile(
   }
 }
 
-export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
+export function getFilteredResultsLogger(
+  outputs: StandardOutputType[] | 'json'
+) {
   const sends = outputs;
 
   const customizeOutput: TransformFunction = (info, _opts) => {
@@ -101,10 +169,10 @@ export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
   if (silent) logger.silent = true;
 
   return {
-    logJSON: (message: string) => {
+    json: (message: string) => {
       logger.log('info', message, {type: 'json'});
     },
-    logSQL: (message: string) => {
+    sql: (message: string) => {
       logger.log(
         'info',
         ResultsColors[StandardOutputType.CompiledSQL](message),
@@ -113,23 +181,23 @@ export function getResultsLogger(outputs: StandardOutputType[] | 'json') {
         }
       );
     },
-    logMalloy: (message: string) => {
+    malloy: (message: string) => {
       logger.log('info', ResultsColors[StandardOutputType.Malloy](message), {
         type: StandardOutputType.Malloy,
       });
     },
-    logTasks: (message: string) => {
+    task: (message: string) => {
       // tasks are just normal CLI output and can go through normal out logger
       // unless we're in json format
       if (sends !== 'json')
         cliLogger(ResultsColors[StandardOutputType.Tasks](message));
     },
-    logResults: (message: string) => {
+    result: (message: string) => {
       logger.log('info', ResultsColors[StandardOutputType.Results](message), {
         type: StandardOutputType.Results,
       });
     },
-    logError: (message: string) => {
+    error: (message: string) => {
       if (sends === 'json') {
         logger.log('info', JSON.stringify({error: message}), {type: 'json'});
         // TODO this wonky

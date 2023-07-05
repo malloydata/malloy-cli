@@ -28,12 +28,12 @@ import {loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {connectionManager} from '../connections/connection_manager';
 import {
+  QueryOptionsType,
+  RunOrCompileOptions,
   StandardOutputType,
-  getResultsLogger as getFilteredResultsLogger,
+  getFilteredResultsLogger,
 } from './util';
 
-// TODO
-// truncateResults
 class VirtualURIFileHandler implements URLReader {
   private uriReader: URLReader;
   private url: URL;
@@ -60,32 +60,38 @@ class VirtualURIFileHandler implements URLReader {
 
 export async function runMalloySQL(
   filePath: string,
-  statementIndex = null,
-  compileOnly = false,
-  outputJson = false,
-  output: StandardOutputType[] = []
+  options: RunOrCompileOptions
 ): Promise<string> {
   const contents = loadFile(filePath);
+
+  const compileOnly = options.compileOnly;
+  const statementIndex =
+    options.queryOptions && options.queryOptions.type === QueryOptionsType.Index
+      ? options.queryOptions.index
+      : null;
   const json = {};
   const resultsLog = getFilteredResultsLogger(
-    outputJson
+    options.json
       ? 'json'
-      : output.includes(StandardOutputType.All)
-      ? [
+      : [
           StandardOutputType.Malloy,
           StandardOutputType.CompiledSQL,
           StandardOutputType.Results,
           StandardOutputType.Tasks,
         ]
-      : output
   );
 
-  let modelMaterializer: ModelMaterializer;
+  if (
+    options.queryOptions &&
+    options.queryOptions.type === QueryOptionsType.Name
+  ) {
+    resultsLog.error('--name and .malloysql are not compatible');
+  }
 
   try {
     const parse = MalloySQLParser.parse(contents);
     if (parse.errors.length > 0) {
-      resultsLog.logError(
+      resultsLog.error(
         `Parse errors encountered: ${parse.errors
           .map(parseError => parseError.message)
           .join('\n')}`
@@ -94,21 +100,21 @@ export async function runMalloySQL(
     const statements = parse.statements;
 
     if (statementIndex !== null) {
-      resultsLog.logTasks(
+      resultsLog.task(
         `Running malloysql query from ${filePath} at statement index: ${statementIndex}`
       );
 
       if (statementIndex === 0)
-        resultsLog.logError(
+        resultsLog.error(
           'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
         );
 
       if (statementIndex > statements.length) {
-        resultsLog.logError(
+        resultsLog.error(
           `Statement index ${statementIndex} is greater than number of possible statements ${statements.length}`
         );
       }
-    } else resultsLog.logTasks(`Running malloysql file: ${filePath}`);
+    } else resultsLog.task(`Running malloysql file: ${filePath}`);
 
     const fileURL = url.pathToFileURL(filePath);
 
@@ -122,6 +128,7 @@ export async function runMalloySQL(
       virturlURIFileHandler,
       connectionManager.getConnectionLookup(fileURL)
     );
+    let modelMaterializer: ModelMaterializer;
 
     for (let i = 0; i < statements.length; i++) {
       const statement = statements[i];
@@ -134,14 +141,14 @@ export async function runMalloySQL(
         statementIndex !== null &&
         statementIndex !== i
       ) {
-        resultsLog.logTasks(`Skipping statment: ${i}`);
+        resultsLog.task(`Skipping statment: ${i}`);
         continue;
       }
 
       let compiledStatement = statement.text;
       const connectionLookup = connectionManager.getConnectionLookup(fileURL);
 
-      resultsLog.logTasks(`Running statment: ${i + 1}`);
+      resultsLog.task(`Running statment: ${i + 1}`);
 
       if (statement.type === MalloySQLStatementType.MALLOY) {
         virturlURIFileHandler.setVirtualFile(fileURL, statement.text);
@@ -155,8 +162,8 @@ export async function runMalloySQL(
 
           const _model = modelMaterializer.getModel();
 
-          resultsLog.logMalloy('Compiling Malloy:');
-          resultsLog.logMalloy(statement.text);
+          resultsLog.malloy('Compiling Malloy:');
+          resultsLog.malloy(statement.text);
 
           // the only way to know if there's a query in this statement is to try
           // to run query by index and catch if it fails.
@@ -166,15 +173,15 @@ export async function runMalloySQL(
             const finalQuerySQL = await finalQuery.getSQL();
 
             if (compileOnly) {
-              resultsLog.logSQL('Compiled SQL:');
-              resultsLog.logSQL(finalQuerySQL.trim());
+              resultsLog.sql('Compiled SQL:');
+              resultsLog.sql(finalQuerySQL.trim());
             } else {
-              resultsLog.logTasks('Running Malloy');
+              resultsLog.task('Running Malloy');
 
               const results = await finalQuery.run();
 
               if (results) {
-                resultsLog.logResults('Results:');
+                resultsLog.result('Results:');
                 // TODO console.table?
               }
             }
@@ -182,13 +189,13 @@ export async function runMalloySQL(
             // nothing to do here - there isn't a query to run
           }
         } catch (e) {
-          resultsLog.logError(e.message);
+          resultsLog.error(e.message);
         }
       } else if (statement.type === MalloySQLStatementType.SQL) {
         for (const malloyQuery of statement.embeddedMalloyQueries) {
           try {
-            resultsLog.logMalloy('Compiling Malloy:');
-            resultsLog.logMalloy(malloyQuery.query);
+            resultsLog.malloy('Compiling Malloy:');
+            resultsLog.malloy(malloyQuery.query);
 
             // TODO assumes modelMaterializer exists, because >>>malloy always happens before >>>sql with embedded malloy
             const runnable = modelMaterializer.loadQuery(
@@ -201,15 +208,15 @@ export async function runMalloySQL(
               `(${generatedSQL})`
             );
           } catch (e) {
-            resultsLog.logError(e.message);
+            resultsLog.error(e.message);
           }
         }
 
         json[`statement_${i}`]['sql'] = compiledStatement.trim();
 
         if (compileOnly) {
-          resultsLog.logSQL('Compiled SQL:');
-          resultsLog.logSQL(compiledStatement.trim());
+          resultsLog.sql('Compiled SQL:');
+          resultsLog.sql(compiledStatement.trim());
 
           return JSON.stringify(json);
         } else {
@@ -218,35 +225,35 @@ export async function runMalloySQL(
               statement.config.connection
             );
 
-            resultsLog.logSQL('Executing SQL:');
-            resultsLog.logSQL(compiledStatement);
+            resultsLog.sql('Executing SQL:');
+            resultsLog.sql(compiledStatement);
 
             const sqlResults = await connection.runSQL(compiledStatement);
 
             if (sqlResults) {
-              resultsLog.logTasks('Results:');
+              resultsLog.task('Results:');
 
               if (sqlResults.rows.length === 0) {
-                resultsLog.logResults(
+                resultsLog.result(
                   'Statement successfully completed with no results'
                 );
                 json[`statement_${i}`]['results'] = undefined;
               } else {
-                resultsLog.logResults(JSON.stringify(sqlResults.rows, null, 2));
+                resultsLog.result(JSON.stringify(sqlResults.rows, null, 2));
                 json[`statement_${i}`]['results'] = sqlResults.rows;
               }
             }
           } catch (e) {
-            resultsLog.logError(e.message);
+            resultsLog.error(e.message);
           }
         }
       }
       if (i === statementIndex) break;
     }
   } catch (e) {
-    resultsLog.logError(e.message);
+    resultsLog.error(e.message);
   }
 
-  resultsLog.logJSON(JSON.stringify(json, null, 2));
+  resultsLog.json(JSON.stringify(json, null, 2));
   return JSON.stringify(json);
 }

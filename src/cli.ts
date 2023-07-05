@@ -36,7 +36,6 @@ import {
 import {createBasicLogger, silenceOut} from './log';
 import {loadConnections} from './connections/connection_manager';
 import {showThirdPartyCommand} from './commands/third_party';
-import {StandardOutputType} from './malloy/util';
 import {compileCommand} from './commands/compile';
 
 export function createCLI(): Command {
@@ -106,25 +105,16 @@ export function createCLI(): Command {
       )
       .addOption(
         new Option(
-          '-n, --query-name <name>',
+          '-n, --name <name>',
           'run a named query (.malloy file only)'
         ).conflicts('index')
       )
-      .addOption(
-        new Option(
-          '-o, --outputs <options...>',
-          'determine what to output to stdout (more than one accepted)'
-        )
-          .choices(Object.values(StandardOutputType))
-          .conflicts('json')
-      )
-      .addOption(new Option('-j, --json', 'output json').conflicts('outputs'));
+      .addOption(new Option('-j, --json', 'output json'));
   };
 
   // TODO dry run
   // TODO cost query?
   // TODO results truncation
-  // TODO run malloy query -q "source->query"
   const runDescription = `execute a Malloy file (.malloy or .malloysql)
 
 When executing a MalloySQL file, all statements in the file are executed sequentially.
@@ -132,10 +122,8 @@ If --index is passed, the statement at that 1-based index is executed. If this s
 is a SQL statement, all Malloy statments (but no SQL statments) above that statement are
 also executed.
 
-When executing a Malloy file, only the final runnable query in file is executed. If one does
-not exist, nothing will be executed, unles --index is passed. If --index is passd, the query
-at that 1-based index will be executed. If --query-name is passed, the named query will be
-executed`;
+When executing a Malloy file, include either a name to a query (--name), the index of a
+query (--index), or a new query as the final argument.`;
 
   const afterRunHelp = `
 
@@ -148,10 +136,17 @@ Run a MalloySQL file and output each statement as SQL:
 run file.malloysql -f json
 
 Run the second MalloySQL statement in a file and output the results:
-run file.malloysql -i 2 -o results
+run file.malloysql --index 2 -o results
+
+Run a Malloy query using file.malloy and output the results as JSON:
+run file.malloy "source->{ aggregate: my_field }"
   `;
   const run = cli
     .command('run <file>')
+    .argument(
+      '[query]',
+      'a quoted query to be executed (for .malloy files only)'
+    )
     .summary('execute a Malloy file (.malloy or .malloysql)')
     .description(runDescription)
     .addHelpText('after', afterRunHelp)
@@ -166,10 +161,7 @@ If --index is passed, the statement at that 1-based index is compiled. If this s
 is a SQL statement, all Malloy statments (but no SQL statments) above that statement are
 also compiled.
 
-When compiling a Malloy file, only the final runnable query in file is executed. If one does
-not exist, nothing will be executed, unles --index is passed. If --index is passd, the query
-at that 1-based index will be executed. If --query-name is passed, the named query will be
-executed`;
+When compiling a query using a Malloy file....`;
 
   const afterCompileHelp = `
 
@@ -183,6 +175,10 @@ compile file.malloysql -f json
   `;
   const compile = cli
     .command('compile <file>')
+    .argument(
+      '[query]',
+      'a quoted query to be compiled (for .malloy files only)'
+    )
     .summary('compile a Malloy file (.malloy or .malloysql)')
     .description(compileDescription)
     .addHelpText('after', afterCompileHelp)

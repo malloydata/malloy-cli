@@ -77,7 +77,7 @@ describe('commands', () => {
         'file.malloy'
       ).catch(e =>
         expect(e.message).toMatch(
-          "error: option '-n, --query-name <name>' cannot be used with option '-i, --index <number>"
+          "error: option '-n, --name <name>' cannot be used with option '-i, --index <number>"
         )
       );
     });
