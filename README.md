@@ -6,7 +6,7 @@ Run Malloy or MalloySQL from the command line!
 
 Download the latest release here:
 
-The folder contains a binary named `malloy`. Try running it in the terminal via `{path to malloy}/malloy --help`
+The folder contains a binary named `malloy-cli`. Try running it in the terminal via `{path to malloy-cli}/malloy-cli --help`
 
 ### NPM
 
@@ -17,7 +17,7 @@ If you have NPM installed, you can run the Malloy CLI with `npx malloy-cli {comm
 A database connection is required to run or compile Malloy. Add a database connection with:
 
 ```
-malloy connections create-bigquery <name>
+malloy-cli connections create-bigquery <name>
 ```
 
 (Or, `create-postgres` or `create-duckdb`). The connection name should be the same connection name you reference in `.malloy` and `.malloysql` files.
