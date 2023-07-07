@@ -210,5 +210,3 @@ export function getFilteredResultsLogger(
     },
   };
 }
-
-export function getErrorLogger() {}

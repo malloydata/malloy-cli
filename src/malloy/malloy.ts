@@ -24,7 +24,6 @@
 import fs from 'fs';
 import {
   ModelMaterializer,
-  PreparedQuery,
   QueryMaterializer,
   Runtime,
 } from '@malloydata/malloy';

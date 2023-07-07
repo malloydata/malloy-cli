@@ -33,6 +33,7 @@
     "package-npm": "ts-node scripts/package-npm",
     "prepublishOnly": "npm version -git-tag-version=false patch && ts-node scripts/package-npm",
     "postinstall": "node -e \"try{require('./dist/post-install')} catch {}\"",
+    "postpack": "npm run build",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@next/g')",
     "malloy-update": "npm install --no-fund --no-audit --save-exact $(echo $npm_package_config_malloy_packages | sed -E 's/(@malloydata\\/[-a-z]+)/\\1@latest/g')",
     "malloy-link": "npm --no-fund --no-audit link $npm_package_config_malloy_packages",
