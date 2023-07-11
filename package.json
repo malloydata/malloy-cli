@@ -55,6 +55,17 @@
       "<rootDir>/jest-e2e.config.js"
     ]
   },
+  "builtIntoPackageDependencies": [
+    "@malloydata/db-bigquery",
+    "@malloydata/db-duckdb",
+    "@malloydata/db-postgres",
+    "@malloydata/malloy",
+    "@malloydata/malloy-sql",
+    "chalk",
+    "commander",
+    "logform",
+    "winston"
+  ],
   "devDependencies": {
     "@malloydata/db-bigquery": "0.0.47",
     "@malloydata/db-duckdb": "0.0.47",
@@ -66,8 +77,10 @@
     "@typescript-eslint/eslint-plugin": "^5.48.2",
     "@typescript-eslint/parser": "^5.48.2",
     "ajv": "^8.12.0",
+    "axios": "^1.4.0",
     "chalk": "^4.0.0",
     "commander": "^10.0.1",
+    "csv-stringify": "^6.4.0",
     "esbuild": "0.17.4",
     "eslint": "^8.32.0",
     "eslint-config-prettier": "^8.3.0",
