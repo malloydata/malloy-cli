@@ -24,7 +24,6 @@
 import {config} from '../config';
 import {out} from '../log';
 
-// TODO filter sensitive data
 export function configShowCommand(): void {
   out(JSON.stringify(config, null, 4));
 }

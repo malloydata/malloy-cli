@@ -27,7 +27,6 @@ import {
   format,
   Logger,
 } from 'winston';
-import chalk from 'chalk';
 
 let logger: Logger;
 let silent = false;
@@ -51,10 +50,6 @@ export function silenceOut(): void {
 }
 
 export function out(message: string): void {
-  // TODO also log to filelogger if exists
-  // in debug mode, this will double-output
-  // TODO will still double-output for any log-level <= info
-
   cliOutputLogger.info(message);
   //logger.info(message);
 }
