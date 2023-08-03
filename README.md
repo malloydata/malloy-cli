@@ -4,7 +4,7 @@ Run Malloy or MalloySQL from the command line!
 
 ## Installation
 
-Download the latest release here:
+Download the latest release here: {link to releases will go here once we launch CLI}
 
 The folder contains a binary named `malloy-cli`. Try running it in the terminal via `{path to malloy-cli}/malloy-cli --help`
 
