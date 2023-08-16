@@ -54,7 +54,7 @@ export function createCLI(): Command {
     });
   } else {
     // Red "Error:" if exiting with error
-    // todo some parse errors also output "error:", strip that
+    // TODO some parse errors also output "error:", strip that
     cli.configureOutput({
       outputError: (str, write) => write(`\x1b[31mError:\x1b[0m ${str}`),
     });

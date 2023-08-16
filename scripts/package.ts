@@ -22,14 +22,15 @@
  */
 
 /* eslint-disable no-console */
-import {doBuild} from './build';
+import {defaultBuildDirctory, doBuild} from './build';
 import * as pkg from 'pkg';
 import path from 'path';
 import * as fs from 'fs';
 import {Command} from 'commander';
-import {duckdbPath, targetDuckDBMap} from './utils/fetch-duckdb';
+import {duckdbPath, fetchDuckDB, targetDuckDBMap} from './utils/fetch-duckdb';
 
-const nodeTarget = 'node16';
+const nodeTarget = 'node18';
+const outputFolder = 'pkg/';
 
 async function packageCLI(
   platform: string,
@@ -40,7 +41,6 @@ async function packageCLI(
 ) {
   let target = `${platform}-${architecture}`;
 
-  // TODO need to get version into this somehow
   await doBuild(false);
 
   if (sign) {
@@ -49,6 +49,14 @@ async function packageCLI(
 
   if (!targetDuckDBMap[target]) {
     throw new Error(`No DuckDb defined for target: ${target}`);
+  }
+
+  if (
+    !fs.existsSync(
+      path.join(__dirname, `${duckdbPath}/${targetDuckDBMap[target]}`)
+    )
+  ) {
+    await fetchDuckDB(target);
   }
 
   fs.copyFileSync(
@@ -66,14 +74,19 @@ async function packageCLI(
     return;
   }
 
+  fs.writeFileSync(
+    path.join(defaultBuildDirctory, 'index.js'),
+    `#!/usr/bin/env node\nprocess.MALLOY_CLI_VERSION="${version}";\nrequire('./cli.js')`
+  );
+
   await pkg.exec([
     '-c',
     'package.json',
-    'dist/cli.js',
+    'dist/index.js',
     '--target',
     `${nodeTarget}-${target}`,
     '--output',
-    `pkg/malloy-cli-${target}-${version}`,
+    path.join(outputFolder, `/malloy-cli-${target}-${version}`),
     '--compress',
     'gzip',
   ]);
@@ -147,12 +160,11 @@ interface PackageTarget {
     ];
   }
 
-  fs.rmSync('pkg/', {recursive: true, force: true});
-  fs.mkdirSync('pkg/', {recursive: true});
+  fs.rmSync(outputFolder, {recursive: true, force: true});
+  fs.mkdirSync(outputFolder, {recursive: true});
 
-  console.log(JSON.stringify(options));
   const versionBits = getVersionBits();
-  versionBits[2] = Math.floor(Date.now() / 1000);
+
   for (const target of targets) {
     console.log(
       `Packaging Malloy CLI for ${target.platform}-${target.architecture}`
