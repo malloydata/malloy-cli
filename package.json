@@ -67,11 +67,11 @@
     "winston"
   ],
   "devDependencies": {
-    "@malloydata/db-bigquery": "0.0.62",
-    "@malloydata/db-duckdb": "0.0.62",
-    "@malloydata/db-postgres": "0.0.62",
-    "@malloydata/malloy": "0.0.62",
-    "@malloydata/malloy-sql": "0.0.62",
+    "@malloydata/db-bigquery": "0.0.78",
+    "@malloydata/db-duckdb": "0.0.78",
+    "@malloydata/db-postgres": "0.0.78",
+    "@malloydata/malloy": "0.0.78",
+    "@malloydata/malloy-sql": "0.0.78",
     "@types/jest": "^29.2.5",
     "@types/node": "^14.11.2",
     "@typescript-eslint/eslint-plugin": "^5.48.2",
