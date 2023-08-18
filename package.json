@@ -1,6 +1,6 @@
 {
   "name": "malloy-cli",
-  "version": "0.0.34",
+  "version": "0.0.35",
   "description": "Malloy CLI",
   "config": {
     "malloy_packages": [
