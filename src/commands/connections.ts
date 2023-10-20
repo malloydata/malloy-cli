@@ -21,6 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import {Option} from 'commander';
 import {config, saveConfig} from '../config';
 import {connectionManager} from '../connections/connection_manager';
 import {
@@ -34,7 +35,7 @@ function connectionConfigFromName(name: string): ConnectionConfig {
   return config.connections.find(connection => connection.name === name);
 }
 
-export function createBigQueryConnectionCommand(name: string): void {
+export function createBigQueryConnectionCommand(name: string, options): void {
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
@@ -45,12 +46,20 @@ export function createBigQueryConnectionCommand(name: string): void {
     isDefault: false,
   };
 
+  if (options.project) connection.projectName = options.project;
+  if (options.location) connection.location = options.location;
+  if (options.maximumBytesBilled)
+    connection.maximumBytesBilled = options.maximumBytesBilled;
+  if (options.serviceAccountKeyPath)
+    connection.serviceAccountKeyPath = options.serviceAccountKeyPath;
+  if (options.timeout) connection.timeoutMs = options.timeout;
+
   config.connections.push(connection);
   saveConfig();
   out(`Connection ${name} created`);
 }
 
-export function createPostgresConnectionCommand(name: string): void {
+export function createPostgresConnectionCommand(name: string, options): void {
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
@@ -60,6 +69,12 @@ export function createPostgresConnectionCommand(name: string): void {
     isGenerated: false,
     isDefault: false,
   };
+
+  if (options.database) connection.databaseName = options.databaseName;
+  if (options.port) connection.port = options.port;
+  if (options.host) connection.host = options.host;
+  if (options.username) connection.username = options.username;
+  if (options.password) connection.password = options.password;
 
   config.connections.push(connection);
   saveConfig();
