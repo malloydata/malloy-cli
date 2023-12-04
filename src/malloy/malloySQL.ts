@@ -199,7 +199,7 @@ export async function runMalloySQL(
 
             // TODO assumes modelMaterializer exists, because >>>malloy always happens before >>>sql with embedded malloy
             const runnable = modelMaterializer.loadQuery(
-              `\nquery: ${malloyQuery.query}`
+              `\nrun: ${malloyQuery.query}`
             );
             const generatedSQL = await runnable.getSQL();
 

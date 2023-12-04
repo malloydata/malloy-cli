@@ -1,8 +1,8 @@
 >>>malloy
 
 import "./auto_recalls.malloy"
-
->>>sql connection: duckdb
+>>>sql
+-- connection: duckdb
 
 SELECT
   recall_count
