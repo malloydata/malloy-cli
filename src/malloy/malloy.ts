@@ -86,7 +86,7 @@ export async function runMalloy(
           break;
         case QueryOptionsType.String:
           query = await modelMaterializer.loadQuery(
-            `query: ${options.queryOptions.query}`
+            `run: ${options.queryOptions.query}`
           );
           break;
       }

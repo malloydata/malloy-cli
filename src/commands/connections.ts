@@ -21,7 +21,6 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {Option} from 'commander';
 import {config, saveConfig} from '../config';
 import {connectionManager} from '../connections/connection_manager';
 import {
