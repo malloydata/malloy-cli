@@ -33,9 +33,11 @@ import {
   ConnectionConfig,
   DuckDBConnectionConfig,
   PostgresConnectionConfig,
+  SnowflakeConnectionConfig,
 } from './connection_types';
 import {fileURLToPath} from 'url';
 import {BigQueryConnection} from '@malloydata/db-bigquery';
+import {SnowflakeConnection} from '@malloydata/db-snowflake';
 import {convertToBytes, exitWithError} from '../util';
 import {DuckDBConnection} from '@malloydata/db-duckdb';
 import {PostgresConnection} from '@malloydata/db-postgres';
@@ -61,6 +63,39 @@ const createBigQueryConnection = async (
     }
   );
   return connection;
+};
+
+const createSnowflakeConnection = async (
+  connectionConfig: SnowflakeConnectionConfig,
+  {rowLimit}: ConfigOptions
+): Promise<SnowflakeConnection> => {
+  try {
+    if (
+      connectionConfig.account === undefined ||
+      connectionConfig.username === undefined ||
+      connectionConfig.password === undefined ||
+      connectionConfig.database === undefined ||
+      connectionConfig.schema === undefined ||
+      connectionConfig.warehouse === undefined
+    ) {
+      throw new Error('Missing required connection parameters');
+    }
+
+    const connection = new SnowflakeConnection(connectionConfig.name, {
+      connOptions: {
+        account: connectionConfig.account,
+        username: connectionConfig.username,
+        password: connectionConfig.password,
+        database: connectionConfig.database,
+        schema: connectionConfig.schema,
+        warehouse: connectionConfig.warehouse,
+      },
+      queryOptions: {rowLimit: rowLimit},
+    });
+    return connection;
+  } catch (error) {
+    exitWithError(`Could not create Snowflake connection: ${error.message}`);
+  }
 };
 
 const createDuckDbConnection = async (
@@ -145,6 +180,13 @@ export class CLIConnectionFactory {
       }
       case ConnectionBackend.DuckDB: {
         connection = await createDuckDbConnection(
+          connectionConfig,
+          configOptions
+        );
+        break;
+      }
+      case ConnectionBackend.Snowflake: {
+        connection = await createSnowflakeConnection(
           connectionConfig,
           configOptions
         );
