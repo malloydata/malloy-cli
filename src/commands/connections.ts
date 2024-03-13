@@ -80,6 +80,29 @@ export function createPostgresConnectionCommand(name: string, options): void {
   out(`Connection ${name} created`);
 }
 
+export function createSnowflakeConnectionCommand(name: string, options): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.Snowflake,
+    isGenerated: false,
+    isDefault: false,
+  };
+
+  if (options.account) connection.account = options.account;
+  if (options.username) connection.username = options.username;
+  if (options.password) connection.password = options.password;
+  if (options.database) connection.database = options.database;
+  if (options.schema) connection.schema = options.schema;
+  if (options.warehouse) connection.warehouse = options.warehouse;
+
+  config.connections.push(connection);
+  saveConfig();
+  out(`Connection ${name} created`);
+}
+
 export async function testConnectionCommand(name: string): Promise<void> {
   const connectionConfig = connectionConfigFromName(name);
   if (!connectionConfig)

@@ -8,6 +8,7 @@
       "@malloydata/db-bigquery",
       "@malloydata/db-duckdb",
       "@malloydata/db-postgres",
+      "@malloydata/db-snowflake",
       "@malloydata/malloy-sql"
     ]
   },
@@ -59,6 +60,7 @@
     "@malloydata/db-bigquery",
     "@malloydata/db-duckdb",
     "@malloydata/db-postgres",
+    "@malloydata/db-snowflake",
     "@malloydata/malloy",
     "@malloydata/malloy-sql",
     "chalk",
@@ -67,11 +69,12 @@
     "winston"
   ],
   "devDependencies": {
-    "@malloydata/db-bigquery": "0.0.110",
-    "@malloydata/db-duckdb": "0.0.110",
-    "@malloydata/db-postgres": "0.0.110",
-    "@malloydata/malloy": "0.0.110",
-    "@malloydata/malloy-sql": "0.0.110",
+    "@malloydata/db-bigquery": "0.0.130",
+    "@malloydata/db-duckdb": "0.0.130",
+    "@malloydata/db-postgres": "0.0.130",
+    "@malloydata/db-snowflake": "0.0.130",
+    "@malloydata/malloy": "0.0.130",
+    "@malloydata/malloy-sql": "0.0.130",
     "@types/jest": "^29.2.5",
     "@types/node": "^14.11.2",
     "@typescript-eslint/eslint-plugin": "^5.48.2",
