@@ -27,7 +27,9 @@ import {loadConfig} from './config';
 //import {configShowCommand as showConfigCommand} from './commands/config';
 import {
   createBigQueryConnectionCommand,
+  createDuckDbConnectionCommand,
   createPostgresConnectionCommand,
+  createSnowflakeConnectionCommand,
   listConnectionsCommand,
   removeConnectionCommand,
   showConnectionCommand,
@@ -226,8 +228,24 @@ export function createCLI(): Command {
   connections
     .command('create-duckdb')
     .description('add a new DuckDB database connection')
-    .argument('<name>');
-  // TODO path to duckdb executable, otherwise assume ./duckdb
+    .argument('<name>')
+    .option('-d, --database-path <database>')
+    .action(createDuckDbConnectionCommand);
+
+  connections
+    .command('create-snowflake')
+    .description('add a new Snowflake database connection')
+    .argument('<name>')
+    .addOption(new Option('-a, --account <account>').makeOptionMandatory())
+    .option('-u --username <name>')
+    .option('-p, --password <password>')
+    .option('-w, --warehouse <warehouse>')
+    .option('-d, --database <name>')
+    .option('-s, --schema <schema>')
+    .addOption(
+      new Option('-t, --timeout-ms <milliseconds>').argParser(parseInt)
+    )
+    .action(createSnowflakeConnectionCommand);
 
   connections
     .command('test')

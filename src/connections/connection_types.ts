@@ -21,27 +21,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import {ConnectionConfig as BaseConnectionConfig} from '@malloydata/malloy';
+
 export enum ConnectionBackend {
   BigQuery = 'bigquery',
   Postgres = 'postgres',
   DuckDB = 'duckdb',
+  Snowflake = 'snowflake',
 }
 
 export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
   [ConnectionBackend.BigQuery]: 'BigQuery',
   [ConnectionBackend.Postgres]: 'Postgres',
   [ConnectionBackend.DuckDB]: 'DuckDB',
+  [ConnectionBackend.Snowflake]: 'Snowflake',
 };
-
-/*
- * NOTE: These should be kept in sync with the cli options
- */
-
-export interface BaseConnectionConfig {
-  name: string;
-  isGenerated: boolean;
-  isDefault: boolean;
-}
 
 export interface BigQueryConnectionOptions {
   project?: string;
@@ -56,6 +50,8 @@ export interface BigQueryConnectionConfig extends BaseConnectionConfig {
   project?: string;
   backend: ConnectionBackend.BigQuery;
   serviceAccountKeyPath?: string;
+  projectId?: string;
+  /** @deprecated use projectId */
   projectName?: string;
   location?: string;
   maximumBytesBilled?: string;
@@ -81,15 +77,45 @@ export interface PostgresConnectionConfig extends BaseConnectionConfig {
   useKeychainPassword?: boolean;
 }
 
+export interface DuckDBConnectionOptions {
+  workingDirectory?: string;
+  databasePath?: string;
+  motherDuckToken?: string;
+}
+
 export interface DuckDBConnectionConfig extends BaseConnectionConfig {
   backend: ConnectionBackend.DuckDB;
   workingDirectory?: string;
+  databasePath?: string;
+  motherDuckToken?: string;
+}
+
+export interface SnowflakeConnectionOptions {
+  account: string;
+  username?: string;
+  password?: string;
+  warehouse?: string;
+  database?: string;
+  schema?: string;
+  timeoutMs?: number;
+}
+
+export interface SnowflakeConnectionConfig extends BaseConnectionConfig {
+  backend: ConnectionBackend.Snowflake;
+  account: string;
+  username?: string;
+  password?: string;
+  warehouse?: string;
+  database?: string;
+  schema?: string;
+  timeoutMs?: number;
 }
 
 export type ConnectionConfig =
   | BigQueryConnectionConfig
   | PostgresConnectionConfig
-  | DuckDBConnectionConfig;
+  | DuckDBConnectionConfig
+  | SnowflakeConnectionConfig;
 
 export interface ConfigOptions {
   workingDirectory: string;
