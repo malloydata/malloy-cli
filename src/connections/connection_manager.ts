@@ -33,12 +33,14 @@ import {
   ConnectionConfig,
   DuckDBConnectionConfig,
   PostgresConnectionConfig,
+  SnowflakeConnectionConfig,
 } from './connection_types';
 import {fileURLToPath} from 'url';
 import {BigQueryConnection} from '@malloydata/db-bigquery';
 import {convertToBytes, exitWithError} from '../util';
 import {DuckDBConnection} from '@malloydata/db-duckdb';
 import {PostgresConnection} from '@malloydata/db-postgres';
+import {SnowflakeConnection} from '@malloydata/db-snowflake';
 import {config} from '../config';
 
 const DEFAULT_CONFIG = Symbol('default-config');
@@ -51,7 +53,7 @@ const createBigQueryConnection = async (
     connectionConfig.name,
     () => ({rowLimit}),
     {
-      projectId: connectionConfig.projectName,
+      projectId: connectionConfig.projectId ?? connectionConfig.projectName,
       serviceAccountKeyPath: connectionConfig.serviceAccountKeyPath,
       location: connectionConfig.location,
       maximumBytesBilled: convertToBytes(
@@ -69,10 +71,10 @@ const createDuckDbConnection = async (
 ) => {
   try {
     const connection = new DuckDBConnection(
-      connectionConfig.name,
-      ':memory:',
-      connectionConfig.workingDirectory || workingDirectory,
-      () => ({rowLimit})
+      {...connectionConfig, workingDirectory},
+      () => ({
+        rowLimit,
+      })
     );
     return connection;
   } catch (error) {
@@ -88,13 +90,7 @@ const createPostgresConnection = async (
     let password: string;
     if (connectionConfig.password !== undefined) {
       password = connectionConfig.password;
-    } /* TODO else if (connectionConfig.useKeychainPassword) {
-      password =
-        (await getPassword(
-          'com.malloy-lang.vscode-extension',
-          `connections.${connectionConfig.id}.password`
-        )) || undefined;
-    }*/
+    }
     return {
       username: connectionConfig.username,
       host: connectionConfig.host,
@@ -108,6 +104,17 @@ const createPostgresConnection = async (
     () => ({rowLimit}),
     configReader
   );
+  return connection;
+};
+
+const createSnowflakeConnection = async (
+  connectionConfig: SnowflakeConnectionConfig,
+  queryOptions: ConfigOptions
+): Promise<SnowflakeConnection> => {
+  const connection = new SnowflakeConnection(connectionConfig.name, {
+    connOptions: connectionConfig,
+    queryOptions,
+  });
   return connection;
 };
 
@@ -150,6 +157,13 @@ export class CLIConnectionFactory {
         );
         break;
       }
+      case ConnectionBackend.Snowflake: {
+        connection = await createSnowflakeConnection(
+          connectionConfig,
+          configOptions
+        );
+        break;
+      }
     }
 
     return connection;
@@ -173,8 +187,6 @@ export class CLIConnectionFactory {
       configs.push({
         name: 'bigquery',
         backend: ConnectionBackend.BigQuery,
-        isDefault: !configs.find(config => config.isDefault),
-        isGenerated: true,
       });
     }
 
@@ -183,8 +195,7 @@ export class CLIConnectionFactory {
       configs.push({
         name: 'duckdb',
         backend: ConnectionBackend.DuckDB,
-        isDefault: false,
-        isGenerated: true,
+        motherDuckToken: undefined,
       });
     }
     return configs;
@@ -227,8 +238,6 @@ export class DynamicConnectionLookup implements LookupConnection<Connection> {
       configs.push({
         name: 'bigquery',
         backend: ConnectionBackend.BigQuery,
-        isDefault: !configs.find(config => config.isDefault),
-        isGenerated: true,
       });
     }
 
@@ -237,8 +246,7 @@ export class DynamicConnectionLookup implements LookupConnection<Connection> {
       configs.push({
         name: 'duckdb',
         backend: ConnectionBackend.DuckDB,
-        isDefault: false,
-        isGenerated: true,
+        motherDuckToken: undefined,
       });
     }
     return configs;
