@@ -38,20 +38,14 @@ export function createBigQueryConnectionCommand(name: string, options): void {
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
+  const {timeout: timeoutMs, ...otherOptions} = options;
+
   const connection: ConnectionConfig = {
     name,
     backend: ConnectionBackend.BigQuery,
-    isGenerated: false,
-    isDefault: false,
+    ...otherOptions,
+    timeoutMs,
   };
-
-  if (options.project) connection.projectName = options.project;
-  if (options.location) connection.location = options.location;
-  if (options.maximumBytesBilled)
-    connection.maximumBytesBilled = options.maximumBytesBilled;
-  if (options.serviceAccountKeyPath)
-    connection.serviceAccountKeyPath = options.serviceAccountKeyPath;
-  if (options.timeout) connection.timeoutMs = options.timeout;
 
   config.connections.push(connection);
   saveConfig();
@@ -62,18 +56,43 @@ export function createPostgresConnectionCommand(name: string, options): void {
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
+  const {database: databaseName, ...otherOptions} = options;
   const connection: ConnectionConfig = {
     name,
     backend: ConnectionBackend.Postgres,
-    isGenerated: false,
-    isDefault: false,
+    ...otherOptions,
+    databaseName,
   };
 
-  if (options.database) connection.databaseName = options.databaseName;
-  if (options.port) connection.port = options.port;
-  if (options.host) connection.host = options.host;
-  if (options.username) connection.username = options.username;
-  if (options.password) connection.password = options.password;
+  config.connections.push(connection);
+  saveConfig();
+  out(`Connection ${name} created`);
+}
+
+export function createDuckDbConnectionCommand(name: string, options): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.DuckDB,
+    ...options,
+  };
+
+  config.connections.push(connection);
+  saveConfig();
+  out(`Connection ${name} created`);
+}
+
+export function createSnowflakeConnectionCommand(name: string, options): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.Snowflake,
+    ...options,
+  };
 
   config.connections.push(connection);
   saveConfig();
