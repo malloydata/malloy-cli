@@ -25,12 +25,14 @@ export enum ConnectionBackend {
   BigQuery = 'bigquery',
   Postgres = 'postgres',
   DuckDB = 'duckdb',
+  Snowflake = 'snowflake',
 }
 
 export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
   [ConnectionBackend.BigQuery]: 'BigQuery',
   [ConnectionBackend.Postgres]: 'Postgres',
   [ConnectionBackend.DuckDB]: 'DuckDB',
+  [ConnectionBackend.Snowflake]: 'Snowflake',
 };
 
 /*
@@ -67,10 +69,21 @@ export interface DuckDBConnectionConfig extends BaseConnectionConfig {
   workingDirectory?: string;
 }
 
+export interface SnowflakeConnectionConfig extends BaseConnectionConfig {
+  backend: ConnectionBackend.Snowflake;
+  account?: string;
+  username?: string;
+  password?: string;
+  database?: string;
+  schema?: string;
+  warehouse?: string;
+}
+
 export type ConnectionConfig =
   | BigQueryConnectionConfig
   | PostgresConnectionConfig
-  | DuckDBConnectionConfig;
+  | DuckDBConnectionConfig
+  | SnowflakeConnectionConfig;
 
 export interface ConfigOptions {
   workingDirectory: string;

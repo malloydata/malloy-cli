@@ -28,6 +28,7 @@ import {loadConfig} from './config';
 import {
   createBigQueryConnectionCommand,
   createPostgresConnectionCommand,
+  createSnowflakeConnectionCommand,
   listConnectionsCommand,
   removeConnectionCommand,
   showConnectionCommand,
@@ -218,6 +219,18 @@ compile file.malloysql -f json
     .option('-d, --database-name <name>')
     .option('-p, --password <password>')
     .action(createPostgresConnectionCommand);
+
+  connections
+    .command('create-snowflake')
+    .description('add a new Snowflake database connection')
+    .argument('<name>')
+    .option('-a, --account <account>')
+    .option('-u, --username <username>')
+    .option('-p, --password <password>')
+    .option('--db, --database <database>')
+    .option('-s, --schema <schema>')
+    .option('-w, --warehouse <warehouse>')
+    .action(createSnowflakeConnectionCommand);
 
   connections
     .command('create-duckdb')
