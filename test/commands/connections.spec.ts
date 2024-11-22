@@ -21,9 +21,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {Command} from 'commander';
+import {Command} from '@commander-js/extra-typings';
 import {createCLI} from '../../src/cli';
 import path from 'path';
+import {errorMessage} from '../../src/util';
 
 let cli: Command;
 let args: string[];
@@ -36,7 +37,7 @@ const duckDBConfigPath = path.resolve(
   path.join(__dirname, '..', 'files', 'duckdb_config.json')
 );
 
-async function runWith(...testArgs): Promise<Command> {
+async function runWith(...testArgs: string[]): Promise<Command> {
   cli = createCLI();
 
   args = ['--quiet'];
@@ -63,7 +64,7 @@ describe('commands', () => {
           'test',
           'bigquery'
         ).catch(e =>
-          expect(e.message).toMatch(
+          expect(errorMessage(e)).toMatch(
             'A connection named bigquery could not be found'
           )
         );
@@ -88,7 +89,9 @@ describe('commands', () => {
           'test',
           'y'
         ).catch(e =>
-          expect(e.message).toMatch('A connection named y could not be found')
+          expect(errorMessage(e)).toMatch(
+            'A connection named y could not be found'
+          )
         );
       });
     });

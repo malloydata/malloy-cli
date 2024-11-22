@@ -22,11 +22,11 @@
  */
 
 /* eslint-disable no-console */
-import {defaultBuildDirctory, doBuild} from './build';
+import {defaultBuildDirectory, doBuild} from './build';
 import * as pkg from 'pkg';
 import path from 'path';
 import * as fs from 'fs';
-import {Command} from 'commander';
+import {Command} from '@commander-js/extra-typings';
 import {duckdbPath, fetchDuckDB, targetDuckDBMap} from './utils/fetch-duckdb';
 
 const nodeTarget = 'node18';
@@ -75,7 +75,7 @@ async function packageCLI(
   }
 
   fs.writeFileSync(
-    path.join(defaultBuildDirctory, 'index.js'),
+    path.join(defaultBuildDirectory, 'index.js'),
     `#!/usr/bin/env node\nprocess.MALLOY_CLI_VERSION="${version}";\nrequire('./cli.js')`
   );
 
@@ -110,8 +110,7 @@ interface PackageTarget {
 }
 
 (async () => {
-  const program = new Command();
-  program
+  const program = new Command()
     .option('-p, --platform <string>', 'Target platform')
     .option('-a, --arch <string>', 'Target architecture')
     .option('--skip-package', 'Skip packaging step')

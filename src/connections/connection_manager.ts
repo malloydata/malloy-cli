@@ -76,7 +76,11 @@ const createDuckDbConnection = async (
     );
     return connection;
   } catch (error) {
-    exitWithError(`Could not create DuckDB connection: ${error.message}`);
+    exitWithError(
+      `Could not create DuckDB connection: ${
+        error instanceof Error ? error.message : `${error}`
+      }`
+    );
   }
 };
 
@@ -85,7 +89,7 @@ const createPostgresConnection = async (
   {rowLimit}: ConfigOptions
 ): Promise<PostgresConnection> => {
   const configReader = async () => {
-    let password: string;
+    let password: string | undefined;
     if (connectionConfig.password !== undefined) {
       password = connectionConfig.password;
     } /* TODO else if (connectionConfig.useKeychainPassword) {

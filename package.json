@@ -49,12 +49,6 @@
     "url": "https://github.com/malloydata/malloy-cli/issues"
   },
   "homepage": "https://github.com/malloydata/malloy-cli#readme",
-  "jest": {
-    "projects": [
-      "<rootDir>/jest.config.js",
-      "<rootDir>/jest-e2e.config.js"
-    ]
-  },
   "builtIntoPackageDependencies": [
     "@malloydata/db-bigquery",
     "@malloydata/db-duckdb",
@@ -67,6 +61,7 @@
     "winston"
   ],
   "devDependencies": {
+    "@commander-js/extra-typings": "^12.1.0",
     "@malloydata/db-bigquery": "0.0.110",
     "@malloydata/db-duckdb": "0.0.110",
     "@malloydata/db-postgres": "0.0.110",
@@ -79,7 +74,7 @@
     "ajv": "^8.12.0",
     "axios": "^1.4.0",
     "chalk": "^4.0.0",
-    "commander": "^10.0.1",
+    "commander": "^12.1.0",
     "csv-stringify": "^6.4.0",
     "esbuild": "0.17.4",
     "eslint": "^8.32.0",

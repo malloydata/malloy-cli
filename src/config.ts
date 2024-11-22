@@ -29,6 +29,7 @@ import {
   isWindows,
   createDirectoryOrError,
   fileExists,
+  errorMessage,
 } from './util';
 import {logger} from './log';
 import {ConnectionConfig} from './connections/connection_types';
@@ -62,7 +63,7 @@ function getDefaultOSConfigFolderPath(): string {
 }
 
 let config: Config;
-let configFilePath;
+let configFilePath: string;
 export function loadConfig(filePath?: string) {
   if (filePath) {
     if (process.env['MALLOY_CLI_CONFIG']) {
@@ -81,7 +82,9 @@ export function loadConfig(filePath?: string) {
       if (!config.connections) config.connections = [];
       logger.debug(`Configuration loaded from ${filePath}`);
     } catch (e) {
-      exitWithError(`Error parsing config file at ${filePath}: ${e.message}`);
+      exitWithError(
+        `Error parsing config file at ${filePath}: ${errorMessage(e)}`
+      );
     }
   } else {
     // if config file is not passed, look in default location
@@ -98,7 +101,7 @@ export function loadConfig(filePath?: string) {
         logger.debug(`Configuration loaded from ${configFilePath}`);
       } catch (e) {
         exitWithError(
-          `Error parsing config file at ${configFilePath}: ${e.message}`
+          `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
         );
       }
     } else {
@@ -124,7 +127,9 @@ export function saveConfig(): void {
     fs.writeFileSync(configFilePath, JSON.stringify(config));
   } catch (e) {
     exitWithError(
-      `Could not write configuration information to ${configFilePath}: ${e.message}`
+      `Could not write configuration information to ${configFilePath}: ${errorMessage(
+        e
+      )}`
     );
   }
 }

@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {Command, Option} from 'commander';
+import {Command, Option} from '@commander-js/extra-typings';
 import {runCommand} from './commands/run';
 import {loadConfig} from './config';
 //import {configShowCommand as showConfigCommand} from './commands/config';
@@ -38,11 +38,77 @@ import {loadConnections} from './connections/connection_manager';
 import {showThirdPartyCommand} from './commands/third_party';
 import {compileCommand} from './commands/compile';
 
+const compileDescription = `compile a Malloy file (.malloy or .malloysql)
+
+When compiling a MalloySQL file, all statements in the file are compiled sequentially.
+If --index is passed, the statement at that 1-based index is compiled. If this statement
+is a SQL statement, all Malloy statements (but no SQL statements) above that statement are
+also compiled.
+
+When compiling a query using a Malloy file....`;
+
+const afterCompileHelp = `
+
+Examples:
+
+Compile a MalloySQL file and output SQL:
+compile file.malloysql -o malloy compiled-sql
+
+Compile a MalloySQL file and output each statement as SQL using JSON:
+compile file.malloysql -f json`;
+
+const runDescription = `execute a Malloy file (.malloy or .malloysql)
+
+When executing a MalloySQL file, all statements in the file are executed sequentially.
+If --index is passed, the statement at that 1-based index is executed. If this statement
+is a SQL statement, all Malloy statements (but no SQL statements) above that statement are
+also executed.
+
+When executing a Malloy file, include either a name to a query (--name), the index of a
+query (--index), or a new query as the final argument.`;
+
+const afterRunHelp = `
+
+Examples:
+
+Run a MalloySQL file and output the malloy, the compiled SQL, and results:
+run file.malloysql -o malloy compiled-sql results
+
+Run a MalloySQL file and output each statement as SQL:
+run file.malloysql -f json
+
+Run the second MalloySQL statement in a file and output the results:
+run file.malloysql --index 2 -o results
+
+Run a Malloy query using file.malloy and output the results as JSON:
+run file.malloy "source->{ aggregate: my_field }"`;
+
 export function createCLI(): Command {
-  const cli = new Command();
+  const cli = new Command()
+    // global options
+    .version(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (<any>process).MALLOY_CLI_VERSION
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (<any>process).MALLOY_CLI_VERSION
+        : 'development'
+    )
+    .name('malloy-cli')
+    .addOption(
+      new Option('-c, --config <file_path>', 'path to a config.json file').env(
+        'MALLOY_CONFIG_FILE'
+      )
+    )
+    .addOption(new Option('--quiet', 'silence output'))
+    .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'))
+    .addOption(
+      new Option('-l, --log-level <level>', 'log level')
+        .choices(['error', 'warn', 'info', 'debug'] as const)
+        .default('warn' as const)
+    );
 
   if (process.env.NODE_ENV === 'test') {
-    // silenct output and don't process.exit(1) when testing
+    // silence output and don't process.exit(1) when testing
 
     // NOTE! exitOverride is copied to commands upon command creation, so setting
     // this after a command is created will mean that command does NOT have the exit
@@ -72,119 +138,57 @@ export function createCLI(): Command {
     loadConnections();
   });
 
-  // global options
   cli
-    .version(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (<any>process).MALLOY_CLI_VERSION
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (<any>process).MALLOY_CLI_VERSION
-        : 'development'
-    )
-    .name('malloy-cli')
-    .addOption(
-      new Option('-c, --config <file_path>', 'path to a config.json file').env(
-        'MALLOY_CONFIG_FILE'
-      )
-    )
-    .addOption(new Option('--quiet', 'silence output'))
-    .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'))
-    .addOption(
-      new Option('-l, --log-level', 'log level')
-        .choices(['error', 'warn', 'info', 'debug'])
-        .default('warn')
-    );
-
-  const addRunOrCompileOptions = (command: Command): Command => {
-    return command
-      .addOption(
-        new Option(
-          '-i, --index <number>',
-          'only run statement or query at index i (1-based)'
-        ).conflicts('query-name')
-      )
-      .addOption(
-        new Option(
-          '-n, --name <name>',
-          'run a named query (.malloy file only)'
-        ).conflicts('index')
-      )
-      .addOption(new Option('-j, --json', 'output json'));
-  };
-
-  // TODO dry run
-  // TODO cost query?
-  // TODO results truncation
-  const runDescription = `execute a Malloy file (.malloy or .malloysql)
-
-When executing a MalloySQL file, all statements in the file are executed sequentially.
-If --index is passed, the statement at that 1-based index is executed. If this statement
-is a SQL statement, all Malloy statments (but no SQL statments) above that statement are
-also executed.
-
-When executing a Malloy file, include either a name to a query (--name), the index of a
-query (--index), or a new query as the final argument.`;
-
-  const afterRunHelp = `
-
-Examples:
-
-Run a MalloySQL file and output the malloy, the compiled SQL, and results:
-run file.malloysql -o malloy compiled-sql results
-
-Run a MalloySQL file and output each statement as SQL:
-run file.malloysql -f json
-
-Run the second MalloySQL statement in a file and output the results:
-run file.malloysql --index 2 -o results
-
-Run a Malloy query using file.malloy and output the results as JSON:
-run file.malloy "source->{ aggregate: my_field }"
-  `;
-  const run = cli
-    .command('run <file>')
-    .argument(
-      '[query]',
-      'a quoted query to be executed (for .malloy files only)'
-    )
-    .summary('execute a Malloy file (.malloy or .malloysql)')
-    .description(runDescription)
-    .addHelpText('after', afterRunHelp)
-    .action(runCommand);
-
-  addRunOrCompileOptions(run);
-
-  const compileDescription = `compile a Malloy file (.malloy or .malloysql)
-
-When compiling a MalloySQL file, all statements in the file are compiled sequentially.
-If --index is passed, the statement at that 1-based index is compiled. If this statement
-is a SQL statement, all Malloy statments (but no SQL statments) above that statement are
-also compiled.
-
-When compiling a query using a Malloy file....`;
-
-  const afterCompileHelp = `
-
-Examples:
-
-Compile a MalloySQL file and output SQL:
-compile file.malloysql -o malloy compiled-sql
-
-Compile a MalloySQL file and output each statement as SQL using JSON:
-compile file.malloysql -f json
-  `;
-  const compile = cli
     .command('compile <file>')
     .argument(
       '[query]',
       'a quoted query to be compiled (for .malloy files only)'
     )
+    .addOption(
+      new Option(
+        '-i, --index <number>',
+        'only run statement or query at index i (1-based)'
+      )
+        .conflicts('query-name')
+        .argParser(parseFloat)
+    )
+    .addOption(
+      new Option(
+        '-n, --name <name>',
+        'run a named query (.malloy file only)'
+      ).conflicts('index')
+    )
+    .addOption(new Option('-j, --json', 'output json'))
     .summary('compile a Malloy file (.malloy or .malloysql)')
     .description(compileDescription)
     .addHelpText('after', afterCompileHelp)
     .action(compileCommand);
 
-  addRunOrCompileOptions(compile);
+  cli
+    .command('run <file>')
+    .argument(
+      '[query]',
+      'a quoted query to be executed (for .malloy files only)'
+    )
+    .addOption(
+      new Option(
+        '-i, --index <number>',
+        'only run statement or query at index i (1-based)'
+      )
+        .conflicts('query-name')
+        .argParser(parseFloat)
+    )
+    .addOption(
+      new Option(
+        '-n, --name <name>',
+        'run a named query (.malloy file only)'
+      ).conflicts('index')
+    )
+    .addOption(new Option('-j, --json', 'output json'))
+    .summary('execute a Malloy file (.malloy or .malloysql)')
+    .description(runDescription)
+    .addHelpText('after', afterRunHelp)
+    .action(runCommand);
 
   const connections = cli
     .command('connections')
@@ -214,7 +218,7 @@ compile file.malloysql -f json
     .argument('<name>')
     .option('-h, --host <url>')
     .option('-u, --username <name>')
-    .addOption(new Option('-p, --port <number>').argParser(parseInt))
+    .addOption(new Option('-P, --port <number>').argParser(parseInt))
     .option('-d, --database-name <name>')
     .option('-p, --password <password>')
     .action(createPostgresConnectionCommand);

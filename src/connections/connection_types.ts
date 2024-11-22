@@ -43,13 +43,32 @@ export interface BaseConnectionConfig {
   isDefault: boolean;
 }
 
+export interface BigQueryConnectionOptions {
+  project?: string;
+  serviceAccountKeyPath?: string;
+  projectName?: string;
+  location?: string;
+  maximumBytesBilled?: number;
+  timeout?: number;
+}
+
 export interface BigQueryConnectionConfig extends BaseConnectionConfig {
+  project?: string;
   backend: ConnectionBackend.BigQuery;
   serviceAccountKeyPath?: string;
   projectName?: string;
   location?: string;
   maximumBytesBilled?: string;
   timeoutMs?: string;
+}
+
+export interface PostgresConnectionOptions {
+  username?: string;
+  password?: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  useKeychainPassword?: boolean;
 }
 
 export interface PostgresConnectionConfig extends BaseConnectionConfig {

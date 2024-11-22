@@ -35,6 +35,7 @@ import {
   StandardOutputType,
   getFilteredResultsLogger,
 } from './util';
+import {errorMessage} from '../util';
 
 export async function runMalloy(
   filePath: string,
@@ -50,9 +51,9 @@ export async function runMalloy(
           StandardOutputType.Tasks,
         ]
   );
-  const json = {};
+  const json = JSON.parse('{}');
 
-  let modelMaterializer: ModelMaterializer;
+  let modelMaterializer: ModelMaterializer | undefined;
   const fileURL = url.pathToFileURL(filePath);
 
   const malloyRuntime = new Runtime(
@@ -75,22 +76,20 @@ export async function runMalloy(
     if (options.queryOptions) {
       switch (options.queryOptions.type) {
         case QueryOptionsType.Index:
-          query = await modelMaterializer.loadQueryByIndex(
+          query = modelMaterializer.loadQueryByIndex(
             options.queryOptions.index
           );
           break;
         case QueryOptionsType.Name:
-          query = await modelMaterializer.loadQueryByName(
-            options.queryOptions.name
-          );
+          query = modelMaterializer.loadQueryByName(options.queryOptions.name);
           break;
         case QueryOptionsType.String:
-          query = await modelMaterializer.loadQuery(
+          query = modelMaterializer.loadQuery(
             `run: ${options.queryOptions.query}`
           );
           break;
       }
-    } else query = await modelMaterializer.loadFinalQuery();
+    } else query = modelMaterializer.loadFinalQuery();
 
     const sql = await query.getSQL();
     json['sql'] = sql.trim();
@@ -110,6 +109,6 @@ export async function runMalloy(
 
     return JSON.stringify(json);
   } catch (e) {
-    resultsLog.error(e);
+    resultsLog.error(errorMessage(e));
   }
 }

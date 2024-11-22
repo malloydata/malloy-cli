@@ -29,8 +29,8 @@ import {cli} from './cli';
 // when in pkg, need to look at where we are executing, __dirname etc are overridden
 const directory = process.cwd();
 
-export function exitWithError(message: string): void {
-  cli.error(message);
+export function exitWithError(message: string): never {
+  return cli.error(message);
 }
 
 export function isWindows() {
@@ -49,18 +49,18 @@ export function createDirectoryOrError(path: string, message?: string): void {
     } catch (e) {
       exitWithError(
         message
-          ? `${message}\n${e.message}`
+          ? `${message}\n${errorMessage(e)}`
           : `Failed to create directory at ${path}`
       );
     }
   }
 }
 
-export function fileExists(filePath): boolean {
+export function fileExists(filePath: string): boolean {
   return fs.existsSync(filePath);
 }
 
-export function loadFile(filePath): string {
+export function loadFile(filePath: string): string {
   const absolutePath = path.isAbsolute(filePath)
     ? filePath
     : path.resolve(directory, filePath);
@@ -79,7 +79,7 @@ export function loadFile(filePath): string {
   try {
     return fs.readFileSync(absolutePath, 'utf8').toString();
   } catch (e) {
-    exitWithError(e.message);
+    exitWithError(errorMessage(e));
   }
 }
 
@@ -88,7 +88,7 @@ const BYTE_MATCH = /^(?<bytes>\d+)((?<suffix>[kmgtp])((?<iec>i)?b)?)?$/i;
 
 export const convertToBytes = (bytes: string): string => {
   const match = BYTE_MATCH.exec(bytes);
-  if (match?.groups ? match.groups['suffix'] : false) {
+  if (match?.groups && match.groups['suffix']) {
     const value =
       +match.groups['bytes'] *
       Math.pow(
@@ -99,3 +99,7 @@ export const convertToBytes = (bytes: string): string => {
   }
   return bytes;
 };
+
+export function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : `${error}`;
+}

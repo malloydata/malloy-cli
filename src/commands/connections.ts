@@ -24,17 +24,22 @@
 import {config, saveConfig} from '../config';
 import {connectionManager} from '../connections/connection_manager';
 import {
+  BigQueryConnectionOptions,
   ConnectionBackend,
   ConnectionConfig,
+  PostgresConnectionOptions,
 } from '../connections/connection_types';
 import {out} from '../log';
-import {exitWithError} from '../util';
+import {errorMessage, exitWithError} from '../util';
 
-function connectionConfigFromName(name: string): ConnectionConfig {
+function connectionConfigFromName(name: string): ConnectionConfig | undefined {
   return config.connections.find(connection => connection.name === name);
 }
 
-export function createBigQueryConnectionCommand(name: string, options): void {
+export function createBigQueryConnectionCommand(
+  name: string,
+  options: BigQueryConnectionOptions
+): void {
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
@@ -48,17 +53,20 @@ export function createBigQueryConnectionCommand(name: string, options): void {
   if (options.project) connection.projectName = options.project;
   if (options.location) connection.location = options.location;
   if (options.maximumBytesBilled)
-    connection.maximumBytesBilled = options.maximumBytesBilled;
+    connection.maximumBytesBilled = `${options.maximumBytesBilled}`;
   if (options.serviceAccountKeyPath)
     connection.serviceAccountKeyPath = options.serviceAccountKeyPath;
-  if (options.timeout) connection.timeoutMs = options.timeout;
+  if (options.timeout) connection.timeoutMs = `${options.timeout}`;
 
   config.connections.push(connection);
   saveConfig();
   out(`Connection ${name} created`);
 }
 
-export function createPostgresConnectionCommand(name: string, options): void {
+export function createPostgresConnectionCommand(
+  name: string,
+  options: PostgresConnectionOptions
+): void {
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
@@ -69,7 +77,7 @@ export function createPostgresConnectionCommand(name: string, options): void {
     isDefault: false,
   };
 
-  if (options.database) connection.databaseName = options.databaseName;
+  if (options.database) connection.databaseName = options.database;
   if (options.port) connection.port = options.port;
   if (options.host) connection.host = options.host;
   if (options.username) connection.username = options.username;
@@ -92,7 +100,7 @@ export async function testConnectionCommand(name: string): Promise<void> {
     await connection.test();
     out('Connection test successful');
   } catch (e) {
-    exitWithError(`Connection test unsuccessful: ${e.message}`);
+    exitWithError(`Connection test unsuccessful: ${errorMessage(e)}`);
   }
 }
 

@@ -79,12 +79,16 @@ export interface RunOrCompileOptions {
 export async function runOrCompile(
   source: string,
   query: string | undefined = undefined,
-  options,
+  options: {
+    index?: number | undefined;
+    name?: string | undefined;
+    json?: true | undefined;
+  },
   compileOnly = false
 ): Promise<void> {
   const extension = path.extname(source).toLowerCase();
 
-  if (options.index && options.index < 1) {
+  if (options.index !== undefined && options.index < 1) {
     exitWithError(
       'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
     );
@@ -92,13 +96,13 @@ export async function runOrCompile(
 
   let queryOptions: QueryOptions | undefined;
   if (query) {
-    if (options.index) {
+    if (options.index !== undefined) {
       exitWithError(
         'Passing a query string is incompatible with also passing a query index'
       );
     }
 
-    if (options.name) {
+    if (options.name !== undefined) {
       exitWithError(
         'Passing a query string is incompatible with also passing a query name'
       );
@@ -108,8 +112,8 @@ export async function runOrCompile(
       type: QueryOptionsType.String,
       query: query,
     };
-  } else if (options.index) {
-    if (options.name) {
+  } else if (options.index !== undefined) {
+    if (options.name !== undefined) {
       exitWithError(
         'Passing a query name is incompatible with also passing a query index'
       );
@@ -130,7 +134,7 @@ export async function runOrCompile(
 
   const runOrCompileOptions: RunOrCompileOptions = {
     compileOnly,
-    json: options.json === 'true',
+    json: options.json === true,
     queryOptions,
   };
 

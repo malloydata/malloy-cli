@@ -23,7 +23,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import {defaultBuildDirctory, doBuild, doPostInstallBuild} from './build';
+import {defaultBuildDirectory, doBuild, doPostInstallBuild} from './build';
 import {readPackageJson} from './utils/licenses';
 
 const args = process.argv.slice(1);
@@ -32,7 +32,7 @@ const args = process.argv.slice(1);
 const buildDirectory =
   args[1] && args[1] === 'test'
     ? path.join(__dirname, '..', 'test', '.build', 'npmBin')
-    : defaultBuildDirctory;
+    : defaultBuildDirectory;
 
 // this is run before publishing to NPM - places
 // built file in dist/, and also a post-install script
