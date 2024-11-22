@@ -24,8 +24,11 @@
 import path from 'path';
 import {createCLI} from '../../src/cli';
 import {runMalloySQL} from '../../src/malloy/malloySQL';
-import {silenceOut} from '../../src/log';
+import {createBasicLogger, silenceOut} from '../../src/log';
 import {QueryOptionsType} from '../../src/malloy/util';
+import {errorMessage} from '../../src/util';
+import {loadConnections} from '../../src/connections/connection_manager';
+import {loadConfig} from '../../src/config';
 
 const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
 const complex1 = path.join(
@@ -40,9 +43,9 @@ describe('MalloySQL', () => {
     const cli = createCLI();
     // call 'preAction' hooks
     // so that things like logger, connectionManager are created
-    const preAction: [Function] = cli['_lifeCycleHooks']['preAction'];
-    preAction.forEach(action => action.call(cli));
-
+    createBasicLogger();
+    loadConfig();
+    loadConnections();
     silenceOut();
   });
 
@@ -87,7 +90,7 @@ describe('MalloySQL', () => {
         index: 2,
       },
     }).catch(e => {
-      expect(e.message).toStrictEqual(
+      expect(errorMessage(e)).toStrictEqual(
         'Statement index 2 is greater than number of possible statements 1'
       );
     });
@@ -103,7 +106,7 @@ describe('MalloySQL', () => {
         index: 0,
       },
     }).catch(e => {
-      expect(e.message).toStrictEqual(
+      expect(errorMessage(e)).toStrictEqual(
         'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
       );
     });

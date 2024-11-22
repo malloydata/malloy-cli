@@ -21,9 +21,10 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {Command} from 'commander';
+import {Command} from '@commander-js/extra-typings';
 import {createCLI} from '../../src/cli';
 import path from 'path';
+import {errorMessage} from '../../src/util';
 
 let cli: Command;
 let args: string[];
@@ -37,7 +38,7 @@ beforeEach(() => {
   args = ['--quiet', '--config', configPath];
 });
 
-async function runWith(...testArgs): Promise<Command> {
+async function runWith(...testArgs: string[]): Promise<Command> {
   return cli.parseAsync([...args, ...testArgs], {from: 'user'});
 }
 
@@ -60,7 +61,7 @@ describe('commands', () => {
     it('fails if index is < 1', async () => {
       expect.assertions(1);
       return await runWith('run', '-i', '0', 'file.malloy').catch(e =>
-        expect(e.message).toMatch(
+        expect(errorMessage(e)).toMatch(
           'Statement indexes are 1-based - did you mean to use 1 instead of 0?'
         )
       );
@@ -76,7 +77,7 @@ describe('commands', () => {
         'queryName',
         'file.malloy'
       ).catch(e =>
-        expect(e.message).toMatch(
+        expect(errorMessage(e)).toMatch(
           "error: option '-n, --name <name>' cannot be used with option '-i, --index <number>"
         )
       );

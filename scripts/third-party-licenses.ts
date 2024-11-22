@@ -234,7 +234,7 @@ const getLicenses = async () => {
               } catch (e) {
                 if (axios.isAxiosError(e)) {
                   if (!e.response || e.response.status !== 404) {
-                    console.warn(`ERROR: ${e.message}`);
+                    console.warn(`ERROR: ${errorMessage(e)}`);
                     errors.push([name, e]);
                   }
                 } else throw e;

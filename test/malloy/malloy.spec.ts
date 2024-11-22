@@ -22,14 +22,19 @@
  */
 
 import {createCLI} from '../../src/cli';
+import {loadConfig} from '../../src/config';
+import {loadConnections} from '../../src/connections/connection_manager';
+import {createBasicLogger, silenceOut} from '../../src/log';
 
 describe('Malloy', () => {
   beforeAll(() => {
     const cli = createCLI();
     // call 'preAction' hooks
     // so that things like logger, connectionManager are created
-    const preAction: [Function] = cli['_lifeCycleHooks']['preAction'];
-    preAction.forEach(action => action.call(cli));
+    createBasicLogger();
+    loadConfig();
+    loadConnections();
+    silenceOut();
   });
 
   it('runs Malloy, outputs results', () => {

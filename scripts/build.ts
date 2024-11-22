@@ -28,7 +28,7 @@ import * as path from 'path';
 import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
 
-export const defaultBuildDirctory = 'dist/';
+export const defaultBuildDirectory = 'dist/';
 let buildDirectory = 'dist/';
 
 export const commonCLIConfig = (development = false): BuildOptions => {
@@ -142,7 +142,7 @@ export async function doPostInstallBuild(development = false): Promise<void> {
 export async function doWatch(development = false): Promise<void> {
   wipeBuildDirectory(buildDirectory);
 
-  const watchRebuildLogPlugin = {
+  const watchRebuildLogPlugin: Plugin = {
     name: 'watchRebuildLogPlugin',
     setup(build) {
       build.onStart(() => {
@@ -152,6 +152,7 @@ export async function doWatch(development = false): Promise<void> {
   };
 
   const config = commonCLIConfig(development);
+  config.plugins ??= [];
   config.plugins.push(watchRebuildLogPlugin);
   const ctx = await esbuild.context({
     ...config,
