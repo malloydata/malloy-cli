@@ -29,7 +29,9 @@ import {
   createBigQueryConnectionCommand,
   createDuckDbConnectionCommand,
   createPostgresConnectionCommand,
+  createPrestoConnectionCommand,
   createSnowflakeConnectionCommand,
+  createTrinoConnectionCommand,
   listConnectionsCommand,
   removeConnectionCommand,
   showConnectionCommand,
@@ -246,6 +248,30 @@ export function createCLI(): Command {
       new Option('-t, --timeout-ms <milliseconds>').argParser(parseInt)
     )
     .action(createSnowflakeConnectionCommand);
+
+  connections
+    .command('create-presto')
+    .description('add a new Presto database connection')
+    .argument('<name>')
+    .option('-S, --server <server>')
+    .addOption(new Option('-P, --port <number>').argParser(parseInt))
+    .option('-c, --catalog <catalog>')
+    .option('-s, --schema <schema>')
+    .option('-u, ---user <user>')
+    .option('-p, --password <password>')
+    .action(createPrestoConnectionCommand);
+
+  connections
+    .command('create-trino')
+    .description('add a new Trino database connection')
+    .argument('<name>')
+    .option('-S, --server <server>')
+    .addOption(new Option('-P, --port <number>').argParser(parseInt))
+    .option('-c, --catalog <catalog>')
+    .option('-s, --schema <schema>')
+    .option('-u, ---user <user>')
+    .option('-p, --password <password>')
+    .action(createTrinoConnectionCommand);
 
   connections
     .command('test')

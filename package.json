@@ -47,6 +47,8 @@
     "@malloydata/db-duckdb",
     "@malloydata/db-postgres",
     "@malloydata/db-snowflake",
+    "@malloydata/db-presto",
+    "@malloydata/db-trino",
     "@malloydata/malloy",
     "@malloydata/malloy-sql",
     "chalk",
@@ -60,6 +62,7 @@
     "@malloydata/db-duckdb": "0.0.217",
     "@malloydata/db-postgres": "0.0.217",
     "@malloydata/db-snowflake": "0.0.217",
+    "@malloydata/db-trino": "0.0.217",
     "@malloydata/malloy": "0.0.217",
     "@malloydata/malloy-sql": "0.0.217",
     "@types/jest": "^29.2.5",
@@ -88,8 +91,5 @@
     "ts-node": "^10.9.1",
     "typescript": "^4.8.4",
     "winston": "^3.9.0"
-  },
-  "dependencies": {
-    "@malloydata/db-snowflake": "0.0.132"
   }
 }

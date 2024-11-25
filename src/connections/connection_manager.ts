@@ -33,13 +33,16 @@ import {
   ConnectionConfig,
   DuckDBConnectionConfig,
   PostgresConnectionConfig,
+  PrestoConnectionConfig,
   SnowflakeConnectionConfig,
+  TrinoConnectionConfig,
 } from './connection_types';
 import {fileURLToPath} from 'url';
 import {BigQueryConnection} from '@malloydata/db-bigquery';
 import {convertToBytes, exitWithError} from '../util';
 import {DuckDBConnection} from '@malloydata/db-duckdb';
 import {PostgresConnection} from '@malloydata/db-postgres';
+import {PrestoConnection, TrinoConnection} from '@malloydata/db-trino';
 import {SnowflakeConnection} from '@malloydata/db-snowflake';
 import {config} from '../config';
 
@@ -122,6 +125,30 @@ const createSnowflakeConnection = async (
   return connection;
 };
 
+const createPrestoConnection = async (
+  connectionConfig: PrestoConnectionConfig,
+  queryOptions: ConfigOptions
+): Promise<PrestoConnection> => {
+  const connection = new PrestoConnection(
+    connectionConfig.name,
+    queryOptions,
+    connectionConfig
+  );
+  return connection;
+};
+
+const createTrinoConnection = async (
+  connectionConfig: TrinoConnectionConfig,
+  queryOptions: ConfigOptions
+): Promise<TrinoConnection> => {
+  const connection = new TrinoConnection(
+    connectionConfig.name,
+    queryOptions,
+    connectionConfig
+  );
+  return connection;
+};
+
 export class CLIConnectionFactory {
   connectionCache: Record<string, TestableConnection> = {};
 
@@ -163,6 +190,20 @@ export class CLIConnectionFactory {
       }
       case ConnectionBackend.Snowflake: {
         connection = await createSnowflakeConnection(
+          connectionConfig,
+          configOptions
+        );
+        break;
+      }
+      case ConnectionBackend.Presto: {
+        connection = await createPrestoConnection(
+          connectionConfig,
+          configOptions
+        );
+        break;
+      }
+      case ConnectionBackend.Trino: {
+        connection = await createTrinoConnection(
           connectionConfig,
           configOptions
         );

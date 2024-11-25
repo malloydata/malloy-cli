@@ -28,6 +28,8 @@ export enum ConnectionBackend {
   Postgres = 'postgres',
   DuckDB = 'duckdb',
   Snowflake = 'snowflake',
+  Presto = 'presto',
+  Trino = 'trino',
 }
 
 export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
@@ -35,6 +37,8 @@ export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
   [ConnectionBackend.Postgres]: 'Postgres',
   [ConnectionBackend.DuckDB]: 'DuckDB',
   [ConnectionBackend.Snowflake]: 'Snowflake',
+  [ConnectionBackend.Presto]: 'Presto',
+  [ConnectionBackend.Trino]: 'Trino',
 };
 
 export interface BigQueryConnectionOptions {
@@ -111,11 +115,43 @@ export interface SnowflakeConnectionConfig extends BaseConnectionConfig {
   timeoutMs?: number;
 }
 
+export interface PrestoConnectionOptions {
+  server?: string;
+  port?: number;
+  catalog?: string;
+  schema?: string;
+  user?: string;
+  password?: string;
+}
+
+export interface PrestoConnectionConfig
+  extends PrestoConnectionOptions,
+    BaseConnectionConfig {
+  backend: ConnectionBackend.Presto;
+}
+
+export interface TrinoConnectionOptions {
+  server?: string;
+  port?: number;
+  catalog?: string;
+  schema?: string;
+  user?: string;
+  password?: string;
+}
+
+export interface TrinoConnectionConfig
+  extends TrinoConnectionOptions,
+    BaseConnectionConfig {
+  backend: ConnectionBackend.Trino;
+}
+
 export type ConnectionConfig =
   | BigQueryConnectionConfig
   | PostgresConnectionConfig
   | DuckDBConnectionConfig
-  | SnowflakeConnectionConfig;
+  | SnowflakeConnectionConfig
+  | PrestoConnectionConfig
+  | TrinoConnectionConfig;
 
 export interface ConfigOptions {
   workingDirectory: string;

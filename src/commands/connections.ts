@@ -29,6 +29,7 @@ import {
   ConnectionConfig,
   DuckDBConnectionOptions,
   PostgresConnectionOptions,
+  PrestoConnectionOptions,
   SnowflakeConnectionOptions,
 } from '../connections/connection_types';
 import {out} from '../log';
@@ -108,6 +109,42 @@ export function createSnowflakeConnectionCommand(
   const connection: ConnectionConfig = {
     name,
     backend: ConnectionBackend.Snowflake,
+    ...options,
+  };
+
+  config.connections.push(connection);
+  saveConfig();
+  out(`Connection ${name} created`);
+}
+
+export function createPrestoConnectionCommand(
+  name: string,
+  options: PrestoConnectionOptions
+): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.Presto,
+    ...options,
+  };
+
+  config.connections.push(connection);
+  saveConfig();
+  out(`Connection ${name} created`);
+}
+
+export function createTrinoConnectionCommand(
+  name: string,
+  options: PrestoConnectionOptions
+): void {
+  if (connectionConfigFromName(name))
+    exitWithError(`A connection named ${name} already exists`);
+
+  const connection: ConnectionConfig = {
+    name,
+    backend: ConnectionBackend.Presto,
     ...options,
   };
 
