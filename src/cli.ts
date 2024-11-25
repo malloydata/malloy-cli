@@ -27,7 +27,11 @@ import {loadConfig} from './config';
 //import {configShowCommand as showConfigCommand} from './commands/config';
 import {
   createBigQueryConnectionCommand,
+  createDuckDbConnectionCommand,
   createPostgresConnectionCommand,
+  createPrestoConnectionCommand,
+  createSnowflakeConnectionCommand,
+  createTrinoConnectionCommand,
   listConnectionsCommand,
   removeConnectionCommand,
   showConnectionCommand,
@@ -226,8 +230,48 @@ export function createCLI(): Command {
   connections
     .command('create-duckdb')
     .description('add a new DuckDB database connection')
-    .argument('<name>');
-  // TODO path to duckdb executable, otherwise assume ./duckdb
+    .argument('<name>')
+    .option('-d, --database-path <database>')
+    .action(createDuckDbConnectionCommand);
+
+  connections
+    .command('create-snowflake')
+    .description('add a new Snowflake database connection')
+    .argument('<name>')
+    .addOption(new Option('-a, --account <account>').makeOptionMandatory())
+    .option('-u --username <name>')
+    .option('-p, --password <password>')
+    .option('-w, --warehouse <warehouse>')
+    .option('-d, --database <name>')
+    .option('-s, --schema <schema>')
+    .addOption(
+      new Option('-t, --timeout-ms <milliseconds>').argParser(parseInt)
+    )
+    .action(createSnowflakeConnectionCommand);
+
+  connections
+    .command('create-presto')
+    .description('add a new Presto database connection')
+    .argument('<name>')
+    .option('-S, --server <server>')
+    .addOption(new Option('-P, --port <number>').argParser(parseInt))
+    .option('-c, --catalog <catalog>')
+    .option('-s, --schema <schema>')
+    .option('-u, ---user <user>')
+    .option('-p, --password <password>')
+    .action(createPrestoConnectionCommand);
+
+  connections
+    .command('create-trino')
+    .description('add a new Trino database connection')
+    .argument('<name>')
+    .option('-S, --server <server>')
+    .addOption(new Option('-P, --port <number>').argParser(parseInt))
+    .option('-c, --catalog <catalog>')
+    .option('-s, --schema <schema>')
+    .option('-u, ---user <user>')
+    .option('-p, --password <password>')
+    .action(createTrinoConnectionCommand);
 
   connections
     .command('test')

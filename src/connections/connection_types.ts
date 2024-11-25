@@ -21,27 +21,25 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import {ConnectionConfig as BaseConnectionConfig} from '@malloydata/malloy';
+
 export enum ConnectionBackend {
   BigQuery = 'bigquery',
   Postgres = 'postgres',
   DuckDB = 'duckdb',
+  Snowflake = 'snowflake',
+  Presto = 'presto',
+  Trino = 'trino',
 }
 
 export const ConnectionBackendNames: Record<ConnectionBackend, string> = {
   [ConnectionBackend.BigQuery]: 'BigQuery',
   [ConnectionBackend.Postgres]: 'Postgres',
   [ConnectionBackend.DuckDB]: 'DuckDB',
+  [ConnectionBackend.Snowflake]: 'Snowflake',
+  [ConnectionBackend.Presto]: 'Presto',
+  [ConnectionBackend.Trino]: 'Trino',
 };
-
-/*
- * NOTE: These should be kept in sync with the cli options
- */
-
-export interface BaseConnectionConfig {
-  name: string;
-  isGenerated: boolean;
-  isDefault: boolean;
-}
 
 export interface BigQueryConnectionOptions {
   project?: string;
@@ -56,6 +54,8 @@ export interface BigQueryConnectionConfig extends BaseConnectionConfig {
   project?: string;
   backend: ConnectionBackend.BigQuery;
   serviceAccountKeyPath?: string;
+  projectId?: string;
+  /** @deprecated use projectId */
   projectName?: string;
   location?: string;
   maximumBytesBilled?: string;
@@ -81,15 +81,77 @@ export interface PostgresConnectionConfig extends BaseConnectionConfig {
   useKeychainPassword?: boolean;
 }
 
+export interface DuckDBConnectionOptions {
+  workingDirectory?: string;
+  databasePath?: string;
+  motherDuckToken?: string;
+}
+
 export interface DuckDBConnectionConfig extends BaseConnectionConfig {
   backend: ConnectionBackend.DuckDB;
   workingDirectory?: string;
+  databasePath?: string;
+  motherDuckToken?: string;
+}
+
+export interface SnowflakeConnectionOptions {
+  account: string;
+  username?: string;
+  password?: string;
+  warehouse?: string;
+  database?: string;
+  schema?: string;
+  timeoutMs?: number;
+}
+
+export interface SnowflakeConnectionConfig extends BaseConnectionConfig {
+  backend: ConnectionBackend.Snowflake;
+  account: string;
+  username?: string;
+  password?: string;
+  warehouse?: string;
+  database?: string;
+  schema?: string;
+  timeoutMs?: number;
+}
+
+export interface PrestoConnectionOptions {
+  server?: string;
+  port?: number;
+  catalog?: string;
+  schema?: string;
+  user?: string;
+  password?: string;
+}
+
+export interface PrestoConnectionConfig
+  extends PrestoConnectionOptions,
+    BaseConnectionConfig {
+  backend: ConnectionBackend.Presto;
+}
+
+export interface TrinoConnectionOptions {
+  server?: string;
+  port?: number;
+  catalog?: string;
+  schema?: string;
+  user?: string;
+  password?: string;
+}
+
+export interface TrinoConnectionConfig
+  extends TrinoConnectionOptions,
+    BaseConnectionConfig {
+  backend: ConnectionBackend.Trino;
 }
 
 export type ConnectionConfig =
   | BigQueryConnectionConfig
   | PostgresConnectionConfig
-  | DuckDBConnectionConfig;
+  | DuckDBConnectionConfig
+  | SnowflakeConnectionConfig
+  | PrestoConnectionConfig
+  | TrinoConnectionConfig;
 
 export interface ConfigOptions {
   workingDirectory: string;
