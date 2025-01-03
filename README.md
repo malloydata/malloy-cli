@@ -1,4 +1,4 @@
-# malloy-cli
+# malloy-cli on mtoy-test-fork1
 
 Run Malloy or MalloySQL from the command line!
 
