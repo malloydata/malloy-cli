@@ -1,5 +1,9 @@
 name: 'Get and Check Permissions'
 description: 'Get and check user permissions for secret access'
+inputs:
+  github_token:
+    description: 'Github Token for checking permissions'
+    default: ''
 runs:
   using: 'composite'
   steps:
@@ -10,7 +14,7 @@ runs:
         require: write
         username: ${{ github.triggering_actor }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
     - name: Check User Permission
       if: steps.checkAccess.outputs.require-result == 'false'
       run: |
