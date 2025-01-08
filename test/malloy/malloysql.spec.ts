@@ -22,7 +22,6 @@
  */
 
 import path from 'path';
-import {createCLI} from '../../src/cli';
 import {runMalloySQL} from '../../src/malloy/malloySQL';
 import {createBasicLogger, silenceOut} from '../../src/log';
 import {QueryOptionsType} from '../../src/malloy/util';
@@ -40,7 +39,6 @@ const complex1 = path.join(
 
 describe('MalloySQL', () => {
   beforeAll(() => {
-    const cli = createCLI();
     // call 'preAction' hooks
     // so that things like logger, connectionManager are created
     createBasicLogger();
