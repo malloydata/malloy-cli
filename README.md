@@ -1,4 +1,7 @@
 # malloy-cli
+## maybe signed commit?
+## maybe remediated
+## maybe again
 
 Run Malloy or MalloySQL from the command line!
 
