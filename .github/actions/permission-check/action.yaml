@@ -2,24 +2,17 @@ name: 'Get and Check Permissions'
 description: 'Get and check user permissions for secret access'
 inputs:
   github_token:
-    description: 'Github Token for checking permissions'
+    description: Github Token for API access
+    default: ''
+  username:
+    description: User to check
+    default: ''
+  permission:
+    description: Required permission level
+    default: ''
+  error_message:
+    description: Error message to display
     default: ''
 runs:
-  using: 'composite'
-  steps:
-    - name: Get User Permission
-      id: checkAccess
-      uses: actions-cool/check-user-permission@v2
-      with:
-        require: write
-        username: ${{ github.triggering_actor }}
-      env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
-    - name: Check User Permission
-      if: steps.checkAccess.outputs.require-result == 'false'
-      shell: bash
-      run: |
-        echo "${{ github.triggering_actor }} does not have permissions on this repo."
-        echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
-        echo "Job originally triggered by ${{ github.actor }}"
-        exit 1
+  using: 'node20'
+  main: 'dist/index.js'
