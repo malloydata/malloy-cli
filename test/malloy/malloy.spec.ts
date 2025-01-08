@@ -21,14 +21,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {createCLI} from '../../src/cli';
 import {loadConfig} from '../../src/config';
 import {loadConnections} from '../../src/connections/connection_manager';
 import {createBasicLogger, silenceOut} from '../../src/log';
 
 describe('Malloy', () => {
   beforeAll(() => {
-    const cli = createCLI();
     // call 'preAction' hooks
     // so that things like logger, connectionManager are created
     createBasicLogger();

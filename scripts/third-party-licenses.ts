@@ -40,16 +40,17 @@ import fs from 'fs';
 import {stringify} from 'csv-stringify';
 import {readPackageJson} from './utils/licenses';
 import path from 'path';
+import {errorMessage} from '../src/util';
 
 interface OutputRow {
   name: string;
   url?: string;
-  licenseLink: string;
-  licenseName: string;
-  binaryName: string;
-  copyrightIncluded: string;
-  sourceCodeIncluded: string;
-  hasNoticeFile: string;
+  licenseLink?: string;
+  licenseName?: string;
+  binaryName?: string;
+  copyrightIncluded?: string;
+  sourceCodeIncluded?: string;
+  hasNoticeFile?: string;
 }
 
 const outputFile = process.argv[2];
@@ -58,8 +59,6 @@ if (fs.existsSync(outputFile)) throw new Error('Output file exists already');
 
 axios.defaults.timeout = 500000;
 axios.defaults.httpsAgent = new https.Agent({keepAlive: true});
-
-const malloyPackages = ['@malloydata/malloy-cli'];
 
 // licenses that we would need to mirror source for, if we included (we don't today)
 const sourceMirrorLicenses = [
@@ -120,7 +119,7 @@ const getLicenses = async () => {
   ).builtIntoPackageDependencies;
 
   const seen: string[] = [];
-  const dependenciesForPackage = (pkg: string): Partial<OutputRow>[] => {
+  const dependenciesForPackage = (pkg: string): OutputRow[] => {
     if (!seen.find(a => a === pkg)) {
       seen.push(pkg);
       console.log(`npm view ${pkg} dependencies repository.url license --json`);
@@ -151,11 +150,12 @@ const getLicenses = async () => {
   const dependencies = dependenciesInPackage
     .map(dep => dependenciesForPackage(dep))
     .flat()
+    .filter(a => a.name)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   for (const dependency of dependencies) {
     const name = dependency.name;
-    const row: Partial<OutputRow> = dependency;
+    const row: OutputRow = dependency;
     const url = dependency.url;
 
     if (Object.keys(licenseFoundElsewhere).includes(name)) {

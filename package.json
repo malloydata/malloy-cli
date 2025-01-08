@@ -14,7 +14,7 @@
     "node": ">=10"
   },
   "scripts": {
-    "lint": "gts lint",
+    "lint": "tsc --noEmit && gts lint",
     "test": "NODE_ENV=test jest --projects jest.config.js --runInBand",
     "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest  --projects jest.config.js --runInBand --reporters jest-silent-reporter",
     "test-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
