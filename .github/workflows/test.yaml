@@ -19,6 +19,8 @@ jobs:
         uses: ./.github/actions/permission-check
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.triggering_actor }}
+          error_message: User lacks write permission, contact a Malloy team member to run.
       - name: GCloud auth
         uses: 'google-github-actions/auth@v2'
         with:

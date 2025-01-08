@@ -20,6 +20,8 @@
     "test-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
     "test-silent-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --projects=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
+    "build-action": "esbuild --platform=node --bundle ./.github/actions/permission-check/lib/index.ts --outfile=./.github/actions/permission-check/dist/index.js",
+    "build-action-dev": "npm run build-action -- --watch",
     "cli": "npx ts-node ./dist/cli.js",
     "watch": "ts-node scripts/build watch",
     "package": "ts-node scripts/package",
@@ -57,6 +59,8 @@
     "winston"
   ],
   "devDependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0",
     "@commander-js/extra-typings": "^12.1.0",
     "@malloydata/db-bigquery": "0.0.217",
     "@malloydata/db-duckdb": "0.0.217",
