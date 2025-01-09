@@ -11,16 +11,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Permission Check
+        uses: malloydata/check-ci-permissions@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.triggering_actor }}
+          error_message: |
+            User does not have write access to this repository. Refer to CONTRIBUTING.md instructions on how to contribute to Malloy.
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - name: Permission Check
-        uses: ./.github/actions/permission-check
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          username: ${{ github.triggering_actor }}
-          error_message: User lacks write permission, contact a Malloy team member to run.
       - name: GCloud auth
         uses: 'google-github-actions/auth@v2'
         with:
