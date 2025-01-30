@@ -56,14 +56,14 @@ export async function runMalloy(
   let modelMaterializer: ModelMaterializer | undefined;
   const fileURL = url.pathToFileURL(filePath);
 
-  const malloyRuntime = new Runtime(
-    {
+  const malloyRuntime = new Runtime({
+    urlReader: {
       readURL: async (url: URL) => {
         return fs.readFileSync(fileURLToPath(url), 'utf8');
       },
     },
-    connectionManager.getConnectionLookup(fileURL)
-  );
+    connections: connectionManager.getConnectionLookup(fileURL),
+  });
 
   try {
     if (!modelMaterializer) {

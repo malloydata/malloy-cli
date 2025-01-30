@@ -52,8 +52,8 @@ class VirtualURIFileHandler implements URLReader {
     if (uri.toString() === this.url.toString()) {
       return this.contents;
     } else {
-      const contents = await this.uriReader.readURL(uri);
-      return contents;
+      const result = await this.uriReader.readURL(uri);
+      return typeof result === 'string' ? result : result.contents;
     }
   }
 }
@@ -126,10 +126,10 @@ export async function runMalloySQL(
       },
     });
 
-    const malloyRuntime = new Runtime(
-      virtualURIFileHandler,
-      connectionManager.getConnectionLookup(fileURL)
-    );
+    const malloyRuntime = new Runtime({
+      urlReader: virtualURIFileHandler,
+      connections: connectionManager.getConnectionLookup(fileURL),
+    });
     let modelMaterializer: ModelMaterializer | undefined;
 
     for (let i = 0; i < statements.length; i++) {
