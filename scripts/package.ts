@@ -59,10 +59,12 @@ async function packageCLI(
     await fetchDuckDB(target);
   }
 
+  fs.rmSync(path.resolve(__dirname, '../dist/duckdb-native.node'), {
+    force: true,
+  });
   fs.copyFileSync(
     path.resolve(__dirname, `${duckdbPath}/${targetDuckDBMap[target]}`),
-    path.resolve(__dirname, '../dist/duckdb-native.node'),
-    fs.constants.COPYFILE_FICLONE
+    path.resolve(__dirname, '../dist/duckdb-native.node')
   );
 
   if (platform === 'darwin') {

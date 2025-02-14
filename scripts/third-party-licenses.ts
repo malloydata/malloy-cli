@@ -110,8 +110,8 @@ const getLicenses = async () => {
   const out: OutputRow[] = [];
   const errors: [string, Error][] = [];
 
-  // NOTE!! We don't use "dependencies" for our packaged dependencies, beucase if we did,
-  // people using the CLI with `npx malloy-cli ...` or `npm install -g malloy-cli` would have
+  // NOTE!! We don't use "dependencies" for our packaged dependencies, because if we did,
+  // people using the CLI with `npx malloy-cli ...` or `npm install -g @malloydata/cli` would have
   // to wait for all dependencies to install as well, even though they are packaged into the built
   // CLI code already. Instead, we keep a list of "builtIntoPackageDependencies"
   const dependenciesInPackage: string[] = (
