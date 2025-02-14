@@ -1,6 +1,6 @@
 {
   "name": "@malloydata/cli",
-  "version": "0.0.39",
+  "version": "0.0.40",
   "description": "Malloy CLI",
   "bin": {
     "malloy-cli": "dist/index.js",
