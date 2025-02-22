@@ -29,7 +29,7 @@ import * as fs from 'fs';
 import {Command} from '@commander-js/extra-typings';
 import {duckdbPath, fetchDuckDB, targetDuckDBMap} from './utils/fetch-duckdb';
 
-const nodeTarget = 'node18';
+const nodeTarget = 'node20';
 const outputFolder = 'pkg/';
 
 async function packageCLI(
