@@ -132,6 +132,7 @@ interface PackageTarget {
       {platform: 'darwin', architecture: 'x64'},
       {platform: 'darwin', architecture: 'arm64'},
       {platform: 'linux', architecture: 'x64'},
+      {platform: 'linux', architecture: 'arm64'},
       {platform: 'win32', architecture: 'x64'},
     ];
   } else {
