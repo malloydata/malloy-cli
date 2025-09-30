@@ -12,13 +12,12 @@
 name: "CodeQL Adv/Debug"
 
 on:
-  workflow_dispatch: # only
-#  push:
-#    branches: [ "main" ]
-#  pull_request:
-#    branches: [ "main" ]
-#  schedule:
-#    - cron: '26 15 * * 5'
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '26 15 * * 5'
 
 env:
   ACTIONS_RUNNER_DEBUG: true
