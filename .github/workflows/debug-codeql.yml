@@ -9,20 +9,20 @@
 # the `language` matrix defined below to confirm you have the correct set of
 # supported CodeQL languages.
 #
-name: "CodeQL Adv/Debug/#1"
+name: "Debug CodeQL"
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '26 15 * * 5'
+  # push:
+  #   branches: [ "main" ]
+  # pull_request:
+  #   branches: [ "main" ]
+  # schedule:
+  #   - cron: '26 15 * * 5'
 
-# env:
-#   ACTIONS_RUNNER_DEBUG: true
-#   ACTIONS_STEP_DEBUG: true
+env:
+  ACTIONS_RUNNER_DEBUG: true
+  ACTIONS_STEP_DEBUG: true
 
 jobs:
   analyze:
@@ -89,18 +89,7 @@ jobs:
     # to build your code.
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-    - name: Debug build mode
-      run: echo "Current build-mode is '${{ matrix.build-mode }}'"
     
-    - if: matrix.build-mode == 'manual'
-      shell: bash
-      run: |
-        this is totally invalid shell syntax !@#$%^&*()
-        echo 'If you are using a "manual" build mode for one or more of the languages you are analyzing, replace this with the commands to build your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
-
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
