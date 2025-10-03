@@ -1,0 +1,55 @@
+name: Test Git Push Permissions
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_ssh_key:
+        description: 'Use MALLOY_GHAPI SSH key'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  test-permissions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (with GITHUB_TOKEN)
+        if: inputs.use_ssh_key == false
+        uses: actions/checkout@v4
+      
+      - name: Checkout (with SSH key)
+        if: inputs.use_ssh_key == true
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.MALLOY_GHAPI }}
+      
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Test git push --dry-run
+        run: |
+          echo "Testing git push permissions with dry-run..."
+          if git push --dry-run origin HEAD:refs/heads/main; then
+            echo "✅ SUCCESS: Git push permissions verified!"
+            echo "This setup CAN push to the repository."
+          else
+            echo "❌ FAILED: No push permissions!"
+            echo "This setup CANNOT push to the repository."
+            exit 1
+          fi
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_ssh_key && 'MALLOY_GHAPI SSH Key' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          if [ $? -eq 0 ]; then
+            echo "- **Result**: ✅ Push permissions verified" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Result**: ❌ No push permissions" >> $GITHUB_STEP_SUMMARY
+          fi
