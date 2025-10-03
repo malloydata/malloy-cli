@@ -210,7 +210,7 @@ function publishLatest(
   console.log('📦 Publishing to @latest tag...\n');
 
   checkGitStatus();
-  
+
   // Check git push permissions before we do anything
   if (!dryRun) {
     checkGitPushPermissions();
