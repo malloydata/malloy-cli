@@ -61,23 +61,26 @@ npm run npm-publish -- latest --bump-type=minor
 
 ### GitHub Actions (Automated)
 
+**Authentication**: Workflows use a GitHub App ("Malloy CI NPM Publisher") for git operations and npm token for publishing.
+
 **Automatic `@next` releases** - Triggered on every push to `main`:
 - Runs tests and linting
 - Publishes to `@malloydata/cli@next` automatically
-- No git operations
+- No git operations (doesn't modify repository)
 
-**Manual `@latest` releases** - Manually triggered workflow (patch bumps only):
+**Manual `@latest` releases** - Manually triggered workflow:
 1. Go to **Actions** → **Publish to npm**
 2. Click **Run workflow**
 3. Choose:
+   - **bump_type**: patch, minor, or major
    - **dry_run**: Enable to test without publishing
 4. The workflow will:
    - Run tests and linting
-   - Bump patch version and publish
+   - Bump version and publish to npm
    - Commit changes and create git tag
    - Push to repository
 
-**Note**: The GitHub Action only supports patch bumps. For minor or major version releases, you must publish locally (see below).
+**Note**: The workflow now supports all bump types (patch, minor, major) via the `bump_type` input.
 
 ### Publishing Minor/Major Releases Locally
 

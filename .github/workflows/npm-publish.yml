@@ -119,13 +119,13 @@ jobs:
       
       - name: Publish to @latest (dry run)
         if: inputs.dry_run == true
-        run: npm run npm-publish latest --bump-type=patch --dry-run
+        run: npm run npm-publish -- latest --bump-type=patch --dry-run
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
       - name: Publish to @latest (real)
         if: inputs.dry_run == false
-        run: npm run npm-publish latest --bump-type=patch
+        run: npm run npm-publish -- latest --bump-type=patch
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
