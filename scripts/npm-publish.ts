@@ -253,6 +253,13 @@ function publishLatest(
     setPackageVersion(oldVersion);
     exec('npm install --package-lock-only', true);
     process.exit(1);
+  } finally {
+    // In dry-run mode, restore the version
+    if (dryRun) {
+      console.log(`\n🔄 Restored package.json to version ${oldVersion}`);
+      setPackageVersion(oldVersion);
+      exec('npm install --package-lock-only', true);
+    }
   }
 }
 
