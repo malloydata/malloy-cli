@@ -117,26 +117,6 @@ jobs:
       
       - run: npm run test-silent
       
-      - name: Verify push permissions
-        if: inputs.dry_run == false
-        env:
-          CHECK_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          echo "🔐 Verifying repository push permissions..."
-          RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
-            https://api.github.com/repos/malloydata/malloy-cli)
-          
-          PUSH_PERMISSION=$(echo "$RESPONSE" | jq -r '.permissions.push // false')
-          
-          if [ "$PUSH_PERMISSION" = "true" ]; then
-            echo "✅ Push permissions verified"
-          else
-            echo "❌ ERROR: No push permissions for this repository!"
-            echo "Full permissions:"
-            echo "$RESPONSE" | jq '.permissions'
-            exit 1
-          fi
-      
       - name: Publish to @latest (dry run)
         if: inputs.dry_run == true
         run: npm run npm-publish latest --bump-type=patch --dry-run
