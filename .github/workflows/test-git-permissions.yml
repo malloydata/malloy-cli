@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       use_pat:
-        description: 'Use GHAPI_PAT token'
+        description: 'Use GitHub App token'
         required: false
         default: false
         type: boolean
@@ -15,37 +15,27 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Debug token availability
+      - name: Generate token from GitHub App
         if: inputs.use_pat == true
-        env:
-          CHECK_TOKEN: ${{ secrets.GHAPI_PAT }}
-        run: |
-          if [ -z "$CHECK_TOKEN" ]; then
-            echo "❌ ERROR: GHAPI_PAT secret is empty or not set!"
-            exit 1
-          fi
-          
-          # Check token format (should start with github_pat_ or ghp_)
-          if [[ ! "$CHECK_TOKEN" =~ ^(github_pat_|ghp_) ]]; then
-            echo "⚠️  WARNING: Token doesn't match expected GitHub PAT format"
-            echo "Token starts with: ${CHECK_TOKEN:0:10}..."
-          else
-            echo "✅ Token format looks correct: ${CHECK_TOKEN:0:11}..."
-          fi
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NPM_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.NPM_ACTIONS_PRIVATE_KEY }}
       
       - name: Checkout (with GITHUB_TOKEN)
         if: inputs.use_pat == false
         uses: actions/checkout@v4
       
-      - name: Checkout (with PAT)
+      - name: Checkout (with GitHub App token)
         if: inputs.use_pat == true
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GHAPI_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
       
       - name: Check push permissions via GitHub API
         env:
-          CHECK_TOKEN: ${{ inputs.use_pat == true && secrets.GHAPI_PAT || secrets.GITHUB_TOKEN }}
+          CHECK_TOKEN: ${{ inputs.use_pat == true && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           echo "Checking repository permissions via GitHub API..."
           
@@ -93,7 +83,7 @@ jobs:
           # Write success to summary
           echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auth Method**: ${{ inputs.use_pat && 'GHAPI_PAT Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_pat && 'GitHub App Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Result**: ✅ Push permissions verified" >> $GITHUB_STEP_SUMMARY
       
       - name: Failure Summary
@@ -101,5 +91,5 @@ jobs:
         run: |
           echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auth Method**: ${{ inputs.use_pat && 'GHAPI_PAT Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_pat && 'GitHub App Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Result**: ❌ Permission check failed" >> $GITHUB_STEP_SUMMARY
