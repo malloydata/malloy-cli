@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ssh-key: ${{ secrets.MALLOY_GHAPI }}
       
       - uses: actions/setup-node@v4
         with:
