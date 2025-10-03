@@ -1,0 +1,137 @@
+name: Publish to npm
+
+on:
+  # Automatic publish to 'next' on every push to main (after PR merge)
+  push:
+    branches:
+      - main
+  
+  # Manual publish to 'latest' via workflow dispatch
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type for latest release'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: 'Dry run (test without publishing)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish-next:
+    # Only run on push to main (not on manual workflow dispatch)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.BIGQUERY_KEY }}'
+      
+      - run: npm ci
+      
+      - run: npm run lint
+      
+      - run: npm run build
+      
+      - run: npm run test-silent
+      
+      - name: Publish to @next
+        run: npm run npm-publish next
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+      
+      - name: Summary
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          GIT_SHA=$(git rev-parse --short=7 HEAD)
+          DATE_STR=$(date +%Y.%m.%d)
+          NEXT_VERSION="${PACKAGE_VERSION}-next.${DATE_STR}.${GIT_SHA}"
+          
+          echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: 🚀 Published to @next" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${NEXT_VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base Version**: ${PACKAGE_VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${GIT_SHA}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Install with: \`npm install @malloydata/cli@next\`" >> $GITHUB_STEP_SUMMARY
+
+  publish-latest:
+    # Only run on manual workflow dispatch
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push commits and tags
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.BIGQUERY_KEY }}'
+      
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - run: npm ci
+      
+      - run: npm run lint
+      
+      - run: npm run build
+      
+      - run: npm run test-silent
+      
+      - name: Publish to @latest (dry run)
+        if: inputs.dry_run == true
+        run: npm run npm-publish latest --bump-type=${{ github.event.inputs.bump_type }} --dry-run
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+      
+      - name: Publish to @latest (real)
+        if: inputs.dry_run == false
+        run: npm run npm-publish latest --bump-type=${{ github.event.inputs.bump_type }}
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+      
+      - name: Summary
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          
+          echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ inputs.dry_run && '🧪 Dry Run' || '🚀 Live Publishing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: ${{ github.event.inputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version**: ${PACKAGE_VERSION}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.dry_run }}" = "false" ]; then
+            echo "- **Status**: ✅ Published, committed, and tagged" >> $GITHUB_STEP_SUMMARY
+            echo "- **NPM**: https://www.npmjs.com/package/@malloydata/cli/v/${PACKAGE_VERSION}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Tag**: https://github.com/malloydata/malloy-cli/releases/tag/v${PACKAGE_VERSION}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ✅ Tested successfully (no changes made)" >> $GITHUB_STEP_SUMMARY
+          fi
