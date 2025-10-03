@@ -22,7 +22,6 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed to push commits and tags
       packages: read   # Needed to read package info
     steps:
       - uses: actions/checkout@v4
@@ -43,10 +42,6 @@ jobs:
       - run: npm run build
       
       - run: npm run test-silent
-      
-      - run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
       
       - name: Bump version and get new version
         id: version
@@ -81,44 +76,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
-      - name: Git operations (dry run)
-        if: inputs.dry_run == true
-        run: |
-          echo "🧪 DRY RUN: Would commit version bump and create tag"
-          echo "Would run: git add package.json package-lock.json"
-          echo "Would run: git commit -m 'chore: bump version to ${{ steps.version.outputs.new-version }}'"
-          echo "Would run: git tag 'v${{ steps.version.outputs.new-version }}'"
-          echo "Would run: git push origin main"
-          echo "Would run: git push origin 'v${{ steps.version.outputs.new-version }}'"
-      
-      - name: Commit version bump and create tag (real)
-        if: inputs.dry_run == false
-        run: |
-          echo "🚀 COMMITTING: Creating version commit and tag"
-          git add package.json package-lock.json
-          git commit -m "chore: bump version to ${{ steps.version.outputs.new-version }}"
-          git tag "v${{ steps.version.outputs.new-version }}"
-          git push origin main
-          git push origin "v${{ steps.version.outputs.new-version }}"
-      
-      - name: GitHub Release (dry run)
-        if: inputs.dry_run == true
-        run: |
-          echo "🧪 DRY RUN: Would create GitHub release"
-          echo "Would run: gh release create 'v${{ steps.version.outputs.new-version }}' \\"
-          echo "  --title 'Release v${{ steps.version.outputs.new-version }}' \\"
-          echo "  --notes 'Published version ${{ steps.version.outputs.new-version }} to npm'"
-      
-      - name: Create GitHub Release (real)
-        if: inputs.dry_run == false
-        run: |
-          echo "🚀 RELEASING: Creating GitHub release"
-          gh release create "v${{ steps.version.outputs.new-version }}" \
-            --title "Release v${{ steps.version.outputs.new-version }}" \
-            --notes "Published version ${{ steps.version.outputs.new-version }} to npm"
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-      
       - name: Summary
         run: |
           echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
@@ -129,6 +86,18 @@ jobs:
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "- **Status**: ✅ Tested successfully (no changes made)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Status**: ✅ Published to npm and GitHub" >> $GITHUB_STEP_SUMMARY
+            echo "- **Status**: ✅ Published to npm" >> $GITHUB_STEP_SUMMARY
             echo "- **NPM**: https://www.npmjs.com/package/@malloydata/cli/v/${{ steps.version.outputs.new-version }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Next steps:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Commit the version bump:" >> $GITHUB_STEP_SUMMARY
+            echo "   \`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "   git pull" >> $GITHUB_STEP_SUMMARY
+            echo "   # Manually update package.json version to ${{ steps.version.outputs.new-version }}" >> $GITHUB_STEP_SUMMARY
+            echo "   git add package.json package-lock.json" >> $GITHUB_STEP_SUMMARY
+            echo "   git commit -m 'chore: bump version to ${{ steps.version.outputs.new-version }}'" >> $GITHUB_STEP_SUMMARY
+            echo "   git push origin main" >> $GITHUB_STEP_SUMMARY
+            echo "   \`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Create a git tag: \`git tag v${{ steps.version.outputs.new-version }} && git push origin v${{ steps.version.outputs.new-version }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Create a GitHub release manually if desired" >> $GITHUB_STEP_SUMMARY
           fi
