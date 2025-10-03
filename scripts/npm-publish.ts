@@ -131,6 +131,10 @@ function bumpVersion(type: 'patch' | 'minor' | 'major'): string {
 }
 
 function checkGitStatus(): void {
+  // Clean untracked files (like temporary credentials from GitHub Actions)
+  console.log('🧹 Cleaning untracked files...');
+  execQuiet('git clean -fdx');
+
   const status = execQuiet('git status --porcelain');
   if (status) {
     console.error(
