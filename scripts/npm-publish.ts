@@ -223,6 +223,11 @@ function publishLatest(
         `\n✅ Successfully published ${pkg.name}@${newVersion} to npm!`
       );
 
+      // Also tag as 'next' so next points to the latest stable release
+      console.log('\n🏷️  Tagging as @next...');
+      exec(`npm dist-tag add ${pkg.name}@${newVersion} next`);
+      console.log('✅ Updated @next tag to point to this version');
+
       // Commit and tag
       console.log('\n📝 Committing version bump...');
       exec('git add package.json package-lock.json');
