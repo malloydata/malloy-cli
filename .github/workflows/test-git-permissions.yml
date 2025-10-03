@@ -1,22 +1,25 @@
 name: Test Git Push Permissions
 
+# This workflow tests whether the token can actually perform git operations
+# by creating a test branch, committing to it, pushing, verifying, and cleaning up.
+
 on:
   workflow_dispatch:
     inputs:
-      use_pat:
-        description: 'Use GitHub App token'
+      use_app_token:
+        description: 'Use GitHub App token (vs GITHUB_TOKEN)'
         required: false
-        default: false
+        default: true
         type: boolean
 
 jobs:
-  test-permissions:
+  test-git-operations:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Generate token from GitHub App
-        if: inputs.use_pat == true
+        if: inputs.use_app_token == true
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
@@ -24,60 +27,102 @@ jobs:
           private-key: ${{ secrets.NPM_ACTIONS_PRIVATE_KEY }}
       
       - name: Checkout (with GITHUB_TOKEN)
-        if: inputs.use_pat == false
+        if: inputs.use_app_token == false
         uses: actions/checkout@v4
       
       - name: Checkout (with GitHub App token)
-        if: inputs.use_pat == true
+        if: inputs.use_app_token == true
         uses: actions/checkout@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
       
-      - name: Check push permissions via GitHub API
-        env:
-          CHECK_TOKEN: ${{ inputs.use_pat == true && steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+      - name: Configure Git
         run: |
-          echo "Checking repository permissions via GitHub API..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Test git push operations
+        run: |
+          echo "🧪 Testing git push permissions..."
+          echo ""
           
-          # Check repo permissions directly (skip user check for GitHub Apps)
-          echo "Checking permissions for malloydata/malloy-cli..."
-          RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
-            https://api.github.com/repos/malloydata/malloy-cli)
+          # Create a unique test branch name
+          TEST_BRANCH="test-permissions-$(date +%s)"
+          echo "📝 Creating test branch: $TEST_BRANCH"
+          git checkout -b "$TEST_BRANCH"
           
-          # Check if we got an error
-          if echo "$RESPONSE" | jq -e '.message' > /dev/null; then
-            echo "❌ API Error: $(echo "$RESPONSE" | jq -r '.message')"
-            echo "This token may not have access to this repository"
-            echo "Full response:"
-            echo "$RESPONSE" | jq '.'
-            exit 1
-          fi
+          # Make a test commit
+          echo "Test commit from workflow at $(date)" > test-file.txt
+          git add test-file.txt
+          git commit -m "Test commit to verify push permissions"
           
-          PUSH_PERMISSION=$(echo "$RESPONSE" | jq -r '.permissions.push // false')
-          
-          echo "Push permission: $PUSH_PERMISSION"
-          
-          if [ "$PUSH_PERMISSION" = "true" ]; then
-            echo "✅ SUCCESS: Push permissions verified via API!"
-            echo "This setup CAN push to the repository."
+          # Try to push
+          echo "⬆️  Pushing test branch to remote..."
+          if git push origin "$TEST_BRANCH"; then
+            echo "✅ Push successful!"
           else
-            echo "❌ FAILED: No push permissions!"
-            echo "This setup CANNOT push to the repository."
-            echo "Full permissions:"
-            echo "$RESPONSE" | jq '.permissions'
+            echo "❌ Push failed!"
             exit 1
           fi
           
-          # Write success to summary
-          echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
+          # Verify the branch exists on remote
+          echo ""
+          echo "🔍 Verifying branch exists on remote..."
+          git fetch origin
+          if git ls-remote --heads origin "$TEST_BRANCH" | grep -q "$TEST_BRANCH"; then
+            echo "✅ Branch verified on remote!"
+          else
+            echo "❌ Branch not found on remote!"
+            exit 1
+          fi
+          
+          # Pull it back to make sure it's really there
+          echo ""
+          echo "⬇️  Pulling branch to verify..."
+          git checkout main || git checkout master
+          git pull origin "$TEST_BRANCH" --no-edit
+          if [ -f test-file.txt ]; then
+            echo "✅ Successfully pulled and verified test file!"
+          else
+            echo "❌ Test file not found after pull!"
+            exit 1
+          fi
+          
+          # Clean up - delete the test branch
+          echo ""
+          echo "🧹 Cleaning up test branch..."
+          git push origin --delete "$TEST_BRANCH"
+          echo "✅ Test branch deleted!"
+          
+          # Remove test file
+          rm -f test-file.txt
+          
+          echo ""
+          echo "🎉 All git operations successful!"
+      
+      - name: Success Summary
+        if: success()
+        run: |
+          echo "## 🔐 Git Push Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auth Method**: ${{ inputs.use_pat && 'GitHub App Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Result**: ✅ Push permissions verified" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All git operations successful!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_app_token && 'GitHub App Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Created test branch" >> $GITHUB_STEP_SUMMARY
+          echo "- Committed changes" >> $GITHUB_STEP_SUMMARY
+          echo "- Pushed to remote" >> $GITHUB_STEP_SUMMARY
+          echo "- Verified on remote" >> $GITHUB_STEP_SUMMARY
+          echo "- Pulled back successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- Cleaned up test branch" >> $GITHUB_STEP_SUMMARY
       
       - name: Failure Summary
         if: failure()
         run: |
-          echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔐 Git Push Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auth Method**: ${{ inputs.use_pat && 'GitHub App Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Result**: ❌ Permission check failed" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Git operations failed!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_app_token && 'GitHub App Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+
