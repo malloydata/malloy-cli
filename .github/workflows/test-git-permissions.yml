@@ -39,21 +39,7 @@ jobs:
         run: |
           echo "Checking repository permissions via GitHub API..."
           
-          # First, verify the token works at all
-          echo "Testing token authentication..."
-          AUTH_RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
-            https://api.github.com/user)
-          
-          if echo "$AUTH_RESPONSE" | jq -e '.login' > /dev/null; then
-            echo "✅ Token is valid, authenticated as: $(echo "$AUTH_RESPONSE" | jq -r '.login')"
-          else
-            echo "❌ Token authentication failed"
-            echo "$AUTH_RESPONSE" | jq '.'
-            exit 1
-          fi
-          
-          # Now check repo permissions
-          echo ""
+          # Check repo permissions directly (skip user check for GitHub Apps)
           echo "Checking permissions for malloydata/malloy-cli..."
           RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
             https://api.github.com/repos/malloydata/malloy-cli)
@@ -62,6 +48,8 @@ jobs:
           if echo "$RESPONSE" | jq -e '.message' > /dev/null; then
             echo "❌ API Error: $(echo "$RESPONSE" | jq -r '.message')"
             echo "This token may not have access to this repository"
+            echo "Full response:"
+            echo "$RESPONSE" | jq '.'
             exit 1
           fi
           
