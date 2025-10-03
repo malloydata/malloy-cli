@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ssh-key: ${{ secrets.MALLOY_GHAPI }}
+          token: ${{ secrets.GHAPI_PAT }}
       
       - uses: actions/setup-node@v4
         with:
@@ -97,6 +97,26 @@ jobs:
       - run: npm run build
       
       - run: npm run test-silent
+      
+      - name: Verify push permissions
+        if: inputs.dry_run == false
+        env:
+          CHECK_TOKEN: ${{ secrets.GHAPI_PAT }}
+        run: |
+          echo "🔐 Verifying repository push permissions..."
+          RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
+            https://api.github.com/repos/malloydata/malloy-cli)
+          
+          PUSH_PERMISSION=$(echo "$RESPONSE" | jq -r '.permissions.push // false')
+          
+          if [ "$PUSH_PERMISSION" = "true" ]; then
+            echo "✅ Push permissions verified"
+          else
+            echo "❌ ERROR: No push permissions for this repository!"
+            echo "Full permissions:"
+            echo "$RESPONSE" | jq '.permissions'
+            exit 1
+          fi
       
       - name: Publish to @latest (dry run)
         if: inputs.dry_run == true

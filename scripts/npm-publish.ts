@@ -142,25 +142,6 @@ function checkGitStatus(): void {
   }
 }
 
-function checkGitPushPermissions(): void {
-  console.log('🔐 Checking git push permissions...');
-  try {
-    // Test if we can push by doing a dry-run push
-    // This verifies we have write access without actually pushing anything
-    execQuiet('git push --dry-run origin HEAD:refs/heads/main');
-    console.log('✅ Git push permissions verified\n');
-  } catch (error) {
-    console.error(
-      '❌ Error: Unable to push to git remote. Push permissions are not configured.'
-    );
-    console.error(
-      'Make sure you have SSH keys or credentials with write access to push to the repository.'
-    );
-    console.error('Error:', error);
-    process.exit(1);
-  }
-}
-
 function publishNext(dryRun: boolean): void {
   console.log('📦 Publishing to @next tag...\n');
 
@@ -210,11 +191,6 @@ function publishLatest(
   console.log('📦 Publishing to @latest tag...\n');
 
   checkGitStatus();
-
-  // Check git push permissions before we do anything
-  if (!dryRun) {
-    checkGitPushPermissions();
-  }
 
   const pkg = getPackageJson();
   const oldVersion = pkg.version;
