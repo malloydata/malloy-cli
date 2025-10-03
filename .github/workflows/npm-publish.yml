@@ -6,18 +6,9 @@ on:
     branches:
       - main
   
-  # Manual publish to 'latest' via workflow dispatch
+  # Manual publish to 'latest' via workflow dispatch (patch bumps only)
   workflow_dispatch:
     inputs:
-      bump_type:
-        description: 'Version bump type for latest release'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
       dry_run:
         description: 'Dry run (test without publishing)'
         required: false
@@ -109,13 +100,13 @@ jobs:
       
       - name: Publish to @latest (dry run)
         if: inputs.dry_run == true
-        run: npm run npm-publish latest --bump-type=${{ github.event.inputs.bump_type }} --dry-run
+        run: npm run npm-publish latest --bump-type=patch --dry-run
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
       - name: Publish to @latest (real)
         if: inputs.dry_run == false
-        run: npm run npm-publish latest --bump-type=${{ github.event.inputs.bump_type }}
+        run: npm run npm-publish latest --bump-type=patch
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
@@ -126,7 +117,7 @@ jobs:
           echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Mode**: ${{ inputs.dry_run && '🧪 Dry Run' || '🚀 Live Publishing' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Bump Type**: ${{ github.event.inputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: patch" >> $GITHUB_STEP_SUMMARY
           echo "- **New Version**: ${PACKAGE_VERSION}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ inputs.dry_run }}" = "false" ]; then
             echo "- **Status**: ✅ Published, committed, and tagged" >> $GITHUB_STEP_SUMMARY
