@@ -1,4 +1,4 @@
-name: Publish to npm
+name: NPM publish
 
 on:
   # Automatic publish to 'next' on every push to main (after PR merge)
