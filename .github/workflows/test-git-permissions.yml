@@ -15,6 +15,24 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Debug token availability
+        if: inputs.use_pat == true
+        env:
+          CHECK_TOKEN: ${{ secrets.GHAPI_PAT }}
+        run: |
+          if [ -z "$CHECK_TOKEN" ]; then
+            echo "❌ ERROR: GHAPI_PAT secret is empty or not set!"
+            exit 1
+          fi
+          
+          # Check token format (should start with github_pat_ or ghp_)
+          if [[ ! "$CHECK_TOKEN" =~ ^(github_pat_|ghp_) ]]; then
+            echo "⚠️  WARNING: Token doesn't match expected GitHub PAT format"
+            echo "Token starts with: ${CHECK_TOKEN:0:10}..."
+          else
+            echo "✅ Token format looks correct: ${CHECK_TOKEN:0:11}..."
+          fi
+      
       - name: Checkout (with GITHUB_TOKEN)
         if: inputs.use_pat == false
         uses: actions/checkout@v4
@@ -71,15 +89,17 @@ jobs:
             echo "$RESPONSE" | jq '.permissions'
             exit 1
           fi
+          
+          # Write success to summary
+          echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_pat && 'GHAPI_PAT Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result**: ✅ Push permissions verified" >> $GITHUB_STEP_SUMMARY
       
-      - name: Summary
-        if: always()
+      - name: Failure Summary
+        if: failure()
         run: |
           echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Auth Method**: ${{ inputs.use_pat && 'GHAPI_PAT Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
-          if [ $? -eq 0 ]; then
-            echo "- **Result**: ✅ Push permissions verified" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Result**: ❌ No push permissions" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- **Result**: ❌ Permission check failed" >> $GITHUB_STEP_SUMMARY
