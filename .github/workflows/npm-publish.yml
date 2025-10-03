@@ -48,7 +48,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
-      - name: Summary
+      - name: Success Summary
+        if: success()
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           GIT_SHA=$(git rev-parse --short=7 HEAD)
@@ -61,8 +62,19 @@ jobs:
           echo "- **Version**: ${NEXT_VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "- **Base Version**: ${PACKAGE_VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${GIT_SHA}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Successfully published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Install with: \`npm install @malloydata/cli@next\`" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Failure Summary
+        if: failure()
+        run: |
+          echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: 🚀 Publish to @next" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ❌ Publishing failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
 
   publish-latest:
     # Only run on manual workflow dispatch
@@ -72,9 +84,16 @@ jobs:
       contents: write  # Needed to push commits and tags
       packages: read
     steps:
+      - name: Generate token from GitHub App
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NPM_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.NPM_ACTIONS_PRIVATE_KEY }}
+      
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GHAPI_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
       
       - uses: actions/setup-node@v4
         with:
@@ -101,7 +120,7 @@ jobs:
       - name: Verify push permissions
         if: inputs.dry_run == false
         env:
-          CHECK_TOKEN: ${{ secrets.GHAPI_PAT }}
+          CHECK_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "🔐 Verifying repository push permissions..."
           RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
@@ -130,7 +149,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
-      - name: Summary
+      - name: Success Summary
+        if: success()
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           
@@ -146,3 +166,14 @@ jobs:
           else
             echo "- **Status**: ✅ Tested successfully (no changes made)" >> $GITHUB_STEP_SUMMARY
           fi
+      
+      - name: Failure Summary
+        if: failure()
+        run: |
+          echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ inputs.dry_run && '🧪 Dry Run' || '🚀 Live Publishing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: patch" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ❌ Publishing failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
