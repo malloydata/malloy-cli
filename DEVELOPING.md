@@ -16,67 +16,86 @@ Test CLI locally with `npm run cli -- {your commands here}` (note the double-das
 
 ## Publishing to npm
 
-### Setup Required
+We use a custom publishing script (`npm run npm-publish`) that handles both `@next` (pre-release) and `@latest` (stable) releases.
 
-### Publishing with GitHub Action (Recommended)
+### Publishing Script Usage
 
-1. Go to your repository on GitHub
-2. Click on the "Actions" tab
-3. Select "Publish to npm" workflow
-4. Click "Run workflow" button
-5. Choose your options:
-   - **Version bump type**: `patch`, `minor`, or `major`
-   - **Dry run**: Check this to test without actually publishing
+The script supports two distribution tags:
 
-The workflow will:
-- Run tests and linting
-- Update version in `package.json`
-- Build and package using `npm run package-npm`
-- Publish to npm from the `dist` directory
-- Create git tag and GitHub release (if not dry run)
-
-### Manual Publishing
-
-For local development and testing:
-
+**`next`** - Pre-release versions for testing:
 ```bash
-# Test what would be published (dry run)
-npm run package-npm
-cd dist
-npm publish --dry-run
+# Dry run (test without publishing)
+npm run npm-publish -- next --dry-run
 
-# Actually publish (requires npm authentication)
-npm version patch              # Updates version, commits, tags
-npm run package-npm           # Builds the dist directory  
-cd dist
-npm publish                   # Publishes from dist
-git push origin main --tags   # Push the commit and tag
+# Publish to @next tag
+npm run npm-publish -- next
 ```
 
-#### Local Authentication Options
-
-**Option 1: Interactive login**
+**`latest`** - Stable production releases:
 ```bash
-npm login
+# Dry run
+npm run npm-publish -- latest --bump-type=patch --dry-run
+
+# Publish to @latest tag
+npm run npm-publish -- latest --bump-type=minor
 ```
 
-**Option 2: Use npm token**
+**Note**: The `--` is required to pass arguments through npm scripts.
+
+### Version Schemes
+
+**Next releases** use automatic versioning:
+- Format: `{base}-next.{date}.{sha}`
+- Example: `0.0.47-next.2025.10.03.e97c69e`
+- Does NOT modify git repository
+- Only publishes to npm with `@next` tag
+
+**Latest releases** use semantic versioning:
+- **patch**: Bug fixes (0.0.47 → 0.0.48)
+- **minor**: New features (0.0.47 → 0.1.0)
+- **major**: Breaking changes (0.0.47 → 1.0.0)
+- Commits version bump to git
+- Creates git tag (e.g., `v0.0.48`)
+- Pushes changes and tags to remote
+- Publishes to npm with `@latest` tag
+
+### GitHub Actions (Automated)
+
+**Automatic `@next` releases** - Triggered on every push to `main`:
+- Runs tests and linting
+- Publishes to `@malloydata/cli@next` automatically
+- No git operations
+
+**Manual `@latest` releases** - Manually triggered workflow:
+1. Go to **Actions** → **Publish to npm**
+2. Click **Run workflow**
+3. Choose:
+   - **bump_type**: `patch`, `minor`, or `major`
+   - **dry_run**: Enable to test without publishing
+4. The workflow will:
+   - Run tests and linting
+   - Bump version and publish
+   - Commit changes and create git tag
+   - Push to repository
+
+### Local Publishing Requirements
+
+To publish locally, you need an npm authentication token:
+
 ```bash
+# Set your npm token (get from npmjs.com)
 export NODE_AUTH_TOKEN="your-npm-token"
-npm publish
+
+# Then run the publish command
+npm run npm-publish -- latest --bump-type=patch
 ```
 
-#### Version Bumping
-
-- **patch**: Bug fixes (0.0.42 → 0.0.43)
-- **minor**: New features (0.0.42 → 0.1.0)  
-- **major**: Breaking changes (0.0.42 → 1.0.0)
-
-#### Package Structure
+### Package Structure
 
 The published package includes:
-- `dist/` - Compiled JavaScript and assets
-- `scripts/malloy-packages.ts` - Package management script
-- Post-install script for platform-specific binaries (like duckdb.node)
+- `dist/` - Compiled JavaScript and bundled assets
+- `scripts/malloy-packages.ts` - Package management utilities
+- Post-install script for platform-specific binaries (DuckDB)
+- Third-party license notices
 
-The package publishes from `dist/`, not the root directory. The `npm run package-npm` script prepares everything needed for npm in the `dist/` folder.
+The `npm run package-npm` script (called by `npm-publish`) prepares all necessary files in the `dist/` directory before publishing.
