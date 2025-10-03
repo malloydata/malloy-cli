@@ -11,7 +11,7 @@
     "scripts/malloy-packages.ts"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
   "scripts": {
     "lint": "tsc --noEmit && gts lint",

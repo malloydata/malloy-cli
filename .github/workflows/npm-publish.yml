@@ -1,0 +1,129 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: 'Dry run (test without publishing)'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - run: npm ci
+      
+      - run: npm run lint
+      
+      - run: npm run build
+      
+      - run: npm run test-silent
+      
+      - run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Bump version and get new version
+        id: version
+        run: |
+          # Get current version before bump
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # Bump version (this updates package.json and package-lock.json)
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          
+          # Get new version after bump
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version will be: $NEW_VERSION"
+      
+      - run: npm run package-npm
+      
+      - name: Publish to npm (dry run)
+        if: inputs.dry_run == true
+        run: |
+          echo "🧪 DRY RUN: Testing npm publish (no actual upload)"
+          cd dist
+          npm publish --dry-run
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+      
+      - name: Publish to npm (real)
+        if: inputs.dry_run == false
+        run: |
+          echo "🚀 PUBLISHING: Uploading to npm registry"
+          cd dist
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
+      
+      - name: Git operations (dry run)
+        if: inputs.dry_run == true
+        run: |
+          echo "🧪 DRY RUN: Would commit version bump and create tag"
+          echo "Would run: git add package.json package-lock.json"
+          echo "Would run: git commit -m 'chore: bump version to ${{ steps.version.outputs.new-version }}'"
+          echo "Would run: git tag 'v${{ steps.version.outputs.new-version }}'"
+          echo "Would run: git push origin main"
+          echo "Would run: git push origin 'v${{ steps.version.outputs.new-version }}'"
+      
+      - name: Commit version bump and create tag (real)
+        if: inputs.dry_run == false
+        run: |
+          echo "🚀 COMMITTING: Creating version commit and tag"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new-version }}"
+          git tag "v${{ steps.version.outputs.new-version }}"
+          git push origin main
+          git push origin "v${{ steps.version.outputs.new-version }}"
+      
+      - name: GitHub Release (dry run)
+        if: inputs.dry_run == true
+        run: |
+          echo "🧪 DRY RUN: Would create GitHub release"
+          echo "Would run: gh release create 'v${{ steps.version.outputs.new-version }}' \\"
+          echo "  --title 'Release v${{ steps.version.outputs.new-version }}' \\"
+          echo "  --notes 'Published version ${{ steps.version.outputs.new-version }} to npm'"
+      
+      - name: Create GitHub Release (real)
+        if: inputs.dry_run == false
+        run: |
+          echo "🚀 RELEASING: Creating GitHub release"
+          gh release create "v${{ steps.version.outputs.new-version }}" \
+            --title "Release v${{ steps.version.outputs.new-version }}" \
+            --notes "Published version ${{ steps.version.outputs.new-version }} to npm"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      
+      - name: Summary
+        run: |
+          echo "## 📋 Publishing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ inputs.dry_run && '🧪 Dry Run' || '🚀 Live Publishing' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.new-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous**: ${{ steps.version.outputs.current-version }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "- **Status**: ✅ Tested successfully (no changes made)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ✅ Published to npm and GitHub" >> $GITHUB_STEP_SUMMARY
+            echo "- **NPM**: https://www.npmjs.com/package/@malloydata/cli/v/${{ steps.version.outputs.new-version }}" >> $GITHUB_STEP_SUMMARY
+          fi
