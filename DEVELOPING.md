@@ -66,17 +66,39 @@ npm run npm-publish -- latest --bump-type=minor
 - Publishes to `@malloydata/cli@next` automatically
 - No git operations
 
-**Manual `@latest` releases** - Manually triggered workflow:
+**Manual `@latest` releases** - Manually triggered workflow (patch bumps only):
 1. Go to **Actions** → **Publish to npm**
 2. Click **Run workflow**
 3. Choose:
-   - **bump_type**: `patch`, `minor`, or `major`
    - **dry_run**: Enable to test without publishing
 4. The workflow will:
    - Run tests and linting
-   - Bump version and publish
+   - Bump patch version and publish
    - Commit changes and create git tag
    - Push to repository
+
+**Note**: The GitHub Action only supports patch bumps. For minor or major version releases, you must publish locally (see below).
+
+### Publishing Minor/Major Releases Locally
+
+For minor or major version bumps, publish from your local machine:
+
+```bash
+# Make sure you're on main and up to date
+git checkout main
+git pull
+
+# Set your npm token
+export NODE_AUTH_TOKEN="your-npm-token"
+
+# Dry run first (recommended)
+npm run npm-publish -- latest --bump-type=minor --dry-run
+
+# Then publish for real
+npm run npm-publish -- latest --bump-type=minor
+```
+
+The script will handle version bumping, publishing, committing, tagging, and pushing automatically.
 
 ### Local Publishing Requirements
 
