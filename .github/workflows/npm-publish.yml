@@ -21,6 +21,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push commits and tags
+      packages: read   # Needed to read package info
     steps:
       - uses: actions/checkout@v4
       
