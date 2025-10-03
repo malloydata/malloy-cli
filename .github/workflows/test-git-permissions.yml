@@ -3,8 +3,8 @@ name: Test Git Push Permissions
 on:
   workflow_dispatch:
     inputs:
-      use_ssh_key:
-        description: 'Use MALLOY_GHAPI SSH key'
+      use_pat:
+        description: 'Use GHAPI_PAT token'
         required: false
         default: false
         type: boolean
@@ -16,29 +16,36 @@ jobs:
       contents: write
     steps:
       - name: Checkout (with GITHUB_TOKEN)
-        if: inputs.use_ssh_key == false
+        if: inputs.use_pat == false
         uses: actions/checkout@v4
       
-      - name: Checkout (with SSH key)
-        if: inputs.use_ssh_key == true
+      - name: Checkout (with PAT)
+        if: inputs.use_pat == true
         uses: actions/checkout@v4
         with:
-          ssh-key: ${{ secrets.MALLOY_GHAPI }}
+          token: ${{ secrets.GHAPI_PAT }}
       
-      - name: Configure git
+      - name: Check push permissions via GitHub API
+        env:
+          CHECK_TOKEN: ${{ inputs.use_pat == true && secrets.GHAPI_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-      
-      - name: Test git push --dry-run
-        run: |
-          echo "Testing git push permissions with dry-run..."
-          if git push --dry-run origin HEAD:refs/heads/main; then
-            echo "✅ SUCCESS: Git push permissions verified!"
+          echo "Checking repository permissions via GitHub API..."
+          
+          RESPONSE=$(curl -s -H "Authorization: token $CHECK_TOKEN" \
+            https://api.github.com/repos/malloydata/malloy-cli)
+          
+          PUSH_PERMISSION=$(echo "$RESPONSE" | jq -r '.permissions.push // false')
+          
+          echo "Push permission: $PUSH_PERMISSION"
+          
+          if [ "$PUSH_PERMISSION" = "true" ]; then
+            echo "✅ SUCCESS: Push permissions verified via API!"
             echo "This setup CAN push to the repository."
           else
             echo "❌ FAILED: No push permissions!"
             echo "This setup CANNOT push to the repository."
+            echo "Full permissions:"
+            echo "$RESPONSE" | jq '.permissions'
             exit 1
           fi
       
@@ -47,7 +54,7 @@ jobs:
         run: |
           echo "## 🔐 Git Permission Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auth Method**: ${{ inputs.use_ssh_key && 'MALLOY_GHAPI SSH Key' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auth Method**: ${{ inputs.use_pat && 'GHAPI_PAT Token' || 'GITHUB_TOKEN' }}" >> $GITHUB_STEP_SUMMARY
           if [ $? -eq 0 ]; then
             echo "- **Result**: ✅ Push permissions verified" >> $GITHUB_STEP_SUMMARY
           else
