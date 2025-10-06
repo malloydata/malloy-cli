@@ -113,7 +113,7 @@ function getDateString(): string {
 function checkGitStatus(): void {
   // Clean untracked files (like temporary credentials from GitHub Actions)
   console.log('🧹 Cleaning untracked files...');
-  execQuiet('git clean -fdx');
+  execQuiet('git clean -fd');
 
   const status = execQuiet('git status --porcelain');
   if (status) {
