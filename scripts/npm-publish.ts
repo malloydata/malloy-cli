@@ -189,11 +189,13 @@ function publishLatest(
         `\n✅ Successfully published ${pkg.name}@${newVersion} to npm!`
       );
 
-      // Also tag as 'next' so next points to the latest stable release
-      console.log('\n🏷️  Tagging as @next...');
-      exec(`npm dist-tag add ${pkg.name}@${newVersion} next`);
-      console.log('✅ Updated @next tag to point to this version');
-
+      // Because there have been problems in the past with publish failing
+      // I made this possibly stupid decision to use npm version without
+      // updating the repo to compute the new version and then only if
+      // the publish actually works do I commit to the repo. Possibly
+      // this was a dumb decision, if future person comes here and wonders,
+      // "why is it doing all this when npm version already does this",
+      // that's why, feel free to stop doing it this way.
       // Commit and tag
       console.log('\n📝 Committing version bump...');
       exec('git add package.json package-lock.json');
