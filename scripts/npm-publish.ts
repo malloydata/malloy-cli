@@ -98,12 +98,6 @@ function getPackageJson(): {version: string; name: string} {
   return JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf-8'));
 }
 
-function setPackageVersion(version: string): void {
-  const pkg = getPackageJson();
-  pkg.version = version;
-  fs.writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(pkg, null, 2) + '\n');
-}
-
 function getGitShortSha(): string {
   return execQuiet('git rev-parse --short=7 HEAD');
 }
@@ -114,20 +108,6 @@ function getDateString(): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}.${month}.${day}`;
-}
-
-function bumpVersion(type: 'patch' | 'minor' | 'major'): string {
-  const pkg = getPackageJson();
-  const [major, minor, patch] = pkg.version.split('.').map(Number);
-
-  switch (type) {
-    case 'major':
-      return `${major + 1}.0.0`;
-    case 'minor':
-      return `${major}.${minor + 1}.0`;
-    case 'patch':
-      return `${major}.${minor}.${patch + 1}`;
-  }
 }
 
 function checkGitStatus(): void {
@@ -158,8 +138,8 @@ function publishNext(dryRun: boolean): void {
   console.log(`Current version: ${baseVersion}`);
   console.log(`Next version: ${nextVersion}\n`);
 
-  // Temporarily set version
-  setPackageVersion(nextVersion);
+  // Temporarily set version using npm
+  exec(`npm version --no-git-tag-version ${nextVersion}`, true);
 
   try {
     // Run package-npm to prepare for publishing
@@ -183,7 +163,7 @@ function publishNext(dryRun: boolean): void {
     }
   } finally {
     // Restore original version
-    setPackageVersion(baseVersion);
+    exec(`npm version --no-git-tag-version ${baseVersion}`, true);
     console.log(`\n🔄 Restored package.json to version ${baseVersion}`);
   }
 }
@@ -198,16 +178,14 @@ function publishLatest(
 
   const pkg = getPackageJson();
   const oldVersion = pkg.version;
-  const newVersion = bumpVersion(bumpType);
 
-  console.log(`Current version: ${oldVersion}`);
-  console.log(`New version: ${newVersion} (${bumpType} bump)\n`);
+  // Bump version using npm (updates both package.json and package-lock.json)
+  exec(`npm version --no-git-tag-version ${bumpType}`);
 
-  // Update version in package.json
-  setPackageVersion(newVersion);
+  // Get the new version after bump
+  const newVersion = getPackageJson().version;
 
-  // Also update package-lock.json
-  exec('npm install --package-lock-only', true);
+  console.log(`Bumped version from ${oldVersion} to ${newVersion} (${bumpType})\n`);
 
   try {
     // Run package-npm to prepare for publishing
@@ -259,15 +237,13 @@ function publishLatest(
     console.error('\n❌ Error occurred during publishing:');
     console.error(error);
     console.log('\n🔄 Restoring package.json to original version...');
-    setPackageVersion(oldVersion);
-    exec('npm install --package-lock-only', true);
+    exec(`npm version --no-git-tag-version ${oldVersion}`, true);
     process.exit(1);
   } finally {
     // In dry-run mode, restore the version
     if (dryRun) {
       console.log(`\n🔄 Restored package.json to version ${oldVersion}`);
-      setPackageVersion(oldVersion);
-      exec('npm install --package-lock-only', true);
+      exec(`npm version --no-git-tag-version ${oldVersion}`, true);
     }
   }
 }
