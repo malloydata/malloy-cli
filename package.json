@@ -4,7 +4,7 @@
   "description": "Malloy CLI",
   "bin": {
     "malloy-cli": "dist/index.js",
-    "malloy-packages": "./scripts/malloy-packages.ts"
+    "malloy-packages": "scripts/malloy-packages.ts"
   },
   "files": [
     "dist/**",
