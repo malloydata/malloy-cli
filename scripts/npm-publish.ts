@@ -179,25 +179,8 @@ function publishLatest(
   const pkg = getPackageJson();
   const oldVersion = pkg.version;
 
-  // DEBUG: Before npm version
-  console.log('=== DEBUG: BEFORE npm version ===');
-  exec('echo "npm path: $(which npm)"');
-  exec('echo "npm version: $(npm --version)"');
-  exec('echo "node version: $(node --version)"');
-  exec('echo "PATH: $PATH" | head -c 200');
-  exec('ls -la node_modules/.bin/ts-node || echo "ts-node not found"');
-  exec('echo "CWD: $(pwd)"');
-  console.log('=================================\n');
-
   // Bump version using npm (updates both package.json and package-lock.json)
   exec(`npm version --no-git-tag-version ${bumpType}`);
-
-  // DEBUG: After npm version
-  console.log('=== DEBUG: AFTER npm version ===');
-  exec('echo "npm path: $(which npm)"');
-  exec('echo "npm version: $(npm --version)"');
-  exec('ls -la node_modules/.bin/ts-node || echo "ts-node not found"');
-  console.log('=================================\n');
 
   // Get the new version after bump
   const newVersion = getPackageJson().version;
