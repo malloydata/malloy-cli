@@ -1,12 +1,12 @@
 ## Node.js Version
 
-**Note**: This project is currently locked to Node.js 18.x due to the `pkg` packaging tool not supporting Node.js 20+. 
+**Note**: This project is currently locked to Node.js 18.x. The `pkg` tool which is used make an executable version of the cli tool is no longer maintained and does not support newer versions of node.
 
 - `.node-version` is set to `18.20.4`
 - DuckDB binaries use `node-v108` (Node.js 18 ABI)  
 - `pkg` target is set to `node18`
 
-Once we replace `pkg` with a more modern packaging solution (like `nexe`, Bun's `--compile`, or switch to npm-only distribution), we can upgrade to newer Node.js versions.
+Once we replace `pkg` with a more modern solution, we can upgrade to newer Node.js versions.
 
 ## Development
 
@@ -32,12 +32,20 @@ npm run npm-publish -- next
 ```
 
 **`latest`** - Stable production releases:
+
+There is a Github action to publish the "latest" as a patch release.
+
+If you want to bump the major or minor version, you'll have to get the credentials
+and do that manually from the command line. Use "minor" or "major" for the "BUMP_TYPE"
+
 ```bash
+export NODE_AUTH_TOKEN="your-npm-token"
+
 # Dry run
-npm run npm-publish -- latest --bump-type=patch --dry-run
+npm run npm-publish -- latest --bump-type=BUMP_TYPE --dry-run
 
 # Publish to @latest tag
-npm run npm-publish -- latest --bump-type=minor
+npm run npm-publish -- latest --bump-type=BUMP_TYPE
 ```
 
 **Note**: The `--` is required to pass arguments through npm scripts.
@@ -69,51 +77,15 @@ npm run npm-publish -- latest --bump-type=minor
 - No git operations (doesn't modify repository)
 
 **Manual `@latest` releases** - Manually triggered workflow:
-1. Go to **Actions** → **Publish to npm**
+1. Go to **Actions** → **NPM Publish**
 2. Click **Run workflow**
 3. Choose:
-   - **bump_type**: patch, minor, or major
    - **dry_run**: Enable to test without publishing
 4. The workflow will:
    - Run tests and linting
    - Bump version and publish to npm
    - Commit changes and create git tag
    - Push to repository
-
-**Note**: The workflow now supports all bump types (patch, minor, major) via the `bump_type` input.
-
-### Publishing Minor/Major Releases Locally
-
-For minor or major version bumps, publish from your local machine:
-
-```bash
-# Make sure you're on main and up to date
-git checkout main
-git pull
-
-# Set your npm token
-export NODE_AUTH_TOKEN="your-npm-token"
-
-# Dry run first (recommended)
-npm run npm-publish -- latest --bump-type=minor --dry-run
-
-# Then publish for real
-npm run npm-publish -- latest --bump-type=minor
-```
-
-The script will handle version bumping, publishing, committing, tagging, and pushing automatically.
-
-### Local Publishing Requirements
-
-To publish locally, you need an npm authentication token:
-
-```bash
-# Set your npm token (get from npmjs.com)
-export NODE_AUTH_TOKEN="your-npm-token"
-
-# Then run the publish command
-npm run npm-publish -- latest --bump-type=patch
-```
 
 ### Package Structure
 
