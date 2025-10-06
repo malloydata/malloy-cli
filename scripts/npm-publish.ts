@@ -185,7 +185,9 @@ function publishLatest(
   // Get the new version after bump
   const newVersion = getPackageJson().version;
 
-  console.log(`Bumped version from ${oldVersion} to ${newVersion} (${bumpType})\n`);
+  console.log(
+    `Bumped version from ${oldVersion} to ${newVersion} (${bumpType})\n`
+  );
 
   try {
     // Run package-npm to prepare for publishing
