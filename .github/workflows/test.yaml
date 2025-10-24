@@ -12,10 +12,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout PR head (untrusted)
+        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          # Don't expose the GITHUB_TOKEN to untrusted PR code
+          persist-credentials: false
+
+      - name: Checkout target ref (trusted)
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Verify publisher-bot provenance
         # If the triggering actor is the publisher bot, verify that the
