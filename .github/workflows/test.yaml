@@ -12,17 +12,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify publisher-bot provenance
+        # If the triggering actor is the publisher bot, verify that the
+        # last commit author email matches the expected bot noreply address
+        # before allowing this run to skip the permission gate. If this
+        # check fails the job will stop and you'll get a visible failure.
+        if: ${{ github.event_name == 'push' && github.triggering_actor == 'malloy-ci-npm-publisher[bot]' }}
+        run: |
+          # Fetch the head so we can inspect the last commit
+          git fetch --no-tags --depth=1 origin ${{ github.ref }}
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae' HEAD)
+          echo "Commit author email: $AUTHOR_EMAIL"
+
+          # Expected bot commit email (adjust if different)
+          EXPECTED="malloy-ci-npm-publisher[bot]@users.noreply.github.com"
+
+          if [ "$AUTHOR_EMAIL" != "$EXPECTED" ]; then
+            echo "Unexpected committer email for bot push — aborting."
+            exit 1
+          fi
+
       - name: Permission Check
+        # Skip this permission gate when the publisher bot is the triggering actor
+        # (the bot pushes version bumps after a successful publish). That bot
+        # is trusted to perform these pushes, but we keep the check for regular
+        # users and external contributors.
+        if: ${{ github.triggering_actor != 'malloy-ci-npm-publisher[bot]' }}
         uses: malloydata/check-ci-permissions@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           username: ${{ github.triggering_actor }}
           error_message: |
             User does not have write access to this repository. Refer to CONTRIBUTING.md instructions on how to contribute to Malloy.
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: GCloud auth
         uses: 'google-github-actions/auth@v2'
         with:
