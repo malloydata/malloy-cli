@@ -231,7 +231,17 @@ export function createCLI(): Command {
     .command('create-duckdb')
     .description('add a new DuckDB database connection')
     .argument('<name>')
-    .option('-d, --database-path <database>')
+    .addOption(
+      new Option(
+        '--database-path <database>',
+        'path to DuckDB database file or MotherDuck database (e.g., "md:my_database")'
+      )
+    )
+    .addOption(
+      new Option('--mother-duck-token <token>', 'MotherDuck API token').env(
+        'MOTHERDUCK_TOKEN'
+      )
+    )
     .action(createDuckDbConnectionCommand);
 
   connections
