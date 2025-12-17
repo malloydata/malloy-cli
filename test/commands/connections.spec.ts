@@ -25,6 +25,8 @@ import {Command} from '@commander-js/extra-typings';
 import {createCLI} from '../../src/cli';
 import path from 'path';
 import {errorMessage} from '../../src/util';
+import fs from 'fs';
+import os from 'os';
 
 let cli: Command;
 let args: string[];
@@ -93,6 +95,128 @@ describe('commands', () => {
             'A connection named y could not be found'
           )
         );
+      });
+    });
+
+    describe('create-duckdb', () => {
+      let tempConfigPath: string;
+
+      beforeEach(() => {
+        // Create a temporary config file for each test
+        const tempDir = fs.mkdtempSync(
+          path.join(os.tmpdir(), 'malloy-cli-test-')
+        );
+        tempConfigPath = path.join(tempDir, 'config.json');
+        fs.writeFileSync(
+          tempConfigPath,
+          JSON.stringify({connections: []}, null, 2)
+        );
+      });
+
+      afterEach(() => {
+        // Clean up temporary config file
+        if (tempConfigPath && fs.existsSync(tempConfigPath)) {
+          const configDir = path.dirname(tempConfigPath);
+          fs.unlinkSync(tempConfigPath);
+          fs.rmdirSync(configDir);
+        }
+      });
+
+      it('creates a DuckDB connection with motherDuckToken from command line', async () => {
+        await runWith(
+          '-c',
+          tempConfigPath,
+          'connections',
+          'create-duckdb',
+          'test-motherduck',
+          '--database-path',
+          'md:my_database',
+          '--mother-duck-token',
+          'test-token-123'
+        );
+
+        // Verify the connection was created with the token
+        const configContent = JSON.parse(
+          fs.readFileSync(tempConfigPath, 'utf-8')
+        );
+        const connection = configContent.connections.find(
+          (c: {name: string}) => c.name === 'test-motherduck'
+        );
+        expect(connection).toBeDefined();
+        expect(connection.backend).toBe('duckdb');
+        expect(connection.databasePath).toBe('md:my_database');
+        expect(connection.motherDuckToken).toBe('test-token-123');
+      });
+
+      it('creates a DuckDB connection with motherDuckToken from environment variable', async () => {
+        const originalEnv = process.env.MOTHERDUCK_TOKEN;
+        process.env.MOTHERDUCK_TOKEN = 'env-token-456';
+
+        try {
+          await runWith(
+            '-c',
+            tempConfigPath,
+            'connections',
+            'create-duckdb',
+            'test-motherduck-env',
+            '--database-path',
+            'md:'
+          );
+
+          // Verify the connection was created with the token from env
+          const configContent = JSON.parse(
+            fs.readFileSync(tempConfigPath, 'utf-8')
+          );
+          const connection = configContent.connections.find(
+            (c: {name: string}) => c.name === 'test-motherduck-env'
+          );
+          expect(connection).toBeDefined();
+          expect(connection.backend).toBe('duckdb');
+          expect(connection.databasePath).toBe('md:');
+          expect(connection.motherDuckToken).toBe('env-token-456');
+        } finally {
+          // Restore original environment variable
+          if (originalEnv !== undefined) {
+            process.env.MOTHERDUCK_TOKEN = originalEnv;
+          } else {
+            delete process.env.MOTHERDUCK_TOKEN;
+          }
+        }
+      });
+
+      it('creates a DuckDB connection without motherDuckToken', async () => {
+        // Clear any existing MOTHERDUCK_TOKEN from the environment
+        const originalEnv = process.env.MOTHERDUCK_TOKEN;
+        delete process.env.MOTHERDUCK_TOKEN;
+
+        try {
+          await runWith(
+            '-c',
+            tempConfigPath,
+            'connections',
+            'create-duckdb',
+            'test-duckdb-local',
+            '--database-path',
+            '/path/to/local.duckdb'
+          );
+
+          // Verify the connection was created without the token
+          const configContent = JSON.parse(
+            fs.readFileSync(tempConfigPath, 'utf-8')
+          );
+          const connection = configContent.connections.find(
+            (c: {name: string}) => c.name === 'test-duckdb-local'
+          );
+          expect(connection).toBeDefined();
+          expect(connection.backend).toBe('duckdb');
+          expect(connection.databasePath).toBe('/path/to/local.duckdb');
+          expect(connection.motherDuckToken).toBeUndefined();
+        } finally {
+          // Restore original environment variable
+          if (originalEnv !== undefined) {
+            process.env.MOTHERDUCK_TOKEN = originalEnv;
+          }
+        }
       });
     });
   });
