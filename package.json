@@ -63,7 +63,7 @@
     "@actions/github": "^6.0.0",
     "@commander-js/extra-typings": "^12.1.0",
     "@malloydata/db-bigquery": "0.0.319",
-    "@malloydata/db-duckdb": "0.0.319",
+    "@malloydata/db-duckdb": "0.0.335",
     "@malloydata/db-postgres": "0.0.319",
     "@malloydata/db-snowflake": "0.0.319",
     "@malloydata/db-trino": "0.0.319",
