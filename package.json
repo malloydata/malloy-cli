@@ -4,7 +4,8 @@
   "description": "Malloy CLI",
   "bin": {
     "malloy-cli": "dist/index.js",
-    "malloy-packages": "scripts/malloy-packages.ts"
+    "malloy-packages": "scripts/malloy-packages.ts",
+    "malloy-pub": "./dist/malloy-pub.js"
   },
   "files": [
     "dist/**",
@@ -69,6 +70,7 @@
     "@malloydata/db-trino": "0.0.319",
     "@malloydata/malloy": "0.0.319",
     "@malloydata/malloy-sql": "0.0.319",
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.2.5",
     "@types/node": "^14.11.2",
     "@types/node-fetch": "^2.6.12",
@@ -78,12 +80,14 @@
     "ajv": "^8.12.0",
     "axios": "^1.4.0",
     "chalk": "^4.0.0",
+    "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
     "csv-stringify": "^6.4.0",
     "esbuild": "0.25.0",
     "eslint": "^8.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.0",
+    "fs-extra": "^11.3.3",
     "gts": "^3.1.1",
     "jest": "^29.3.1",
     "jest-silent-reporter": "^0.5.0",

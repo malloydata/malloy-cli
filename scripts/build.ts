@@ -127,9 +127,14 @@ export async function doBuild(
 
   const config = commonCLIConfig(development);
   config.entryPoints = ['./src/index.ts'];
-  config.outfile = path.join(buildDirectory, 'cli.js');
+  config.outfile = path.join(buildDirectory, 'index.js');
 
   await build(config).catch(errorHandler);
+  // Build malloy-pub CLI
+  const pubConfig = commonCLIConfig(development);
+  pubConfig.entryPoints = ['./src/malloy-pub.ts'];
+  pubConfig.outfile = path.join(buildDirectory, 'malloy-pub.js');
+  await build(pubConfig).catch(errorHandler);
 }
 
 export async function doPostInstallBuild(development = false): Promise<void> {
