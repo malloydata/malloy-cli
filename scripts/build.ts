@@ -40,23 +40,6 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     define: {
       'process.env.NODE_DEBUG': 'false', // TODO this is a hack because some package we include assumed process.env exists :(
     },
-    banner: {
-  js: `#!/usr/bin/env node
-// Polyfill for SlowBuffer (removed in Node.js 25+)
-if (typeof Buffer !== 'undefined' && !Buffer.SlowBuffer) {
-  Buffer.SlowBuffer = Buffer;
-}
-// Patch require('buffer') to return SlowBuffer
-const Module = require('module');
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
-  const module = originalRequire.apply(this, arguments);
-  if (id === 'buffer' && !module.SlowBuffer) {
-    module.SlowBuffer = Buffer;
-  }
-  return module;
-};`,
-},
     plugins: [makeDuckdbNoNodePreGypPlugin(development)],
     external: ['duckdb/lib/binding/duckdb.node', './duckdb-native.node'],
   };
@@ -147,16 +130,11 @@ export async function doBuild(
   config.outfile = path.join(buildDirectory, 'index.js');
 
   await build(config).catch(errorHandler);
-  fs.chmodSync(path.join(buildDirectory, 'index.js'), 0o755);
-
-
   // Build malloy-pub CLI
   const pubConfig = commonCLIConfig(development);
   pubConfig.entryPoints = ['./src/malloy-pub.ts'];
   pubConfig.outfile = path.join(buildDirectory, 'malloy-pub.js');
   await build(pubConfig).catch(errorHandler);
-
-  fs.chmodSync(path.join(buildDirectory, 'malloy-pub.js'), 0o755);
 }
 
 export async function doPostInstallBuild(development = false): Promise<void> {
