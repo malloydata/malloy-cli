@@ -1,23 +1,22 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { Configuration, ProjectsApi, PackagesApi, ConnectionsApi } from './generated';
+import { AxiosError } from 'axios';
 
 export class PublisherClient {
-  private client: AxiosInstance;
+  private projectsApi: ProjectsApi;
+  private packagesApi: PackagesApi;
+  private connectionsApi: ConnectionsApi;
   private baseURL: string;
 
   constructor(urlOverride?: string) {
     this.baseURL = this.resolveServerURL(urlOverride);
-    this.client = axios.create({
-      baseURL: this.baseURL,
-      timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    
+    const config = new Configuration({
+      basePath: `${this.baseURL}/api/v0`,
     });
 
-    this.client.interceptors.response.use(
-      response => response,
-      this.handleError.bind(this)
-    );
+    this.projectsApi = new ProjectsApi(config);
+    this.packagesApi = new PackagesApi(config);
+    this.connectionsApi = new ConnectionsApi(config);
   }
 
   private resolveServerURL(urlOverride?: string): string {
@@ -32,58 +31,68 @@ export class PublisherClient {
     return this.baseURL;
   }
 
-  private handleError(error: AxiosError): never {
-    if (error.response) {
-      const message = (error.response.data as any)?.message || error.response.statusText;
-      throw new Error(`Publisher API Error (${error.response.status}): ${message}`);
-    } else if (error.request) {
-      throw new Error(
-        `Cannot reach Publisher at ${this.baseURL}. Is the server running?`
-      );
-    } else {
-      throw new Error(`Request error: ${error.message}`);
+  // Projects
+  async listProjects(): Promise<any[]> {
+    try {
+      const response = await this.projectsApi.listProjects();
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
     }
   }
 
-  // Projects
-  async listProjects(): Promise<any[]> {
-    const response = await this.client.get('/api/v0/projects');
-    return response.data;
-  }
-
   async getProject(name: string): Promise<any> {
-    const response = await this.client.get(`/api/v0/projects/${encodeURIComponent(name)}`);
-    return response.data;
+    try {
+      const response = await this.projectsApi.getProject(name);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async createProject(name: string): Promise<any> {
-    const response = await this.client.post('/api/v0/projects', { name });
-    return response.data;
+    try {
+      const response = await this.projectsApi.createProject({ name });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
-  async updateProject(name: string, updates: { readme?: string; location?: string }): Promise<any> {
-    console.log("name update project", name)
-    const response = await this.client.patch(`/api/v0/projects/${encodeURIComponent(name)}`, updates);
-    return response.data;
+  async updateProject(name: string, updates: { name?: string; readme?: string; location?: string }): Promise<any> {
+    try {
+      const response = await this.projectsApi.updateProject(name, updates);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async deleteProject(name: string): Promise<void> {
-    await this.client.delete(`/api/v0/projects/${encodeURIComponent(name)}`);
+    try {
+      await this.projectsApi.deleteProject(name);
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   // Packages
   async listPackages(projectName: string): Promise<any[]> {
-    const response = await this.client.get(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/packages`
-    );
-    return response.data;
+    try {
+      const response = await this.packagesApi.listPackages(projectName);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async getPackage(projectName: string, packageName: string): Promise<any> {
-    const response = await this.client.get(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/packages/${encodeURIComponent(packageName)}`
-    );
-    return response.data;
+    try {
+      const response = await this.packagesApi.getPackage(projectName, packageName);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async createPackage(
@@ -92,52 +101,74 @@ export class PublisherClient {
     location: string,
     description?: string
   ): Promise<any> {
-    const response = await this.client.post(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/packages`,
-      { name: packageName, location, description }
-    );
-    return response.data;
+    try {
+      const response = await this.packagesApi.createPackage(
+        projectName,
+        { name: packageName, location, description }
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async updatePackage(
     projectName: string,
     packageName: string,
-    updates: { location?: string; description?: string }
+    updates: { name?: string; location?: string; description?: string }
   ): Promise<any> {
-    const response = await this.client.patch(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/packages/${encodeURIComponent(packageName)}`,
-      updates
-    );
-    return response.data;
+    try {
+      const response = await this.packagesApi.updatePackage(projectName, packageName, updates);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async deletePackage(projectName: string, packageName: string): Promise<void> {
-    await this.client.delete(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/packages/${encodeURIComponent(packageName)}`
-    );
+    try {
+      await this.packagesApi.deletePackage(projectName, packageName);
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   // Connections
   async listConnections(projectName: string): Promise<any[]> {
-    const response = await this.client.get(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/connections`
-    );
-    return response.data;
+    try {
+      const response = await this.connectionsApi.listConnections(projectName);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async getConnection(projectName: string, connectionName: string): Promise<any> {
-    const response = await this.client.get(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/connections/${encodeURIComponent(connectionName)}`
-    );
-    return response.data;
+    try {
+      const response = await this.connectionsApi.getConnection(projectName, connectionName);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async createConnection(projectName: string, connection: any): Promise<any> {
-    const response = await this.client.post(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/connections/${encodeURIComponent(connection.name)}`,
-      connection
-    );
-    return response.data;
+    try {
+      // Extract connection name from the connection object
+      const connectionName = connection.name;
+      if (!connectionName) {
+        throw new Error('Connection object must have a "name" property');
+      }
+      
+      const response = await this.connectionsApi.createConnection(
+        projectName, 
+        connectionName,  // ✅ Pass name as separate parameter
+        connection
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async updateConnection(
@@ -145,16 +176,36 @@ export class PublisherClient {
     connectionName: string,
     connection: any
   ): Promise<any> {
-    const response = await this.client.patch(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/connections/${encodeURIComponent(connectionName)}`,
-      connection
-    );
-    return response.data;
+    try {
+      const response = await this.connectionsApi.updateConnection(
+        projectName,
+        connectionName,
+        connection
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
   }
 
   async deleteConnection(projectName: string, connectionName: string): Promise<void> {
-    await this.client.delete(
-      `/api/v0/projects/${encodeURIComponent(projectName)}/connections/${encodeURIComponent(connectionName)}`
-    );
+    try {
+      await this.connectionsApi.deleteConnection(projectName, connectionName);
+    } catch (error) {
+      throw this.handleError(error as AxiosError);
+    }
+  }
+
+  private handleError(error: AxiosError): Error {
+    if (error.response) {
+      const message = (error.response.data as any)?.message || error.response.statusText;
+      return new Error(`Publisher API Error (${error.response.status}): ${message}`);
+    } else if (error.request) {
+      return new Error(
+        `Cannot reach Publisher at ${this.baseURL}. Is the server running?`
+      );
+    } else {
+      return new Error(`Request error: ${error.message}`);
+    }
   }
 }

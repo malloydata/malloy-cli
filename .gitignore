@@ -10,4 +10,4 @@ npm-debug.log*
 .vscode/settings.json
 third_party/github.com/duckdb/duckdb/*
 src/duckdb-native.node
-test/.build/
+test/.build/src/publisher-commands/api/generated/

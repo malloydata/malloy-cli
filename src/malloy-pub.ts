@@ -165,8 +165,6 @@ program
       
       switch (noun) {
         case 'project':
-          console.log("name", name)
-          console.log("options", options)
           await updateProject(client, name, options);
           break;
         case 'package':

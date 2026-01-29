@@ -33,7 +33,9 @@
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(./scripts/malloy-packages.ts next)",
     "malloy-update": "npm install  --no-fund --no-audit --save-exact $(./scripts/malloy-packages.ts latest)",
     "malloy-link": "npm --no-fund --no-audit link $(./scripts/malloy-packages.ts)",
-    "malloy-unlink": "npm --no-fund --no-save --no-audit unlink $(./scripts/malloy-packages.ts) && npm --no-fund --no-audit install --force"
+    "malloy-unlink": "npm --no-fund --no-save --no-audit unlink $(./scripts/malloy-packages.ts) && npm --no-fund --no-audit install --force",
+    "generate:api": "openapi-generator-cli generate -i api-doc.yaml -g typescript-axios -o src/publisher-commands/api/generated --additional-properties=supportsES6=true,withSeparateModelsAndApi=true,apiPackage=api,modelPackage=models,stringEnums=true",
+    "prebuild": "npm run generate:api || true"
   },
   "repository": {
     "type": "git",
@@ -70,6 +72,7 @@
     "@malloydata/db-trino": "0.0.319",
     "@malloydata/malloy": "0.0.319",
     "@malloydata/malloy-sql": "0.0.319",
+    "@openapitools/openapi-generator-cli": "^2.28.0",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.2.5",
     "@types/node": "^14.11.2",
