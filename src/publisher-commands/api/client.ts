@@ -162,7 +162,7 @@ export class PublisherClient {
       
       const response = await this.connectionsApi.createConnection(
         projectName, 
-        connectionName,  // ✅ Pass name as separate parameter
+        connectionName,
         connection
       );
       return response.data;
