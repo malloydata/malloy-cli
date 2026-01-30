@@ -223,7 +223,7 @@ export function createCLI(): Command {
     .option('-h, --host <url>')
     .option('-u, --username <name>')
     .addOption(new Option('-P, --port <number>').argParser(parseInt))
-    .option('-d, --database <name>')
+    .option('-n, --database <name>')
     .option('-p, --password <password>')
     .action(createPostgresConnectionCommand);
 
@@ -252,7 +252,7 @@ export function createCLI(): Command {
     .option('-u --username <name>')
     .option('-p, --password <password>')
     .option('-w, --warehouse <warehouse>')
-    .option('-d, --database <name>')
+    .option('-n, --database <name>')
     .option('-s, --schema <schema>')
     .addOption(
       new Option('-t, --timeout-ms <milliseconds>').argParser(parseInt)
