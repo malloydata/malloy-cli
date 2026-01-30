@@ -68,12 +68,12 @@ export function createPostgresConnectionCommand(
   if (connectionConfigFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
-  const {database: databaseName, ...otherOptions} = options;
+  const {database, ...otherOptions} = options;
   const connection: ConnectionConfig = {
     name,
     backend: ConnectionBackend.Postgres,
     ...otherOptions,
-    databaseName,
+    databaseName: database,
   };
 
   config.connections.push(connection);
