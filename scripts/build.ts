@@ -40,7 +40,11 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     define: {
       'process.env.NODE_DEBUG': 'false', // TODO this is a hack because some package we include assumed process.env exists :(
     },
-    plugins: [makeDuckdbNativePlugin(development)],
+    // The @duckdb/node-bindings package dispatches to platform-specific
+    // packages (e.g. @duckdb/node-bindings-darwin-arm64/duckdb.node).
+    // Those are marked external so they're resolved at runtime. For
+    // production packaging, the correct platform's .node file should be
+    // copied alongside the bundle.
     external: [
       '@duckdb/node-bindings-linux-x64',
       '@duckdb/node-bindings-linux-arm64',
@@ -79,19 +83,6 @@ const generateLicenseFile = (development: boolean) => {
 function wipeBuildDirectory(buildDirectory: string): void {
   fs.rmSync(buildDirectory, {recursive: true, force: true});
   fs.mkdirSync(buildDirectory, {recursive: true});
-}
-
-function makeDuckdbNativePlugin(_development = false): Plugin {
-  return {
-    name: 'duckdbNativePlugin',
-    setup(_build) {
-      // The @duckdb/node-bindings package dispatches to platform-specific
-      // packages (e.g. @duckdb/node-bindings-darwin-arm64/duckdb.node).
-      // Those are marked external so they're resolved at runtime. For
-      // production packaging, the correct platform's .node file should be
-      // copied alongside the bundle.
-    },
-  };
 }
 
 export async function doBuild(

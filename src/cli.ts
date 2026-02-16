@@ -229,11 +229,6 @@ export function createCLI(): Command {
     .argument('<name>')
     .action(removeConnectionCommand);
 
-  // cli
-  //   .command('config')
-  //   .description('output the current config')
-  //   .action(showConfigCommand);
-
   cli
     .command('third-party')
     .description('output third party license information')
