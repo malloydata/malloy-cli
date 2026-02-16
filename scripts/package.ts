@@ -27,7 +27,10 @@ import * as pkg from 'pkg';
 import path from 'path';
 import * as fs from 'fs';
 import {Command} from '@commander-js/extra-typings';
-import {duckdbPath, fetchDuckDB, targetDuckDBMap} from './utils/fetch-duckdb';
+import {
+  targetDuckDBPackageMap,
+  resolveDuckDBNative,
+} from './utils/fetch-duckdb';
 
 const nodeTarget = 'node18';
 const outputFolder = 'pkg/';
@@ -47,25 +50,16 @@ async function packageCLI(
     console.log('Signing not yet implemented');
   }
 
-  if (!targetDuckDBMap[target]) {
-    throw new Error(`No DuckDb defined for target: ${target}`);
+  if (!targetDuckDBPackageMap[target]) {
+    throw new Error(`No DuckDB native binding package for target: ${target}`);
   }
 
-  if (
-    !fs.existsSync(
-      path.join(__dirname, `${duckdbPath}/${targetDuckDBMap[target]}`)
-    )
-  ) {
-    await fetchDuckDB(target);
-  }
-
-  fs.rmSync(path.resolve(__dirname, '../dist/duckdb-native.node'), {
-    force: true,
-  });
-  fs.copyFileSync(
-    path.resolve(__dirname, `${duckdbPath}/${targetDuckDBMap[target]}`),
-    path.resolve(__dirname, '../dist/duckdb-native.node')
-  );
+  // The native .node file comes from the @duckdb/node-bindings-* npm package.
+  // For cross-platform packaging the target package must be installed.
+  const nativePath = resolveDuckDBNative(target);
+  const destPath = path.resolve(__dirname, '../dist/duckdb-native.node');
+  fs.rmSync(destPath, {force: true});
+  fs.copyFileSync(nativePath, destPath);
 
   if (platform === 'darwin') {
     target = `macos-${architecture}`;

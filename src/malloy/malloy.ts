@@ -28,7 +28,7 @@ import {
   Runtime,
 } from '@malloydata/malloy';
 import url, {fileURLToPath as fileURLToPath} from 'node:url';
-import {connectionManager} from '../connections/connection_manager';
+import {getConnectionLookup} from '../connections/connection_manager';
 import {
   QueryOptionsType,
   RunOrCompileOptions,
@@ -62,7 +62,7 @@ export async function runMalloy(
         return fs.readFileSync(fileURLToPath(url), 'utf8');
       },
     },
-    connections: connectionManager.getConnectionLookup(fileURL),
+    connections: getConnectionLookup(fileURL),
   });
 
   try {

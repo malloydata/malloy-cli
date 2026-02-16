@@ -27,196 +27,407 @@ import path from 'path';
 import {errorMessage} from '../../src/util';
 import fs from 'fs';
 import os from 'os';
+import * as log from '../../src/log';
 
 let cli: Command;
-let args: string[];
+let originalXDG: string | undefined;
 
-const bigQueryConfigPath = path.resolve(
-  path.join(__dirname, '..', 'files', 'bigquery_config.json')
-);
+function setTestConfig(configFixture: string): string {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
+  const malloyDir = path.join(tempDir, 'malloy');
+  fs.mkdirSync(malloyDir, {recursive: true});
+  fs.copyFileSync(configFixture, path.join(malloyDir, 'malloy-config.json'));
+  process.env['XDG_CONFIG_HOME'] = tempDir;
+  return tempDir;
+}
 
-const duckDBConfigPath = path.resolve(
-  path.join(__dirname, '..', 'files', 'duckdb_config.json')
-);
+function setEmptyConfig(): string {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
+  const malloyDir = path.join(tempDir, 'malloy');
+  fs.mkdirSync(malloyDir, {recursive: true});
+  fs.writeFileSync(
+    path.join(malloyDir, 'malloy-config.json'),
+    JSON.stringify({connections: {}}, null, 2)
+  );
+  process.env['XDG_CONFIG_HOME'] = tempDir;
+  return tempDir;
+}
+
+function readConfig(tempDir: string): Record<string, unknown> {
+  return JSON.parse(
+    fs.readFileSync(path.join(tempDir, 'malloy', 'malloy-config.json'), 'utf-8')
+  );
+}
+
+function cleanupTempDir(tempDir: string): void {
+  fs.rmSync(tempDir, {recursive: true, force: true});
+}
 
 async function runWith(...testArgs: string[]): Promise<Command> {
   cli = createCLI();
-
-  args = ['--quiet'];
-  return cli.parseAsync([...args, ...testArgs], {from: 'user'});
+  return cli.parseAsync(['--quiet', ...testArgs], {from: 'user'});
 }
 
+const mergedConfigPath = path.resolve(
+  path.join(__dirname, '..', 'files', 'merged_config.json')
+);
+
 describe('commands', () => {
+  beforeEach(() => {
+    originalXDG = process.env['XDG_CONFIG_HOME'];
+  });
+
+  afterEach(() => {
+    if (originalXDG !== undefined) {
+      process.env['XDG_CONFIG_HOME'] = originalXDG;
+    } else {
+      delete process.env['XDG_CONFIG_HOME'];
+    }
+  });
+
   describe('connections', () => {
     describe('test', () => {
       it('tests a BigQuery connection', async () => {
-        await runWith('-c', bigQueryConfigPath, 'connections', 'test', 'x');
+        const tempDir = setTestConfig(mergedConfigPath);
+        try {
+          await runWith('connections', 'test', 'bigquery');
+        } finally {
+          cleanupTempDir(tempDir);
+        }
       });
 
       it('tests a DuckDB connection', async () => {
-        await runWith('-c', duckDBConfigPath, 'connections', 'test', 'y');
+        const tempDir = setTestConfig(mergedConfigPath);
+        try {
+          await runWith('connections', 'test', 'duckdb');
+        } finally {
+          cleanupTempDir(tempDir);
+        }
       });
 
-      it('does not have a default BigQuery connection one is configured', async () => {
+      it('fails test with a bad connection name', async () => {
+        const tempDir = setTestConfig(mergedConfigPath);
         expect.assertions(1);
-        return await runWith(
-          '-c',
-          bigQueryConfigPath,
+        try {
+          return await runWith('connections', 'test', 'noexist').catch(e =>
+            expect(errorMessage(e)).toMatch(
+              'A connection named noexist could not be found'
+            )
+          );
+        } finally {
+          cleanupTempDir(tempDir);
+        }
+      });
+    });
+
+    describe('create', () => {
+      let tempDir: string;
+
+      beforeEach(() => {
+        tempDir = setEmptyConfig();
+      });
+
+      afterEach(() => {
+        cleanupTempDir(tempDir);
+      });
+
+      it('creates a DuckDB connection with databasePath', async () => {
+        await runWith(
           'connections',
-          'test',
-          'bigquery'
+          'create',
+          'duckdb',
+          'mydb',
+          'databasePath=/tmp/foo.db'
+        );
+
+        const configContent = readConfig(tempDir);
+        const connections = configContent.connections as Record<
+          string,
+          Record<string, unknown>
+        >;
+        expect(connections['mydb']).toBeDefined();
+        expect(connections['mydb'].is).toBe('duckdb');
+        expect(connections['mydb'].databasePath).toBe('/tmp/foo.db');
+      });
+
+      it('creates a DuckDB connection with motherDuckToken', async () => {
+        await runWith(
+          'connections',
+          'create',
+          'duckdb',
+          'md-test',
+          'databasePath=md:my_database',
+          'motherDuckToken=tok123'
+        );
+
+        const configContent = readConfig(tempDir);
+        const connections = configContent.connections as Record<
+          string,
+          Record<string, unknown>
+        >;
+        expect(connections['md-test']).toBeDefined();
+        expect(connections['md-test'].is).toBe('duckdb');
+        expect(connections['md-test'].databasePath).toBe('md:my_database');
+        expect(connections['md-test'].motherDuckToken).toBe('tok123');
+      });
+
+      it('creates a BigQuery connection', async () => {
+        await runWith(
+          'connections',
+          'create',
+          'bigquery',
+          'bq',
+          'projectId=my-project',
+          'location=US'
+        );
+
+        const configContent = readConfig(tempDir);
+        const connections = configContent.connections as Record<
+          string,
+          Record<string, unknown>
+        >;
+        expect(connections['bq']).toBeDefined();
+        expect(connections['bq'].is).toBe('bigquery');
+        expect(connections['bq'].projectId).toBe('my-project');
+        expect(connections['bq'].location).toBe('US');
+      });
+
+      it('errors on unknown connection type', async () => {
+        expect.assertions(1);
+        await runWith('connections', 'create', 'bogus-type', 'mydb').catch(e =>
+          expect(errorMessage(e)).toMatch('Unknown connection type: bogus-type')
+        );
+      });
+
+      it('parses boolean property correctly', async () => {
+        await runWith(
+          'connections',
+          'create',
+          'duckdb',
+          'mydb',
+          'readOnly=true'
+        );
+
+        const configContent = readConfig(tempDir);
+        const connections = configContent.connections as Record<
+          string,
+          Record<string, unknown>
+        >;
+        expect(connections['mydb'].readOnly).toBe(true);
+      });
+
+      it('errors on duplicate connection name', async () => {
+        await runWith(
+          'connections',
+          'create',
+          'duckdb',
+          'mydb',
+          'databasePath=/tmp/foo.db'
+        );
+        expect.assertions(1);
+        await runWith(
+          'connections',
+          'create',
+          'duckdb',
+          'mydb',
+          'databasePath=/tmp/bar.db'
         ).catch(e =>
           expect(errorMessage(e)).toMatch(
-            'A connection named bigquery could not be found'
+            'A connection named mydb already exists'
           )
         );
       });
 
-      it('tests a DuckDB default connection', async () => {
+      it('handles values containing equals signs', async () => {
         await runWith(
-          '-c',
-          bigQueryConfigPath,
           'connections',
-          'test',
-          'duckdb'
+          'create',
+          'duckdb',
+          'mydb',
+          'setupSQL=SET x=1'
         );
+
+        const configContent = readConfig(tempDir);
+        const connections = configContent.connections as Record<
+          string,
+          Record<string, unknown>
+        >;
+        expect(connections['mydb'].setupSQL).toBe('SET x=1');
+      });
+    });
+
+    describe('update', () => {
+      let tempDir: string;
+
+      beforeEach(() => {
+        tempDir = setEmptyConfig();
       });
 
-      it('fails test with a bad connection name', async () => {
-        expect.assertions(1);
-        return await runWith(
-          '-c',
-          bigQueryConfigPath,
+      afterEach(() => {
+        cleanupTempDir(tempDir);
+      });
+
+      it('updates an existing connection', async () => {
+        await runWith(
           'connections',
-          'test',
-          'y'
+          'create',
+          'duckdb',
+          'mydb',
+          'databasePath=/tmp/foo.db'
+        );
+        await runWith(
+          'connections',
+          'update',
+          'mydb',
+          'workingDirectory=/tmp/work'
+        );
+
+        const configContent = readConfig(tempDir);
+        const connections = configContent.connections as Record<
+          string,
+          Record<string, unknown>
+        >;
+        expect(connections['mydb'].databasePath).toBe('/tmp/foo.db');
+        expect(connections['mydb'].workingDirectory).toBe('/tmp/work');
+      });
+
+      it('errors on non-existent connection', async () => {
+        expect.assertions(1);
+        await runWith(
+          'connections',
+          'update',
+          'noexist',
+          'databasePath=/tmp/foo.db'
         ).catch(e =>
           expect(errorMessage(e)).toMatch(
-            'A connection named y could not be found'
+            'A connection named noexist could not be found'
           )
         );
       });
     });
 
-    describe('create-duckdb', () => {
-      let tempConfigPath: string;
+    describe('show', () => {
+      let tempDir: string;
 
       beforeEach(() => {
-        // Create a temporary config file for each test
-        const tempDir = fs.mkdtempSync(
-          path.join(os.tmpdir(), 'malloy-cli-test-')
-        );
-        tempConfigPath = path.join(tempDir, 'config.json');
-        fs.writeFileSync(
-          tempConfigPath,
-          JSON.stringify({connections: []}, null, 2)
-        );
+        tempDir = setEmptyConfig();
       });
 
       afterEach(() => {
-        // Clean up temporary config file
-        if (tempConfigPath && fs.existsSync(tempConfigPath)) {
-          const configDir = path.dirname(tempConfigPath);
-          fs.unlinkSync(tempConfigPath);
-          fs.rmdirSync(configDir);
-        }
+        cleanupTempDir(tempDir);
       });
 
-      it('creates a DuckDB connection with motherDuckToken from command line', async () => {
+      it('errors on unknown property and shows properties list', async () => {
+        expect.assertions(2);
         await runWith(
-          '-c',
-          tempConfigPath,
           'connections',
-          'create-duckdb',
-          'test-motherduck',
-          '--database-path',
-          'md:my_database',
-          '--mother-duck-token',
-          'test-token-123'
-        );
+          'create',
+          'duckdb',
+          'mydb',
+          'unknownProp=val'
+        ).catch(e => {
+          const msg = errorMessage(e);
+          expect(msg).toMatch('Unknown property "unknownProp"');
+          expect(msg).toMatch('databasePath');
+        });
+      });
+    });
 
-        // Verify the connection was created with the token
-        const configContent = JSON.parse(
-          fs.readFileSync(tempConfigPath, 'utf-8')
-        );
-        const connection = configContent.connections.find(
-          (c: {name: string}) => c.name === 'test-motherduck'
-        );
-        expect(connection).toBeDefined();
-        expect(connection.backend).toBe('duckdb');
-        expect(connection.databasePath).toBe('md:my_database');
-        expect(connection.motherDuckToken).toBe('test-token-123');
+    describe('describe', () => {
+      let tempDir: string;
+
+      beforeEach(() => {
+        tempDir = setEmptyConfig();
       });
 
-      it('creates a DuckDB connection with motherDuckToken from environment variable', async () => {
-        const originalEnv = process.env.MOTHERDUCK_TOKEN;
-        process.env.MOTHERDUCK_TOKEN = 'env-token-456';
-
-        try {
-          await runWith(
-            '-c',
-            tempConfigPath,
-            'connections',
-            'create-duckdb',
-            'test-motherduck-env',
-            '--database-path',
-            'md:'
-          );
-
-          // Verify the connection was created with the token from env
-          const configContent = JSON.parse(
-            fs.readFileSync(tempConfigPath, 'utf-8')
-          );
-          const connection = configContent.connections.find(
-            (c: {name: string}) => c.name === 'test-motherduck-env'
-          );
-          expect(connection).toBeDefined();
-          expect(connection.backend).toBe('duckdb');
-          expect(connection.databasePath).toBe('md:');
-          expect(connection.motherDuckToken).toBe('env-token-456');
-        } finally {
-          // Restore original environment variable
-          if (originalEnv !== undefined) {
-            process.env.MOTHERDUCK_TOKEN = originalEnv;
-          } else {
-            delete process.env.MOTHERDUCK_TOKEN;
-          }
-        }
+      afterEach(() => {
+        cleanupTempDir(tempDir);
       });
 
-      it('creates a DuckDB connection without motherDuckToken', async () => {
-        // Clear any existing MOTHERDUCK_TOKEN from the environment
-        const originalEnv = process.env.MOTHERDUCK_TOKEN;
-        delete process.env.MOTHERDUCK_TOKEN;
+      it('lists available types with no argument', async () => {
+        const output: string[] = [];
+        const outSpy = jest
+          .spyOn(log, 'out')
+          .mockImplementation((msg: string) => {
+            output.push(msg);
+          });
 
         try {
-          await runWith(
-            '-c',
-            tempConfigPath,
-            'connections',
-            'create-duckdb',
-            'test-duckdb-local',
-            '--database-path',
-            '/path/to/local.duckdb'
-          );
-
-          // Verify the connection was created without the token
-          const configContent = JSON.parse(
-            fs.readFileSync(tempConfigPath, 'utf-8')
-          );
-          const connection = configContent.connections.find(
-            (c: {name: string}) => c.name === 'test-duckdb-local'
-          );
-          expect(connection).toBeDefined();
-          expect(connection.backend).toBe('duckdb');
-          expect(connection.databasePath).toBe('/path/to/local.duckdb');
-          expect(connection.motherDuckToken).toBeUndefined();
+          await runWith('connections', 'describe');
         } finally {
-          // Restore original environment variable
-          if (originalEnv !== undefined) {
-            process.env.MOTHERDUCK_TOKEN = originalEnv;
-          }
+          outSpy.mockRestore();
         }
+
+        const combined = output.join('');
+        expect(combined).toContain('duckdb');
+        expect(combined).toContain('bigquery');
+      });
+
+      it('shows properties for a specific type', async () => {
+        const output: string[] = [];
+        const outSpy = jest
+          .spyOn(log, 'out')
+          .mockImplementation((msg: string) => {
+            output.push(msg);
+          });
+
+        try {
+          await runWith('connections', 'describe', 'duckdb');
+        } finally {
+          outSpy.mockRestore();
+        }
+
+        const combined = output.join('');
+        expect(combined).toContain('databasePath');
+        expect(combined).toContain('motherDuckToken');
+        expect(combined).toContain('readOnly');
+      });
+
+      it('errors on unknown type', async () => {
+        expect.assertions(1);
+        await runWith('connections', 'describe', 'bogus').catch(e =>
+          expect(errorMessage(e)).toMatch('Unknown connection type: bogus')
+        );
+      });
+    });
+
+    describe('show', () => {
+      let tempDir: string;
+
+      beforeEach(() => {
+        tempDir = setEmptyConfig();
+      });
+
+      afterEach(() => {
+        cleanupTempDir(tempDir);
+      });
+
+      it('masks password fields in show output', async () => {
+        await runWith(
+          'connections',
+          'create',
+          'duckdb',
+          'mydb',
+          'databasePath=md:my_database',
+          'motherDuckToken=secret-token'
+        );
+
+        const output: string[] = [];
+        const outSpy = jest
+          .spyOn(log, 'out')
+          .mockImplementation((msg: string) => {
+            output.push(msg);
+          });
+
+        try {
+          await runWith('connections', 'show', 'mydb');
+        } finally {
+          outSpy.mockRestore();
+        }
+
+        const combined = output.join('');
+        expect(combined).toContain('****');
+        expect(combined).not.toContain('secret-token');
       });
     });
   });

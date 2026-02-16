@@ -23,15 +23,11 @@
 
 import {Command, Option} from '@commander-js/extra-typings';
 import {runCommand} from './commands/run';
-import {loadConfig} from './config';
-//import {configShowCommand as showConfigCommand} from './commands/config';
+import {loadConfig, config} from './config';
 import {
-  createBigQueryConnectionCommand,
-  createDuckDbConnectionCommand,
-  createPostgresConnectionCommand,
-  createPrestoConnectionCommand,
-  createSnowflakeConnectionCommand,
-  createTrinoConnectionCommand,
+  createConnectionCommand,
+  updateConnectionCommand,
+  describeConnectionCommand,
   listConnectionsCommand,
   removeConnectionCommand,
   showConnectionCommand,
@@ -98,11 +94,6 @@ export function createCLI(): Command {
         : 'development'
     )
     .name('malloy-cli')
-    .addOption(
-      new Option('-c, --config <file_path>', 'path to a config.json file').env(
-        'MALLOY_CONFIG_FILE'
-      )
-    )
     .addOption(new Option('--quiet', 'silence output'))
     .addOption(new Option('-d, --debug', 'print debug-level logs to stdout'))
     .addOption(
@@ -138,8 +129,8 @@ export function createCLI(): Command {
 
     if (cli.opts().quiet) silenceOut();
 
-    loadConfig(cli.opts().config);
-    loadConnections();
+    loadConfig();
+    loadConnections(config);
   });
 
   cli
@@ -204,84 +195,21 @@ export function createCLI(): Command {
     .action(listConnectionsCommand);
 
   connections
-    .command('create-bigquery')
-    .description('add a new BigQuery database connection')
-    .argument('<name>')
-    .addOption(new Option('-p, --project <id>'))
-    .addOption(new Option('-l, --location <region>').default('US'))
-    .option('-k, --service-account-key-path <path>')
-    .addOption(new Option('-t, --timeout <milliseconds>').argParser(parseInt))
-    .addOption(
-      new Option('-m, --maximum-bytes-billed <bytes>').argParser(parseInt)
-    )
-    .action(createBigQueryConnectionCommand);
+    .command('create <type> <name>')
+    .description('add a new database connection')
+    .argument('[props...]', 'connection properties as key=value pairs')
+    .action(createConnectionCommand);
 
   connections
-    .command('create-postgres')
-    .description('add a new Postgres database connection')
-    .argument('<name>')
-    .option('-h, --host <url>')
-    .option('-u, --username <name>')
-    .addOption(new Option('-P, --port <number>').argParser(parseInt))
-    .option('-d, --database-name <name>')
-    .option('-p, --password <password>')
-    .action(createPostgresConnectionCommand);
+    .command('update <name>')
+    .description('update an existing database connection')
+    .argument('[props...]', 'connection properties as key=value pairs')
+    .action(updateConnectionCommand);
 
   connections
-    .command('create-duckdb')
-    .description('add a new DuckDB database connection')
-    .argument('<name>')
-    .addOption(
-      new Option(
-        '--database-path <database>',
-        'path to DuckDB database file or MotherDuck database (e.g., "md:my_database")'
-      )
-    )
-    .addOption(
-      new Option('--mother-duck-token <token>', 'MotherDuck API token').env(
-        'MOTHERDUCK_TOKEN'
-      )
-    )
-    .action(createDuckDbConnectionCommand);
-
-  connections
-    .command('create-snowflake')
-    .description('add a new Snowflake database connection')
-    .argument('<name>')
-    .addOption(new Option('-a, --account <account>').makeOptionMandatory())
-    .option('-u --username <name>')
-    .option('-p, --password <password>')
-    .option('-w, --warehouse <warehouse>')
-    .option('-d, --database <name>')
-    .option('-s, --schema <schema>')
-    .addOption(
-      new Option('-t, --timeout-ms <milliseconds>').argParser(parseInt)
-    )
-    .action(createSnowflakeConnectionCommand);
-
-  connections
-    .command('create-presto')
-    .description('add a new Presto database connection')
-    .argument('<name>')
-    .option('-S, --server <server>')
-    .addOption(new Option('-P, --port <number>').argParser(parseInt))
-    .option('-c, --catalog <catalog>')
-    .option('-s, --schema <schema>')
-    .option('-u, ---user <user>')
-    .option('-p, --password <password>')
-    .action(createPrestoConnectionCommand);
-
-  connections
-    .command('create-trino')
-    .description('add a new Trino database connection')
-    .argument('<name>')
-    .option('-S, --server <server>')
-    .addOption(new Option('-P, --port <number>').argParser(parseInt))
-    .option('-c, --catalog <catalog>')
-    .option('-s, --schema <schema>')
-    .option('-u, ---user <user>')
-    .option('-p, --password <password>')
-    .action(createTrinoConnectionCommand);
+    .command('describe [type]')
+    .description('show available connection types and their properties')
+    .action(describeConnectionCommand);
 
   connections
     .command('test')
@@ -294,9 +222,6 @@ export function createCLI(): Command {
     .description('show details for a database connection')
     .argument('<name>')
     .action(showConnectionCommand);
-
-  // TODO should this be connection-specific?
-  // connections.command('update').description('update a database connection');
 
   connections
     .command('delete')

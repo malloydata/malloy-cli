@@ -25,21 +25,39 @@ import {Command} from '@commander-js/extra-typings';
 import {createCLI} from '../../src/cli';
 import path from 'path';
 import {errorMessage} from '../../src/util';
+import fs from 'fs';
+import os from 'os';
 
 let cli: Command;
-let args: string[];
+let tempDir: string;
+let originalXDG: string | undefined;
+
 beforeEach(() => {
   cli = createCLI();
 
-  const configPath = path.resolve(
+  originalXDG = process.env['XDG_CONFIG_HOME'];
+
+  const configFixture = path.resolve(
     path.join(__dirname, '..', 'files', 'merged_config.json')
   );
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
+  const malloyDir = path.join(tempDir, 'malloy');
+  fs.mkdirSync(malloyDir, {recursive: true});
+  fs.copyFileSync(configFixture, path.join(malloyDir, 'malloy-config.json'));
+  process.env['XDG_CONFIG_HOME'] = tempDir;
+});
 
-  args = ['--quiet', '--config', configPath];
+afterEach(() => {
+  if (originalXDG !== undefined) {
+    process.env['XDG_CONFIG_HOME'] = originalXDG;
+  } else {
+    delete process.env['XDG_CONFIG_HOME'];
+  }
+  fs.rmSync(tempDir, {recursive: true, force: true});
 });
 
 async function runWith(...testArgs: string[]): Promise<Command> {
-  return cli.parseAsync([...args, ...testArgs], {from: 'user'});
+  return cli.parseAsync(['--quiet', ...testArgs], {from: 'user'});
 }
 
 describe('commands', () => {

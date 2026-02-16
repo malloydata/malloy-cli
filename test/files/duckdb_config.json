@@ -1,1 +1,1 @@
-{"connections": [{"name": "y", "backend": "duckdb"}]}
+{"connections": {"duckdb": {"is": "duckdb"}}}

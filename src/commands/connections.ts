@@ -21,148 +21,159 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {config, saveConfig} from '../config';
-import {connectionManager} from '../connections/connection_manager';
 import {
-  BigQueryConnectionOptions,
-  ConnectionBackend,
-  ConnectionConfig,
-  DuckDBConnectionOptions,
-  PostgresConnectionOptions,
-  PrestoConnectionOptions,
-  SnowflakeConnectionOptions,
-} from '../connections/connection_types';
+  ConnectionConfigEntry,
+  TestableConnection,
+  createConnectionsFromConfig,
+  getConnectionProperties,
+  getRegisteredConnectionTypes,
+} from '@malloydata/malloy';
+import {config, saveConfig} from '../config';
 import {out} from '../log';
 import {errorMessage, exitWithError} from '../util';
 
-function connectionConfigFromName(name: string): ConnectionConfig | undefined {
-  return config.connections.find(connection => connection.name === name);
+function formatPropertiesTable(typeName: string): string {
+  const props = getConnectionProperties(typeName);
+  if (!props) return '';
+
+  const nameWidth = Math.max(...props.map(p => p.name.length));
+  const typeWidth = Math.max(...props.map(p => p.type.length));
+
+  const lines = props.map(p => {
+    const name = p.name.padEnd(nameWidth);
+    const type = p.type.padEnd(typeWidth);
+    const parts = [p.description || p.displayName];
+    if (p.default) parts.push(`(default: ${p.default})`);
+    if (!p.optional) parts.push('(required)');
+    return `  ${name}  ${type}  ${parts.join(' ')}`;
+  });
+
+  return lines.join('\n');
 }
 
-export function createBigQueryConnectionCommand(
+function connectionEntryFromName(
+  name: string
+): ConnectionConfigEntry | undefined {
+  return config.connections[name];
+}
+
+function parseKeyValuePairs(
+  kvPairs: string[],
+  typeName: string
+): Record<string, string | number | boolean> {
+  const props = getConnectionProperties(typeName);
+  if (!props) exitWithError(`Unknown connection type: ${typeName}`);
+
+  const propMap = new Map(props.map(p => [p.name, p]));
+  const result: Record<string, string | number | boolean> = {};
+
+  for (const pair of kvPairs) {
+    const eqIndex = pair.indexOf('=');
+    if (eqIndex === -1)
+      exitWithError(`Invalid property format: ${pair} (expected key=value)`);
+
+    const key = pair.substring(0, eqIndex);
+    const value = pair.substring(eqIndex + 1);
+    const propDef = propMap.get(key);
+    if (!propDef)
+      exitWithError(
+        `Unknown property "${key}" for connection type "${typeName}"\n\nProperties for ${typeName}:\n${formatPropertiesTable(
+          typeName
+        )}`
+      );
+
+    switch (propDef.type) {
+      case 'number':
+        {
+          const num = parseFloat(value);
+          if (isNaN(num))
+            exitWithError(`Property "${key}" must be a number, got "${value}"`);
+          result[key] = num;
+        }
+        break;
+      case 'boolean':
+        if (value !== 'true' && value !== 'false')
+          exitWithError(
+            `Property "${key}" must be true or false, got "${value}"`
+          );
+        result[key] = value === 'true';
+        break;
+      default:
+        result[key] = value;
+        break;
+    }
+  }
+
+  return result;
+}
+
+export function createConnectionCommand(
+  type: string,
   name: string,
-  options: BigQueryConnectionOptions
+  kvPairs: string[]
 ): void {
-  if (connectionConfigFromName(name))
+  const registeredTypes = getRegisteredConnectionTypes();
+  if (!registeredTypes.includes(type))
+    exitWithError(
+      `Unknown connection type: ${type}. Available types: ${registeredTypes.join(
+        ', '
+      )}`
+    );
+
+  if (connectionEntryFromName(name))
     exitWithError(`A connection named ${name} already exists`);
 
-  const {timeout, maximumBytesBilled, ...otherOptions} = options;
+  const parsed = parseKeyValuePairs(kvPairs, type);
+  const entry: ConnectionConfigEntry = {is: type, ...parsed};
 
-  const connection: ConnectionConfig = {
-    name,
-    backend: ConnectionBackend.BigQuery,
-    ...otherOptions,
-    timeoutMs: `${timeout}`,
-    maximumBytesBilled: `${maximumBytesBilled}`,
-  };
-
-  config.connections.push(connection);
+  config.connections[name] = entry;
   saveConfig();
   out(`Connection ${name} created`);
 }
 
-export function createPostgresConnectionCommand(
-  name: string,
-  options: PostgresConnectionOptions
-): void {
-  if (connectionConfigFromName(name))
-    exitWithError(`A connection named ${name} already exists`);
+export function updateConnectionCommand(name: string, kvPairs: string[]): void {
+  const entry = connectionEntryFromName(name);
+  if (!entry) exitWithError(`A connection named ${name} could not be found`);
 
-  const {database: databaseName, ...otherOptions} = options;
-  const connection: ConnectionConfig = {
-    name,
-    backend: ConnectionBackend.Postgres,
-    ...otherOptions,
-    databaseName,
-  };
+  const parsed = parseKeyValuePairs(kvPairs, entry.is);
+  Object.assign(entry, parsed);
 
-  config.connections.push(connection);
   saveConfig();
-  out(`Connection ${name} created`);
+  out(`Connection ${name} updated`);
 }
 
-export function createDuckDbConnectionCommand(
-  name: string,
-  options: DuckDBConnectionOptions
-): void {
-  if (connectionConfigFromName(name))
-    exitWithError(`A connection named ${name} already exists`);
+export function describeConnectionCommand(type?: string): void {
+  const registeredTypes = getRegisteredConnectionTypes();
 
-  const connection: ConnectionConfig = {
-    name,
-    backend: ConnectionBackend.DuckDB,
-    ...options,
-  };
+  if (!type) {
+    out(
+      `Available connection types: ${registeredTypes.join(
+        ', '
+      )}\n\nUse 'malloy connections describe <type>' to see properties.`
+    );
+    return;
+  }
 
-  config.connections.push(connection);
-  saveConfig();
-  out(`Connection ${name} created`);
-}
+  if (!registeredTypes.includes(type))
+    exitWithError(
+      `Unknown connection type: ${type}. Available types: ${registeredTypes.join(
+        ', '
+      )}`
+    );
 
-export function createSnowflakeConnectionCommand(
-  name: string,
-  options: SnowflakeConnectionOptions
-): void {
-  if (connectionConfigFromName(name))
-    exitWithError(`A connection named ${name} already exists`);
-
-  const connection: ConnectionConfig = {
-    name,
-    backend: ConnectionBackend.Snowflake,
-    ...options,
-  };
-
-  config.connections.push(connection);
-  saveConfig();
-  out(`Connection ${name} created`);
-}
-
-export function createPrestoConnectionCommand(
-  name: string,
-  options: PrestoConnectionOptions
-): void {
-  if (connectionConfigFromName(name))
-    exitWithError(`A connection named ${name} already exists`);
-
-  const connection: ConnectionConfig = {
-    name,
-    backend: ConnectionBackend.Presto,
-    ...options,
-  };
-
-  config.connections.push(connection);
-  saveConfig();
-  out(`Connection ${name} created`);
-}
-
-export function createTrinoConnectionCommand(
-  name: string,
-  options: PrestoConnectionOptions
-): void {
-  if (connectionConfigFromName(name))
-    exitWithError(`A connection named ${name} already exists`);
-
-  const connection: ConnectionConfig = {
-    name,
-    backend: ConnectionBackend.Presto,
-    ...options,
-  };
-
-  config.connections.push(connection);
-  saveConfig();
-  out(`Connection ${name} created`);
+  out(`Connection type: ${type}\n\n${formatPropertiesTable(type)}`);
 }
 
 export async function testConnectionCommand(name: string): Promise<void> {
-  const connectionConfig = connectionConfigFromName(name);
-  if (!connectionConfig)
-    exitWithError(`A connection named ${name} could not be found`);
-  const connection = await connectionManager.connectionForConfig(
-    connectionConfig
-  );
+  const entry = connectionEntryFromName(name);
+  if (!entry) exitWithError(`A connection named ${name} could not be found`);
+
+  const testConfig = {connections: {[name]: entry}};
+  const lookup = createConnectionsFromConfig(testConfig);
+  const connection = await lookup.lookupConnection(name);
 
   try {
-    await connection.test();
+    await (connection as TestableConnection).test();
     out('Connection test successful');
   } catch (e) {
     exitWithError(`Connection test unsuccessful: ${errorMessage(e)}`);
@@ -170,25 +181,36 @@ export async function testConnectionCommand(name: string): Promise<void> {
 }
 
 export function showConnectionCommand(name: string): void {
-  const connection = config.connections.find(c => c.name === name);
-  if (!connection) exitWithError(`Could not find a connection named ${name}`);
-  out(JSON.stringify(connection, null, 4));
+  const entry = config.connections[name];
+  if (!entry) exitWithError(`Could not find a connection named ${name}`);
+
+  const props = getConnectionProperties(entry.is);
+  const passwordFields = new Set(
+    props?.filter(p => p.type === 'password').map(p => p.name) ?? []
+  );
+
+  const masked: Record<string, unknown> = {name};
+  for (const [key, value] of Object.entries(entry)) {
+    masked[key] = passwordFields.has(key) && value ? '****' : value;
+  }
+
+  out(JSON.stringify(masked, null, 4));
 }
 
 export function listConnectionsCommand(): void {
-  if (config.connections.length > 0) {
-    config.connections.forEach(c => {
-      out(`${c.name}:\n\ttype: ${c.backend}`);
-    });
+  const names = Object.keys(config.connections);
+  if (names.length > 0) {
+    for (const name of names) {
+      out(`${name}:\n\ttype: ${config.connections[name].is}`);
+    }
   } else {
     out('No connections found');
   }
 }
 
 export function removeConnectionCommand(name: string): void {
-  const i = config.connections.findIndex(c => c.name === name);
-  if (i >= 0) {
-    config.connections.splice(i, 1);
+  if (config.connections[name]) {
+    delete config.connections[name];
     saveConfig();
     out(`${name} removed from connections`);
   } else {
