@@ -24,25 +24,21 @@
 import path from 'path';
 import fs from 'fs';
 import {
-  loadFile,
+  ConnectionsConfig,
+  readConnectionsConfig,
+  writeConnectionsConfig,
+} from '@malloydata/malloy';
+import {
   exitWithError,
   isWindows,
   createDirectoryOrError,
-  fileExists,
   errorMessage,
 } from './util';
 import {logger} from './log';
-import {ConnectionConfig} from './connections/connection_types';
-
-export interface Config {
-  connections: ConnectionConfig[];
-}
 
 function getDefaultOSConfigFolderPath(): string {
   let location;
 
-  // TODO look more at XDG spec
-  // TODO $XDG_CONFIG_DIRS
   if (process.env['XDG_CONFIG_HOME']) {
     location = process.env['XDG_CONFIG_HOME'];
   } else if (isWindows()) {
@@ -62,69 +58,92 @@ function getDefaultOSConfigFolderPath(): string {
   return location;
 }
 
-let config: Config;
-let configFilePath: string;
-export function loadConfig(filePath?: string) {
-  if (filePath) {
-    if (process.env['MALLOY_CLI_CONFIG']) {
-      logger.debug(
-        `Loading config from MALLOY_CLI_CONFIG env variable (${process.env['MALLOY_CLI_CONFIG']})`
-      );
-    } else {
-      logger.debug(`Loading config from passed path ${filePath}`);
+interface OldConnectionConfig {
+  name: string;
+  backend: string;
+  isDefault?: boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface OldConfig {
+  connections: OldConnectionConfig[];
+}
+
+function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
+  logger.debug(
+    `Migrating old config from ${oldConfigPath} to ${newConfigPath}`
+  );
+  try {
+    const oldText = fs.readFileSync(oldConfigPath, 'utf8');
+    const oldConfig = JSON.parse(oldText) as OldConfig;
+    const connections: ConnectionsConfig['connections'] = {};
+
+    if (Array.isArray(oldConfig.connections)) {
+      for (const conn of oldConfig.connections) {
+        const {name, backend, isDefault: _isDefault, ...rest} = conn;
+        connections[name] = {is: backend, ...rest};
+      }
     }
 
-    configFilePath = filePath;
-    const configText = loadFile(filePath);
+    const newConfig: ConnectionsConfig = {connections};
+    fs.writeFileSync(newConfigPath, writeConnectionsConfig(newConfig));
+    fs.unlinkSync(oldConfigPath);
+    logger.debug('Migration complete');
+  } catch (e) {
+    exitWithError(
+      `Error migrating old config from ${oldConfigPath}: ${errorMessage(e)}`
+    );
+  }
+}
 
+let config: ConnectionsConfig = {connections: {}};
+let configFilePath: string;
+
+export function loadConfig(): void {
+  const folder = getDefaultOSConfigFolderPath();
+  const malloyDir = path.join(folder, 'malloy');
+  configFilePath = path.join(malloyDir, 'malloy-config.json');
+  const oldConfigPath = path.join(malloyDir, 'config.json');
+
+  logger.debug(`Loading config from default location: ${malloyDir}`);
+
+  // Auto-migrate old format
+  if (!fs.existsSync(configFilePath) && fs.existsSync(oldConfigPath)) {
+    createDirectoryOrError(
+      malloyDir,
+      `Attempt to create default configuration folder at ${malloyDir} failed`
+    );
+    migrateOldConfig(oldConfigPath, configFilePath);
+  }
+
+  if (fs.existsSync(configFilePath)) {
     try {
-      config = JSON.parse(configText) as Config; // TODO json type
-      if (!config.connections) config.connections = [];
-      logger.debug(`Configuration loaded from ${filePath}`);
+      const configText = fs.readFileSync(configFilePath, 'utf8');
+      config = readConnectionsConfig(configText);
+      logger.debug(`Configuration loaded from ${configFilePath}`);
     } catch (e) {
       exitWithError(
-        `Error parsing config file at ${filePath}: ${errorMessage(e)}`
+        `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
       );
     }
   } else {
-    // if config file is not passed, look in default location
-    // note: there may not be a config yet, that's ok!
-    const folder = getDefaultOSConfigFolderPath();
-    logger.debug(`Loading config from default location: ${folder}`);
-    configFilePath = path.join(folder, 'malloy', 'config.json');
-
-    if (fileExists(configFilePath)) {
-      const configText = loadFile(configFilePath);
-      try {
-        config = JSON.parse(configText) as Config; // TODO json type
-        if (!config.connections) config.connections = [];
-        logger.debug(`Configuration loaded from ${configFilePath}`);
-      } catch (e) {
-        exitWithError(
-          `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
-        );
-      }
-    } else {
-      logger.debug(
-        'No config file passed and non found in default location, creating new config'
-      );
-      config = {
-        connections: [],
-      };
-      saveConfig();
-    }
+    logger.debug(
+      'No config file found in default location, using empty config'
+    );
+    config = {connections: {}};
   }
 }
+
 export {config};
 
 export function saveConfig(): void {
   createDirectoryOrError(
     path.dirname(configFilePath),
-    `Attempt to create default configuation folder at ${configFilePath} failed`
+    `Attempt to create default configuration folder at ${configFilePath} failed`
   );
 
   try {
-    fs.writeFileSync(configFilePath, JSON.stringify(config));
+    fs.writeFileSync(configFilePath, writeConnectionsConfig(config));
   } catch (e) {
     exitWithError(
       `Could not write configuration information to ${configFilePath}: ${errorMessage(

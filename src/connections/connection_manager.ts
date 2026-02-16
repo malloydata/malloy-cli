@@ -23,357 +23,61 @@
 
 import {
   Connection,
+  ConnectionsConfig,
   LookupConnection,
-  TestableConnection,
+  createConnectionsFromConfig,
 } from '@malloydata/malloy';
-import {
-  BigQueryConnectionConfig,
-  ConfigOptions,
-  ConnectionBackend,
-  ConnectionConfig,
-  DuckDBConnectionConfig,
-  PostgresConnectionConfig,
-  PrestoConnectionConfig,
-  SnowflakeConnectionConfig,
-  TrinoConnectionConfig,
-} from './connection_types';
 import {fileURLToPath} from 'url';
-import {BigQueryConnection} from '@malloydata/db-bigquery';
-import {convertToBytes, exitWithError} from '../util';
-import {DuckDBConnection} from '@malloydata/db-duckdb';
-import {PostgresConnection} from '@malloydata/db-postgres';
-import {PrestoConnection, TrinoConnection} from '@malloydata/db-trino';
-import {SnowflakeConnection} from '@malloydata/db-snowflake';
-import {config} from '../config';
+import path from 'path';
 
-const DEFAULT_CONFIG = Symbol('default-config');
+// Import db packages for their side-effect of registering connection types
+import '@malloydata/db-bigquery';
+import '@malloydata/db-duckdb';
+import '@malloydata/db-postgres';
+import '@malloydata/db-trino';
+import '@malloydata/db-snowflake';
 
-const createBigQueryConnection = async (
-  connectionConfig: BigQueryConnectionConfig,
-  {rowLimit}: ConfigOptions
-): Promise<BigQueryConnection> => {
-  const connection = new BigQueryConnection(
-    connectionConfig.name,
-    () => ({rowLimit}),
-    {
-      projectId: connectionConfig.projectId ?? connectionConfig.projectName,
-      serviceAccountKeyPath: connectionConfig.serviceAccountKeyPath,
-      location: connectionConfig.location,
-      maximumBytesBilled: convertToBytes(
-        connectionConfig.maximumBytesBilled || ''
-      ),
-      timeoutMs: connectionConfig.timeoutMs,
+let baseConfig: ConnectionsConfig = {connections: {}};
+let connectionLookup: LookupConnection<Connection>;
+
+export function loadConnections(config: ConnectionsConfig): void {
+  baseConfig = config;
+  connectionLookup = createConnectionsFromConfig(config);
+}
+
+export function getConnectionLookup(
+  fileURL?: URL
+): LookupConnection<Connection> {
+  if (!fileURL) return connectionLookup;
+
+  // If any connection supports workingDirectory but doesn't have one set,
+  // inject the model file's directory so relative paths (like
+  // duckdb.table('data.csv')) resolve next to the .malloy file.
+  let workingDir: string | undefined;
+  let needsOverride = false;
+  for (const entry of Object.values(baseConfig.connections)) {
+    if (entry.workingDirectory === undefined) {
+      needsOverride = true;
+      break;
     }
-  );
-  return connection;
-};
+  }
 
-const createDuckDbConnection = async (
-  connectionConfig: DuckDBConnectionConfig,
-  {workingDirectory, rowLimit}: ConfigOptions
-) => {
+  if (!needsOverride) return connectionLookup;
+
   try {
-    const connection = new DuckDBConnection(
-      {...connectionConfig, workingDirectory},
-      () => ({
-        rowLimit,
-      })
-    );
-    return connection;
-  } catch (error) {
-    exitWithError(
-      `Could not create DuckDB connection: ${
-        error instanceof Error ? error.message : `${error}`
-      }`
-    );
-  }
-};
-
-const createPostgresConnection = async (
-  connectionConfig: PostgresConnectionConfig,
-  {rowLimit}: ConfigOptions
-): Promise<PostgresConnection> => {
-  const configReader = async () => {
-    let password: string | undefined;
-    if (connectionConfig.password !== undefined) {
-      password = connectionConfig.password;
-    }
-    return {
-      username: connectionConfig.username,
-      host: connectionConfig.host,
-      password,
-      port: connectionConfig.port,
-      databaseName: connectionConfig.databaseName,
-    };
-  };
-  const connection = new PostgresConnection(
-    connectionConfig.name,
-    () => ({rowLimit}),
-    configReader
-  );
-  return connection;
-};
-
-const createSnowflakeConnection = async (
-  connectionConfig: SnowflakeConnectionConfig,
-  queryOptions: ConfigOptions
-): Promise<SnowflakeConnection> => {
-  const connection = new SnowflakeConnection(connectionConfig.name, {
-    connOptions: connectionConfig,
-    queryOptions,
-  });
-  return connection;
-};
-
-const createPrestoConnection = async (
-  connectionConfig: PrestoConnectionConfig,
-  queryOptions: ConfigOptions
-): Promise<PrestoConnection> => {
-  const connection = new PrestoConnection(
-    connectionConfig.name,
-    queryOptions,
-    connectionConfig
-  );
-  return connection;
-};
-
-const createTrinoConnection = async (
-  connectionConfig: TrinoConnectionConfig,
-  queryOptions: ConfigOptions
-): Promise<TrinoConnection> => {
-  const connection = new TrinoConnection(
-    connectionConfig.name,
-    queryOptions,
-    connectionConfig
-  );
-  return connection;
-};
-
-export class CLIConnectionFactory {
-  connectionCache: Record<string, TestableConnection> = {};
-
-  reset() {
-    Object.values(this.connectionCache).forEach(connection =>
-      connection.close()
-    );
-    this.connectionCache = {};
+    workingDir = path.dirname(fileURLToPath(fileURL));
+  } catch {
+    return connectionLookup;
   }
 
-  async getConnectionForConfig(
-    connectionConfig: ConnectionConfig,
-    configOptions: ConfigOptions = {
-      workingDirectory: '/',
-    }
-  ): Promise<TestableConnection> {
-    let connection: TestableConnection;
-
-    switch (connectionConfig.backend) {
-      case ConnectionBackend.BigQuery:
-        connection = await createBigQueryConnection(
-          connectionConfig,
-          configOptions
-        );
-        break;
-      case ConnectionBackend.Postgres: {
-        connection = await createPostgresConnection(
-          connectionConfig,
-          configOptions
-        );
-        break;
-      }
-      case ConnectionBackend.DuckDB: {
-        connection = await createDuckDbConnection(
-          connectionConfig,
-          configOptions
-        );
-        break;
-      }
-      case ConnectionBackend.Snowflake: {
-        connection = await createSnowflakeConnection(
-          connectionConfig,
-          configOptions
-        );
-        break;
-      }
-      case ConnectionBackend.Presto: {
-        connection = await createPrestoConnection(
-          connectionConfig,
-          configOptions
-        );
-        break;
-      }
-      case ConnectionBackend.Trino: {
-        connection = await createTrinoConnection(
-          connectionConfig,
-          configOptions
-        );
-        break;
-      }
-    }
-
-    return connection;
-  }
-
-  getWorkingDirectory(url: URL): string {
-    try {
-      const baseUrl = new URL('.', url);
-      const fileUrl = new URL(baseUrl.pathname, 'file:');
-      return fileURLToPath(fileUrl);
-    } catch {
-      return '.';
+  const patched: ConnectionsConfig = {connections: {}};
+  for (const [name, entry] of Object.entries(baseConfig.connections)) {
+    if (entry.workingDirectory === undefined) {
+      patched.connections[name] = {...entry, workingDirectory: workingDir};
+    } else {
+      patched.connections[name] = entry;
     }
   }
 
-  addDefaults(configs: ConnectionConfig[]): ConnectionConfig[] {
-    // Create a default bigquery connection if one isn't configured
-    if (
-      !configs.find(config => config.backend === ConnectionBackend.BigQuery)
-    ) {
-      configs.push({
-        name: 'bigquery',
-        backend: ConnectionBackend.BigQuery,
-      });
-    }
-
-    // Create a default duckdb connection if one isn't configured
-    if (!configs.find(config => config.name === 'duckdb')) {
-      configs.push({
-        name: 'duckdb',
-        backend: ConnectionBackend.DuckDB,
-        motherDuckToken: undefined,
-      });
-    }
-    return configs;
-  }
+  return createConnectionsFromConfig(patched);
 }
-
-export class DynamicConnectionLookup implements LookupConnection<Connection> {
-  connections: Record<string | symbol, Promise<Connection>> = {};
-
-  constructor(
-    private connectionFactory: CLIConnectionFactory,
-    private configs: Record<string | symbol, ConnectionConfig>,
-    private options: ConfigOptions
-  ) {}
-
-  async lookupConnection(
-    connectionName?: string | undefined
-  ): Promise<Connection> {
-    const connectionKey = connectionName || DEFAULT_CONFIG;
-    if (!this.connections[connectionKey]) {
-      const connectionConfig = this.configs[connectionKey];
-      if (connectionConfig) {
-        this.connections[connectionKey] =
-          this.connectionFactory.getConnectionForConfig(connectionConfig, {
-            ...this.options,
-          });
-      } else {
-        throw new Error(`No connection found with name ${connectionName}`);
-      }
-    }
-    return this.connections[connectionKey];
-  }
-
-  addDefaults(configs: ConnectionConfig[]): ConnectionConfig[] {
-    // Create a default bigquery connection if one isn't configured
-    // TODO do we want to do this?
-    if (
-      !configs.find(config => config.backend === ConnectionBackend.BigQuery)
-    ) {
-      configs.push({
-        name: 'bigquery',
-        backend: ConnectionBackend.BigQuery,
-      });
-    }
-
-    // Create a default duckdb connection if one isn't named duckdb
-    if (!configs.find(config => config.backend === 'duckdb')) {
-      configs.push({
-        name: 'duckdb',
-        backend: ConnectionBackend.DuckDB,
-        motherDuckToken: undefined,
-      });
-    }
-    return configs;
-  }
-}
-
-export class ConnectionManager {
-  private connectionLookups: Record<string, DynamicConnectionLookup> = {};
-  configMap: Record<string | symbol, ConnectionConfig> = {};
-  connectionCache: Record<string | symbol, TestableConnection> = {};
-  currentRowLimit = 50;
-
-  constructor(
-    private connectionFactory: CLIConnectionFactory,
-    private configList: ConnectionConfig[]
-  ) {
-    this.buildConfigMap();
-  }
-
-  public setConnectionsConfig(connectionsConfig: ConnectionConfig[]): void {
-    // Force existing connections to be regenerated
-    this.configList = connectionsConfig;
-    this.buildConfigMap();
-    this.connectionFactory.reset();
-  }
-
-  public async connectionForConfig(
-    connectionConfig: ConnectionConfig
-  ): Promise<TestableConnection> {
-    return this.connectionFactory.getConnectionForConfig(connectionConfig, {
-      workingDirectory: '/',
-    });
-  }
-
-  public getConnectionLookup(fileURL: URL): LookupConnection<Connection> {
-    const workingDirectory =
-      this.connectionFactory.getWorkingDirectory(fileURL);
-
-    if (!this.connectionLookups[workingDirectory]) {
-      this.connectionLookups[workingDirectory] = new DynamicConnectionLookup(
-        this.connectionFactory,
-        this.configMap,
-        {
-          workingDirectory,
-          rowLimit: this.getCurrentRowLimit(),
-        }
-      );
-    }
-    return this.connectionLookups[workingDirectory];
-  }
-
-  public setCurrentRowLimit(rowLimit: number): void {
-    this.currentRowLimit = rowLimit;
-  }
-
-  public getCurrentRowLimit(): number | undefined {
-    return this.currentRowLimit;
-  }
-
-  public getAllConnectionConfigs() {
-    return this.configList;
-  }
-
-  private buildConfigMap(): void {
-    this.connectionLookups = {};
-    this.connectionCache = {};
-
-    const configs = this.connectionFactory.addDefaults(this.configList);
-    configs.forEach(config => {
-      if (config.isDefault) {
-        this.configMap[DEFAULT_CONFIG] = config;
-      }
-      this.configMap[config.name] = config;
-    });
-  }
-}
-
-let connectionManager: ConnectionManager;
-export function loadConnections(): void {
-  connectionManager = new ConnectionManager(
-    new CLIConnectionFactory(),
-    config.connections
-  );
-}
-export {connectionManager};

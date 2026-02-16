@@ -21,18 +21,42 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import {loadConfig} from '../../src/config';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import {config, loadConfig} from '../../src/config';
 import {loadConnections} from '../../src/connections/connection_manager';
 import {createBasicLogger, silenceOut} from '../../src/log';
 
+const configFixture = path.resolve(
+  path.join(__dirname, '..', 'files', 'merged_config.json')
+);
+
 describe('Malloy', () => {
+  let originalXDG: string | undefined;
+  let tempDir: string;
+
   beforeAll(() => {
-    // call 'preAction' hooks
-    // so that things like logger, connectionManager are created
+    originalXDG = process.env['XDG_CONFIG_HOME'];
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
+    const malloyDir = path.join(tempDir, 'malloy');
+    fs.mkdirSync(malloyDir, {recursive: true});
+    fs.copyFileSync(configFixture, path.join(malloyDir, 'malloy-config.json'));
+    process.env['XDG_CONFIG_HOME'] = tempDir;
+
     createBasicLogger();
     loadConfig();
-    loadConnections();
+    loadConnections(config);
     silenceOut();
+  });
+
+  afterAll(() => {
+    if (originalXDG !== undefined) {
+      process.env['XDG_CONFIG_HOME'] = originalXDG;
+    } else {
+      delete process.env['XDG_CONFIG_HOME'];
+    }
+    fs.rmSync(tempDir, {recursive: true, force: true});
   });
 
   it('runs Malloy, outputs results', () => {

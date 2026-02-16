@@ -40,8 +40,18 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     define: {
       'process.env.NODE_DEBUG': 'false', // TODO this is a hack because some package we include assumed process.env exists :(
     },
-    plugins: [makeDuckdbNoNodePreGypPlugin(development)],
-    external: ['duckdb/lib/binding/duckdb.node', './duckdb-native.node'],
+    // The @duckdb/node-bindings package dispatches to platform-specific
+    // packages (e.g. @duckdb/node-bindings-darwin-arm64/duckdb.node).
+    // Those are marked external so they're resolved at runtime. For
+    // production packaging, the correct platform's .node file should be
+    // copied alongside the bundle.
+    external: [
+      '@duckdb/node-bindings-linux-x64',
+      '@duckdb/node-bindings-linux-arm64',
+      '@duckdb/node-bindings-darwin-arm64',
+      '@duckdb/node-bindings-darwin-x64',
+      '@duckdb/node-bindings-win32-x64',
+    ],
   };
 };
 
@@ -73,47 +83,6 @@ const generateLicenseFile = (development: boolean) => {
 function wipeBuildDirectory(buildDirectory: string): void {
   fs.rmSync(buildDirectory, {recursive: true, force: true});
   fs.mkdirSync(buildDirectory, {recursive: true});
-}
-
-function makeDuckdbNoNodePreGypPlugin(development = false): Plugin {
-  // eslint-disable-next-line node/no-extraneous-require
-  const localPath = require.resolve('duckdb/lib/binding/duckdb.node');
-  return {
-    name: 'duckdbNoNodePreGypPlugin',
-    setup(build) {
-      build.onResolve({filter: /duckdb-binding\.js/}, args => {
-        return {
-          path: args.path,
-          namespace: 'duckdb-no-node-pre-gyp-plugin',
-        };
-      });
-      build.onLoad(
-        {
-          filter: /duckdb-binding\.js/,
-          namespace: 'duckdb-no-node-pre-gyp-plugin',
-        },
-        _args => {
-          return {
-            contents: `
-              var path = require("path");
-              var os = require("os");
-
-              var binding_path = ${
-                development
-                  ? `"${localPath}"`
-                  : 'require.resolve("./duckdb-native.node")'
-              };
-
-              // dlopen is used because we need to specify the RTLD_GLOBAL flag to be able to resolve duckdb symbols
-              // on linux where RTLD_LOCAL is the default.
-              process.dlopen(module, binding_path, os.constants.dlopen.RTLD_NOW | os.constants.dlopen.RTLD_GLOBAL);
-            `,
-            resolveDir: '.',
-          };
-        }
-      );
-    },
-  };
 }
 
 export async function doBuild(

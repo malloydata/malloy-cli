@@ -22,12 +22,14 @@
  */
 
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import {runMalloySQL} from '../../src/malloy/malloySQL';
 import {createBasicLogger, silenceOut} from '../../src/log';
 import {QueryOptionsType} from '../../src/malloy/util';
 import {errorMessage} from '../../src/util';
 import {loadConnections} from '../../src/connections/connection_manager';
-import {loadConfig} from '../../src/config';
+import {config, loadConfig} from '../../src/config';
 
 const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
 const complex1 = path.join(
@@ -37,14 +39,35 @@ const complex1 = path.join(
   'malloysql_complex_1.malloysql'
 );
 
+const configFixture = path.resolve(
+  path.join(__dirname, '..', 'files', 'merged_config.json')
+);
+
 describe('MalloySQL', () => {
+  let originalXDG: string | undefined;
+  let tempDir: string;
+
   beforeAll(() => {
-    // call 'preAction' hooks
-    // so that things like logger, connectionManager are created
+    originalXDG = process.env['XDG_CONFIG_HOME'];
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
+    const malloyDir = path.join(tempDir, 'malloy');
+    fs.mkdirSync(malloyDir, {recursive: true});
+    fs.copyFileSync(configFixture, path.join(malloyDir, 'malloy-config.json'));
+    process.env['XDG_CONFIG_HOME'] = tempDir;
+
     createBasicLogger();
     loadConfig();
-    loadConnections();
+    loadConnections(config);
     silenceOut();
+  });
+
+  afterAll(() => {
+    if (originalXDG !== undefined) {
+      process.env['XDG_CONFIG_HOME'] = originalXDG;
+    } else {
+      delete process.env['XDG_CONFIG_HOME'];
+    }
+    fs.rmSync(tempDir, {recursive: true, force: true});
   });
 
   it('runs MalloySQL, outputs results', async () => {

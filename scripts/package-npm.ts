@@ -36,8 +36,8 @@ const buildDirectory =
 
 // this is run before publishing to NPM - places
 // built file in dist/, and also a post-install script
-// into dist that will run to fetch appropriate duckdb.node
-// for the platform/arch being installed into
+// into dist that will run to copy the appropriate duckdb.node
+// from the platform-specific npm package
 doBuild(false, buildDirectory);
 doPostInstallBuild();
 

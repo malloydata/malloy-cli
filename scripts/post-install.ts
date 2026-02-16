@@ -23,16 +23,18 @@
 
 import path from 'path';
 import fs from 'fs';
-import {targetDuckDBMap, fetchDuckDB} from './utils/fetch-duckdb';
+import {
+  resolveDuckDBNative,
+  targetDuckDBPackageMap,
+} from './utils/fetch-duckdb';
 
-// This is run after a user installs the CLI from npm, and allows us to download
-// a duckdb .node file that matches their target platform/arch
+// This is run after a user installs the CLI from npm, and copies the
+// platform-appropriate duckdb native binary next to the built bundle.
 
 const target = `${process.platform}-${process.arch}`;
-const duckDBBinaryName = targetDuckDBMap[target];
-if (duckDBBinaryName === undefined) {
-  throw new Error(`No DuckDB binary for ${target} is available`);
+if (!targetDuckDBPackageMap[target]) {
+  throw new Error(`No DuckDB native binding package for ${target}`);
 }
-fetchDuckDB(target).then(fileName => {
-  fs.copyFileSync(fileName, path.join(__dirname, 'duckdb-native.node'));
-});
+
+const nativePath = resolveDuckDBNative(target);
+fs.copyFileSync(nativePath, path.join(__dirname, 'duckdb-native.node'));

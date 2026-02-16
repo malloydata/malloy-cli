@@ -21,34 +21,26 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* eslint-disable no-console */
-import * as fs from 'fs';
-import * as path from 'path';
+// Maps platform-arch targets to the @duckdb/node-bindings-* package that
+// contains the native .node binary.  With duckdb-node-neo the binaries are
+// installed via npm optional dependencies — no HTTP fetching required.
 
-import duckdbPackage from '@malloydata/db-duckdb/package.json';
-import {fetchNode} from './fetch-node';
-
-const DUCKDB_VERSION = duckdbPackage.dependencies.duckdb;
-
-export const targetDuckDBMap: Record<string, string> = {
-  'darwin-arm64': `duckdb-v${DUCKDB_VERSION}-node-v108-darwin-arm64.node`,
-  'darwin-x64': `duckdb-v${DUCKDB_VERSION}-node-v108-darwin-x64.node`,
-  'linux-arm64': `duckdb-v${DUCKDB_VERSION}-node-v108-linux-arm64.node`,
-  'linux-x64': `duckdb-v${DUCKDB_VERSION}-node-v108-linux-x64.node`,
-  'win32-x64': `duckdb-v${DUCKDB_VERSION}-node-v108-win32-x64.node`,
+export const targetDuckDBPackageMap: Record<string, string> = {
+  'darwin-arm64': '@duckdb/node-bindings-darwin-arm64',
+  'darwin-x64': '@duckdb/node-bindings-darwin-x64',
+  'linux-arm64': '@duckdb/node-bindings-linux-arm64',
+  'linux-x64': '@duckdb/node-bindings-linux-x64',
+  'win32-x64': '@duckdb/node-bindings-win32-x64',
 };
 
-export const duckdbPath = path.resolve(
-  path.join('third_party', 'github.com', 'duckdb', 'duckdb')
-);
-
-export const fetchDuckDB = async (target: string): Promise<string> => {
-  const file = targetDuckDBMap[target];
-  const url = `https://npm.duckdb.org/duckdb/duckdb-v${DUCKDB_VERSION}-node-v108-${target}.tar.gz`;
-  fs.mkdirSync(duckdbPath, {recursive: true});
-  const filePath = path.join(duckdbPath, file);
-
-  await fetchNode(filePath, url);
-
-  return filePath;
-};
+/**
+ * Resolve the path to the native duckdb .node file for a given target.
+ * The file lives inside the platform-specific @duckdb/node-bindings-* package.
+ */
+export function resolveDuckDBNative(target: string): string {
+  const pkg = targetDuckDBPackageMap[target];
+  if (!pkg) {
+    throw new Error(`No DuckDB native binding package for target: ${target}`);
+  }
+  return require.resolve(`${pkg}/duckdb.node`);
+}

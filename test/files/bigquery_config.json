@@ -1,1 +1,1 @@
-{"connections": [{"name": "x", "backend": "bigquery"}]}
+{"connections": {"bigquery": {"is": "bigquery"}}}
