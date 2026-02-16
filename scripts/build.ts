@@ -84,7 +84,7 @@ function wipeBuildDirectory(buildDirectory: string): void {
 function makeDuckdbNativePlugin(_development = false): Plugin {
   return {
     name: 'duckdbNativePlugin',
-    setup(build) {
+    setup(_build) {
       // The @duckdb/node-bindings package dispatches to platform-specific
       // packages (e.g. @duckdb/node-bindings-darwin-arm64/duckdb.node).
       // Those are marked external so they're resolved at runtime. For
