@@ -23,12 +23,12 @@
 
 import {
   ConnectionConfigEntry,
+  MalloyConfig,
   TestableConnection,
-  createConnectionsFromConfig,
   getConnectionProperties,
   getRegisteredConnectionTypes,
 } from '@malloydata/malloy';
-import {config, saveConfig} from '../config';
+import {malloyConfig, saveConfig} from '../config';
 import {out} from '../log';
 import {errorMessage, exitWithError} from '../util';
 
@@ -54,7 +54,7 @@ function formatPropertiesTable(typeName: string): string {
 function connectionEntryFromName(
   name: string
 ): ConnectionConfigEntry | undefined {
-  return config.connections[name];
+  return malloyConfig.connectionMap?.[name];
 }
 
 function parseKeyValuePairs(
@@ -126,7 +126,7 @@ export function createConnectionCommand(
   const parsed = parseKeyValuePairs(kvPairs, type);
   const entry: ConnectionConfigEntry = {is: type, ...parsed};
 
-  config.connections[name] = entry;
+  malloyConfig.connectionMap![name] = entry;
   saveConfig();
   out(`Connection ${name} created`);
 }
@@ -168,9 +168,10 @@ export async function testConnectionCommand(name: string): Promise<void> {
   const entry = connectionEntryFromName(name);
   if (!entry) exitWithError(`A connection named ${name} could not be found`);
 
-  const testConfig = {connections: {[name]: entry}};
-  const lookup = createConnectionsFromConfig(testConfig);
-  const connection = await lookup.lookupConnection(name);
+  const testMalloyConfig = new MalloyConfig(
+    JSON.stringify({connections: {[name]: entry}})
+  );
+  const connection = await testMalloyConfig.connections.lookupConnection(name);
 
   try {
     await (connection as TestableConnection).test();
@@ -181,12 +182,14 @@ export async function testConnectionCommand(name: string): Promise<void> {
 }
 
 export function showConnectionCommand(name: string): void {
-  const entry = config.connections[name];
+  const entry = malloyConfig.connectionMap?.[name];
   if (!entry) exitWithError(`Could not find a connection named ${name}`);
 
   const props = getConnectionProperties(entry.is);
   const passwordFields = new Set(
-    props?.filter(p => p.type === 'password').map(p => p.name) ?? []
+    props
+      ?.filter(p => p.type === 'password' || p.type === 'secret')
+      .map(p => p.name) ?? []
   );
 
   const masked: Record<string, unknown> = {name};
@@ -198,10 +201,11 @@ export function showConnectionCommand(name: string): void {
 }
 
 export function listConnectionsCommand(): void {
-  const names = Object.keys(config.connections);
+  const map = malloyConfig.connectionMap ?? {};
+  const names = Object.keys(map);
   if (names.length > 0) {
     for (const name of names) {
-      out(`${name}:\n\ttype: ${config.connections[name].is}`);
+      out(`${name}:\n\ttype: ${map[name].is}`);
     }
   } else {
     out('No connections found');
@@ -209,8 +213,10 @@ export function listConnectionsCommand(): void {
 }
 
 export function removeConnectionCommand(name: string): void {
-  if (config.connections[name]) {
-    delete config.connections[name];
+  const map = malloyConfig.connectionMap;
+  if (map && map[name]) {
+    delete map[name];
+    malloyConfig.connectionMap = map;
     saveConfig();
     out(`${name} removed from connections`);
   } else {

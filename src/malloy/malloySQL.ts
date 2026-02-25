@@ -26,7 +26,10 @@ import fs from 'fs';
 import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {errorMessage, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
-import {getConnectionLookup} from '../connections/connection_manager';
+import {
+  getBuildManifest,
+  getConnectionLookup,
+} from '../connections/connection_manager';
 import {
   QueryOptionsType,
   RunOrCompileOptions,
@@ -129,6 +132,7 @@ export async function runMalloySQL(
     const malloyRuntime = new Runtime({
       urlReader: virtualURIFileHandler,
       connections: getConnectionLookup(fileURL),
+      buildManifest: getBuildManifest(),
     });
     let modelMaterializer: ModelMaterializer | undefined;
 

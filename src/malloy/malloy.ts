@@ -28,7 +28,10 @@ import {
   Runtime,
 } from '@malloydata/malloy';
 import url, {fileURLToPath as fileURLToPath} from 'node:url';
-import {getConnectionLookup} from '../connections/connection_manager';
+import {
+  getBuildManifest,
+  getConnectionLookup,
+} from '../connections/connection_manager';
 import {
   QueryOptionsType,
   RunOrCompileOptions,
@@ -63,6 +66,7 @@ export async function runMalloy(
       },
     },
     connections: getConnectionLookup(fileURL),
+    buildManifest: getBuildManifest(),
   });
 
   try {

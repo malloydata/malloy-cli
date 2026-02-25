@@ -29,7 +29,7 @@ import {createBasicLogger, silenceOut} from '../../src/log';
 import {QueryOptionsType} from '../../src/malloy/util';
 import {errorMessage} from '../../src/util';
 import {loadConnections} from '../../src/connections/connection_manager';
-import {config, loadConfig} from '../../src/config';
+import {malloyConfig, loadConfig} from '../../src/config';
 
 const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
 const complex1 = path.join(
@@ -47,7 +47,7 @@ describe('MalloySQL', () => {
   let originalXDG: string | undefined;
   let tempDir: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     originalXDG = process.env['XDG_CONFIG_HOME'];
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
     const malloyDir = path.join(tempDir, 'malloy');
@@ -56,8 +56,8 @@ describe('MalloySQL', () => {
     process.env['XDG_CONFIG_HOME'] = tempDir;
 
     createBasicLogger();
-    loadConfig();
-    loadConnections(config);
+    await loadConfig();
+    loadConnections(malloyConfig);
     silenceOut();
   });
 
