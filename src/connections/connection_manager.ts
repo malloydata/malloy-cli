@@ -27,6 +27,7 @@ import {
   ConnectionConfigEntry,
   LookupConnection,
   MalloyConfig,
+  getRegisteredConnectionTypes,
 } from '@malloydata/malloy';
 import {fileURLToPath} from 'url';
 import path from 'path';
@@ -41,9 +42,38 @@ import '@malloydata/db-snowflake';
 let malloyConfig: MalloyConfig;
 let baseConnections: LookupConnection<Connection>;
 
+/**
+ * Wrap a LookupConnection with a fallback: if the connection name isn't in
+ * the config but matches a registered connection type, create one with
+ * default settings. This makes `duckdb.table(...)` work with no config.
+ */
+function withRegistryFallback(
+  inner: LookupConnection<Connection>
+): LookupConnection<Connection> {
+  const registeredTypes = new Set(getRegisteredConnectionTypes());
+  return {
+    async lookupConnection(connectionName?: string): Promise<Connection> {
+      try {
+        return await inner.lookupConnection(connectionName);
+      } catch (e) {
+        // If the name matches a registered type, create with defaults
+        if (connectionName && registeredTypes.has(connectionName)) {
+          const fallbackConfig = new MalloyConfig(
+            JSON.stringify({
+              connections: {[connectionName]: {is: connectionName}},
+            })
+          );
+          return fallbackConfig.connections.lookupConnection(connectionName);
+        }
+        throw e;
+      }
+    },
+  };
+}
+
 export function loadConnections(config: MalloyConfig): void {
   malloyConfig = config;
-  baseConnections = config.connections;
+  baseConnections = withRegistryFallback(config.connections);
 }
 
 export function getBuildManifest(): BuildManifest {
@@ -87,5 +117,5 @@ export function getConnectionLookup(
         : entry;
   }
   const tempConfig = new MalloyConfig(JSON.stringify({connections: patched}));
-  return tempConfig.connections;
+  return withRegistryFallback(tempConfig.connections);
 }

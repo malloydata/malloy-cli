@@ -37,6 +37,7 @@ import {createBasicLogger, silenceOut} from './log';
 import {loadConnections} from './connections/connection_manager';
 import {showThirdPartyCommand} from './commands/third_party';
 import {compileCommand} from './commands/compile';
+import {buildCommand} from './commands/build';
 
 const compileDescription = `compile a Malloy file (.malloy or .malloysql)
 
@@ -100,6 +101,12 @@ export function createCLI(): Command {
       new Option('-l, --log-level <level>', 'log level')
         .choices(['error', 'warn', 'info', 'debug'] as const)
         .default('warn' as const)
+    )
+    .addOption(
+      new Option(
+        '-c, --config <path>',
+        'path to malloy-config.json or directory containing it'
+      )
     );
 
   if (process.env.NODE_ENV === 'test') {
@@ -129,7 +136,7 @@ export function createCLI(): Command {
 
     if (cli.opts().quiet) silenceOut();
 
-    await loadConfig();
+    await loadConfig(cli.opts().config);
     loadConnections(malloyConfig);
   });
 
@@ -184,6 +191,35 @@ export function createCLI(): Command {
     .description(runDescription)
     .addHelpText('after', afterRunHelp)
     .action(runCommand);
+
+  cli
+    .command('build')
+    .argument('[paths...]', 'files or directories to build (default: ".")')
+    .addOption(
+      new Option(
+        '--refresh <tables>',
+        'force rebuild specific tables (conn:name,...)'
+      ).argParser(val => val.split(','))
+    )
+    .addOption(
+      new Option('--dry-run', 'show what would be built without executing')
+    )
+    .summary('build persistent tables from .malloy files')
+    .description(
+      `build persistent tables from .malloy files
+
+Compiles each .malloy file, finds sources annotated with #@ persist, and
+executes them in dependency order. Tables are created using the name specified
+in the persist annotation (e.g. #@ persist name=my_table).
+
+Results are tracked in the manifest so subsequent queries automatically use
+the persisted tables. If a source hasn't changed since the last build, it is
+skipped.
+
+When given a directory, recursively finds all .malloy files. With no arguments,
+builds from the current directory.`
+    )
+    .action(buildCommand);
 
   const connections = cli
     .command('connections')

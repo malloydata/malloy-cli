@@ -1,0 +1,288 @@
+/* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */
+
+import fs from 'fs';
+import path from 'path';
+import url from 'url';
+import chalk from 'chalk';
+import {Runtime, type Connection, type PersistSource} from '@malloydata/malloy';
+import {getConnectionLookup} from '../connections/connection_manager';
+import {malloyConfig, getManifestFilePath} from '../config';
+import {out} from '../log';
+import {exitWithError, createDirectoryOrError} from '../util';
+import {flattenBuildNodes} from './build_graph';
+
+/**
+ * Create a table from a SELECT statement, using the dialect to quote
+ * the table name properly. Uses DROP+CREATE for cross-dialect safety.
+ *
+ * TODO: Move to core once this stabilizes.
+ */
+async function createTableFromSelect(
+  conn: Connection,
+  source: PersistSource,
+  tableName: string,
+  selectSQL: string
+): Promise<void> {
+  const t = source.dialect.quoteTablePath(tableName);
+  await conn.runSQL(`DROP TABLE IF EXISTS ${t}`);
+  await conn.runSQL(`CREATE TABLE ${t} AS ${selectSQL}`);
+}
+
+export interface BuildOptions {
+  refresh: Set<string>; // "connection:tableName" pairs
+  dryRun: boolean;
+}
+
+/**
+ * Resolve a list of paths into .malloy file paths.
+ * Files are returned as-is (if they end in .malloy).
+ * Directories are recursively scanned for *.malloy files.
+ */
+function resolveMalloyFiles(paths: string[]): string[] {
+  const files: string[] = [];
+
+  for (const p of paths) {
+    const resolved = path.resolve(p);
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(resolved);
+    } catch {
+      exitWithError(`Path not found: ${p}`);
+    }
+
+    if (stat.isDirectory()) {
+      collectMalloyFiles(resolved, files);
+    } else if (resolved.endsWith('.malloy')) {
+      files.push(resolved);
+    } else {
+      exitWithError(`Not a .malloy file: ${p}`);
+    }
+  }
+
+  return files;
+}
+
+function collectMalloyFiles(dir: string, into: string[]): void {
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectMalloyFiles(full, into);
+    } else if (entry.name.endsWith('.malloy')) {
+      into.push(full);
+    }
+  }
+}
+
+export async function buildFiles(
+  paths: string[],
+  options: BuildOptions
+): Promise<void> {
+  const files = resolveMalloyFiles(paths.length > 0 ? paths : ['.']);
+
+  if (files.length === 0) {
+    out('No .malloy files found.');
+    return;
+  }
+
+  const manifest = malloyConfig.manifest;
+  const buildManifest = manifest.buildManifest;
+  const connectionDigests: Record<string, string> = {};
+  let totalBuilt = 0;
+  let totalUpToDate = 0;
+  let totalErrors = 0;
+
+  for (const file of files) {
+    const fileURL = url.pathToFileURL(file);
+    const displayPath = path.relative(process.cwd(), file);
+
+    const runtime = new Runtime({
+      urlReader: {
+        readURL: async (u: URL) =>
+          fs.readFileSync(url.fileURLToPath(u), 'utf8'),
+      },
+      connections: getConnectionLookup(fileURL),
+      buildManifest,
+    });
+
+    let model;
+    try {
+      model = await runtime.loadModel(fileURL).getModel();
+    } catch (e) {
+      out(`\n${chalk.bold(displayPath)}`);
+      out(
+        `  ${chalk.red('✗')} ${chalk.red(
+          `failed to compile: ${e instanceof Error ? e.message : e}`
+        )}`
+      );
+      totalErrors++;
+      continue;
+    }
+
+    let plan;
+    try {
+      plan = model.getBuildPlan();
+    } catch {
+      // No ##! experimental.persistence — skip this file
+      continue;
+    }
+
+    if (plan.graphs.length === 0) {
+      continue;
+    }
+
+    out(`\n${chalk.bold(displayPath)}`);
+
+    for (const graph of plan.graphs) {
+      const connName = graph.connectionName;
+
+      // Get or cache the connection and its digest
+      if (!(connName in connectionDigests)) {
+        const connectionLookup = getConnectionLookup(fileURL);
+        let connection: Connection;
+        try {
+          connection = await connectionLookup.lookupConnection(connName);
+        } catch (e) {
+          out(
+            `  ${chalk.red('✗')} ${chalk.red(
+              `connection "${connName}" not found: ${
+                e instanceof Error ? e.message : e
+              }`
+            )}`
+          );
+          totalErrors++;
+          continue;
+        }
+        connectionDigests[connName] = connection.getDigest();
+      }
+
+      // Flatten into dependency order
+      const allNodes = graph.nodes.flatMap(level =>
+        level.flatMap(node => flattenBuildNodes([node]))
+      );
+      const seenIds = new Set<string>();
+      const uniqueNodes = allNodes.filter(node => {
+        if (seenIds.has(node.sourceID)) return false;
+        seenIds.add(node.sourceID);
+        return true;
+      });
+
+      for (const node of uniqueNodes) {
+        const source = plan.sources[node.sourceID];
+        if (!source) continue;
+
+        const parsed = source.tagParse({prefix: /^#@ /});
+        const tableName = parsed.tag.text('name');
+
+        if (!tableName) {
+          out(
+            `  ${chalk.red('✗')} ${source.name} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.red(
+              '#@ persist requires a name (e.g. #@ persist name=my_table)'
+            )}`
+          );
+          totalErrors++;
+          continue;
+        }
+
+        const refreshKey = `${connName}:${tableName}`;
+        const forceRefresh = options.refresh.has(refreshKey);
+
+        const sql = source.getSQL({
+          buildManifest,
+          connectionDigests,
+        });
+        const buildId = source.makeBuildId(connectionDigests[connName], sql);
+
+        // Already built and not in refresh list — skip
+        if (buildManifest[buildId] && !forceRefresh) {
+          manifest.touch(buildId);
+          out(
+            `  ${chalk.green('✓')} ${source.name} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.dim('up to date')}`
+          );
+          totalUpToDate++;
+          continue;
+        }
+
+        if (options.dryRun) {
+          const reason = forceRefresh ? 'refresh' : 'new';
+          out(
+            `  ${chalk.yellow('○')} ${source.name} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.yellow(`would build (${reason})`)} → ${tableName}`
+          );
+          totalBuilt++;
+          continue;
+        }
+
+        // Build the table
+        const startTime = Date.now();
+        try {
+          const connectionLookup = getConnectionLookup(fileURL);
+          const connection = await connectionLookup.lookupConnection(connName);
+
+          await createTableFromSelect(connection, source, tableName, sql);
+
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          manifest.update(buildId, {tableName});
+          out(
+            `  ${chalk.green('✓')} ${source.name} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.green('built')} ${chalk.dim(
+              `(${elapsed}s)`
+            )} → ${tableName}`
+          );
+          totalBuilt++;
+        } catch (e) {
+          out(
+            `  ${chalk.red('✗')} ${source.name} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.red(
+              `build failed: ${e instanceof Error ? e.message : e}`
+            )}`
+          );
+          totalErrors++;
+        }
+      }
+    }
+  }
+
+  // Write manifest
+  if (!options.dryRun && (totalBuilt > 0 || totalUpToDate > 0)) {
+    const manifestPath = getManifestFilePath();
+    createDirectoryOrError(
+      path.dirname(manifestPath),
+      `Could not create manifest directory at ${path.dirname(manifestPath)}`
+    );
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(manifest.activeEntries, null, 2)
+    );
+    out(
+      `\nManifest written: ${chalk.dim(
+        path.relative(process.cwd(), manifestPath)
+      )}`
+    );
+  }
+
+  // Summary
+  const parts: string[] = [];
+  if (totalBuilt > 0)
+    parts.push(
+      chalk.green(`${totalBuilt} ${options.dryRun ? 'to build' : 'built'}`)
+    );
+  if (totalUpToDate > 0) parts.push(chalk.dim(`${totalUpToDate} up to date`));
+  if (totalErrors > 0) parts.push(chalk.red(`${totalErrors} errors`));
+
+  if (parts.length > 0) {
+    out(
+      `\n${options.dryRun ? 'Dry run' : 'Build'} complete: ${parts.join(', ')}`
+    );
+  }
+
+  if (totalErrors > 0 && process.env.NODE_ENV !== 'test') {
+    process.exit(1);
+  }
+}

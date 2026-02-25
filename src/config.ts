@@ -102,7 +102,44 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
 let malloyConfig = new MalloyConfig('{"connections":{}}');
 let configFilePath: string;
 
-export async function loadConfig(): Promise<void> {
+/**
+ * Resolve an explicit --config path to a config file path.
+ * Accepts either a direct file path or a directory containing malloy-config.json.
+ */
+function resolveConfigPath(configPath: string): string {
+  const resolved = path.resolve(configPath);
+  try {
+    if (fs.statSync(resolved).isDirectory()) {
+      return path.join(resolved, 'malloy-config.json');
+    }
+  } catch {
+    exitWithError(`Config path not found: ${configPath}`);
+  }
+  return resolved;
+}
+
+export async function loadConfig(explicitPath?: string): Promise<void> {
+  if (explicitPath) {
+    configFilePath = resolveConfigPath(explicitPath);
+    logger.debug(`Loading config from --config: ${configFilePath}`);
+
+    if (!fs.existsSync(configFilePath)) {
+      exitWithError(`Config file not found: ${configFilePath}`);
+    }
+
+    try {
+      const configURL = url.pathToFileURL(configFilePath).toString();
+      malloyConfig = new MalloyConfig(urlReader, configURL);
+      await malloyConfig.load();
+      logger.debug(`Configuration loaded from ${configFilePath}`);
+    } catch (e) {
+      exitWithError(
+        `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
+      );
+    }
+    return;
+  }
+
   const folder = getDefaultOSConfigFolderPath();
   const malloyDir = path.join(folder, 'malloy');
   configFilePath = path.join(malloyDir, 'malloy-config.json');
@@ -139,6 +176,26 @@ export async function loadConfig(): Promise<void> {
 }
 
 export {malloyConfig};
+
+/**
+ * Derive the manifest file path using the same convention as MalloyConfig:
+ * <configDir>/<manifestPath>/malloy-manifest.json
+ * where manifestPath defaults to "MANIFESTS".
+ *
+ * TODO: Replace this with a `manifestRoot` getter on MalloyConfig in core,
+ * so the path convention lives in one place. MalloyConfig.load() already
+ * computes `new URL(manifestPath, configURL)` — it just needs to store and
+ * expose it. Then this function becomes:
+ *   new URL('malloy-manifest.json', malloyConfig.manifestRoot)
+ */
+export function getManifestFilePath(): string {
+  const manifestDir = malloyConfig.data?.manifestPath ?? 'MANIFESTS';
+  return path.join(
+    path.dirname(configFilePath),
+    manifestDir,
+    'malloy-manifest.json'
+  );
+}
 
 export function saveConfig(): void {
   createDirectoryOrError(
