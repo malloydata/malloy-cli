@@ -77,7 +77,10 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
   try {
     const oldText = fs.readFileSync(oldConfigPath, 'utf8');
     const oldConfig = JSON.parse(oldText) as OldConfig;
-    const connections: Record<string, {is: string; [key: string]: string | number | boolean | undefined}> = {};
+    const connections: Record<
+      string,
+      {is: string; [key: string]: string | number | boolean | undefined}
+    > = {};
 
     if (Array.isArray(oldConfig.connections)) {
       for (const conn of oldConfig.connections) {
@@ -86,10 +89,7 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
       }
     }
 
-    fs.writeFileSync(
-      newConfigPath,
-      JSON.stringify({connections}, null, 2)
-    );
+    fs.writeFileSync(newConfigPath, JSON.stringify({connections}, null, 2));
     fs.unlinkSync(oldConfigPath);
     logger.debug('Migration complete');
   } catch (e) {

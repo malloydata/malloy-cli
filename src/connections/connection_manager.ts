@@ -86,8 +86,6 @@ export function getConnectionLookup(
         ? {...entry, workingDirectory: workingDir}
         : entry;
   }
-  const tempConfig = new MalloyConfig(
-    JSON.stringify({connections: patched})
-  );
+  const tempConfig = new MalloyConfig(JSON.stringify({connections: patched}));
   return tempConfig.connections;
 }
