@@ -23,11 +23,8 @@
 
 import path from 'path';
 import fs from 'fs';
-import {
-  ConnectionsConfig,
-  readConnectionsConfig,
-  writeConnectionsConfig,
-} from '@malloydata/malloy';
+import url from 'url';
+import {MalloyConfig, URLReader} from '@malloydata/malloy';
 import {
   exitWithError,
   isWindows,
@@ -35,6 +32,10 @@ import {
   errorMessage,
 } from './util';
 import {logger} from './log';
+
+const urlReader: URLReader = {
+  readURL: async (u: URL) => fs.readFileSync(url.fileURLToPath(u), 'utf8'),
+};
 
 function getDefaultOSConfigFolderPath(): string {
   let location;
@@ -76,7 +77,10 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
   try {
     const oldText = fs.readFileSync(oldConfigPath, 'utf8');
     const oldConfig = JSON.parse(oldText) as OldConfig;
-    const connections: ConnectionsConfig['connections'] = {};
+    const connections: Record<
+      string,
+      {is: string; [key: string]: string | number | boolean | undefined}
+    > = {};
 
     if (Array.isArray(oldConfig.connections)) {
       for (const conn of oldConfig.connections) {
@@ -85,8 +89,7 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
       }
     }
 
-    const newConfig: ConnectionsConfig = {connections};
-    fs.writeFileSync(newConfigPath, writeConnectionsConfig(newConfig));
+    fs.writeFileSync(newConfigPath, JSON.stringify({connections}, null, 2));
     fs.unlinkSync(oldConfigPath);
     logger.debug('Migration complete');
   } catch (e) {
@@ -96,10 +99,10 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
   }
 }
 
-let config: ConnectionsConfig = {connections: {}};
+let malloyConfig = new MalloyConfig('{"connections":{}}');
 let configFilePath: string;
 
-export function loadConfig(): void {
+export async function loadConfig(): Promise<void> {
   const folder = getDefaultOSConfigFolderPath();
   const malloyDir = path.join(folder, 'malloy');
   configFilePath = path.join(malloyDir, 'malloy-config.json');
@@ -118,8 +121,9 @@ export function loadConfig(): void {
 
   if (fs.existsSync(configFilePath)) {
     try {
-      const configText = fs.readFileSync(configFilePath, 'utf8');
-      config = readConnectionsConfig(configText);
+      const configURL = url.pathToFileURL(configFilePath).toString();
+      malloyConfig = new MalloyConfig(urlReader, configURL);
+      await malloyConfig.load();
       logger.debug(`Configuration loaded from ${configFilePath}`);
     } catch (e) {
       exitWithError(
@@ -130,11 +134,11 @@ export function loadConfig(): void {
     logger.debug(
       'No config file found in default location, using empty config'
     );
-    config = {connections: {}};
+    malloyConfig = new MalloyConfig('{"connections":{}}');
   }
 }
 
-export {config};
+export {malloyConfig};
 
 export function saveConfig(): void {
   createDirectoryOrError(
@@ -143,7 +147,11 @@ export function saveConfig(): void {
   );
 
   try {
-    fs.writeFileSync(configFilePath, writeConnectionsConfig(config));
+    const saveData = {
+      ...malloyConfig.data,
+      connections: malloyConfig.connectionMap ?? {},
+    };
+    fs.writeFileSync(configFilePath, JSON.stringify(saveData, null, 2));
   } catch (e) {
     exitWithError(
       `Could not write configuration information to ${configFilePath}: ${errorMessage(

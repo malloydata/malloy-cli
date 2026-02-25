@@ -24,7 +24,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import {config, loadConfig} from '../../src/config';
+import {malloyConfig, loadConfig} from '../../src/config';
 import {loadConnections} from '../../src/connections/connection_manager';
 import {createBasicLogger, silenceOut} from '../../src/log';
 
@@ -36,7 +36,7 @@ describe('Malloy', () => {
   let originalXDG: string | undefined;
   let tempDir: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     originalXDG = process.env['XDG_CONFIG_HOME'];
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
     const malloyDir = path.join(tempDir, 'malloy');
@@ -45,8 +45,8 @@ describe('Malloy', () => {
     process.env['XDG_CONFIG_HOME'] = tempDir;
 
     createBasicLogger();
-    loadConfig();
-    loadConnections(config);
+    await loadConfig();
+    loadConnections(malloyConfig);
     silenceOut();
   });
 

@@ -23,7 +23,7 @@
 
 import {Command, Option} from '@commander-js/extra-typings';
 import {runCommand} from './commands/run';
-import {loadConfig, config} from './config';
+import {loadConfig, malloyConfig} from './config';
 import {
   createConnectionCommand,
   updateConnectionCommand,
@@ -122,15 +122,15 @@ export function createCLI(): Command {
   }
 
   // config, logging, connections
-  cli.hook('preAction', (_thisCommand, _actionCommand) => {
+  cli.hook('preAction', async (_thisCommand, _actionCommand) => {
     // if packaged, respect debug flag, but if not, debug = true
     if (cli.opts().debug) createBasicLogger('debug');
     else createBasicLogger(cli.opts().logLevel);
 
     if (cli.opts().quiet) silenceOut();
 
-    loadConfig();
-    loadConnections(config);
+    await loadConfig();
+    loadConnections(malloyConfig);
   });
 
   cli

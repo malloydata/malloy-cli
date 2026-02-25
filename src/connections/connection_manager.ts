@@ -22,10 +22,11 @@
  */
 
 import {
+  BuildManifest,
   Connection,
-  ConnectionsConfig,
+  ConnectionConfigEntry,
   LookupConnection,
-  createConnectionsFromConfig,
+  MalloyConfig,
 } from '@malloydata/malloy';
 import {fileURLToPath} from 'url';
 import path from 'path';
@@ -37,47 +38,54 @@ import '@malloydata/db-postgres';
 import '@malloydata/db-trino';
 import '@malloydata/db-snowflake';
 
-let baseConfig: ConnectionsConfig = {connections: {}};
-let connectionLookup: LookupConnection<Connection>;
+let malloyConfig: MalloyConfig;
+let baseConnections: LookupConnection<Connection>;
 
-export function loadConnections(config: ConnectionsConfig): void {
-  baseConfig = config;
-  connectionLookup = createConnectionsFromConfig(config);
+export function loadConnections(config: MalloyConfig): void {
+  malloyConfig = config;
+  baseConnections = config.connections;
+}
+
+export function getBuildManifest(): BuildManifest {
+  return malloyConfig.manifest.buildManifest;
 }
 
 export function getConnectionLookup(
   fileURL?: URL
 ): LookupConnection<Connection> {
-  if (!fileURL) return connectionLookup;
+  if (!fileURL) return baseConnections;
+
+  const map = malloyConfig.connectionMap;
+  if (!map) return baseConnections;
 
   // If any connection supports workingDirectory but doesn't have one set,
   // inject the model file's directory so relative paths (like
   // duckdb.table('data.csv')) resolve next to the .malloy file.
-  let workingDir: string | undefined;
   let needsOverride = false;
-  for (const entry of Object.values(baseConfig.connections)) {
+  for (const entry of Object.values(map)) {
     if (entry.workingDirectory === undefined) {
       needsOverride = true;
       break;
     }
   }
 
-  if (!needsOverride) return connectionLookup;
+  if (!needsOverride) return baseConnections;
 
+  let workingDir: string;
   try {
     workingDir = path.dirname(fileURLToPath(fileURL));
   } catch {
-    return connectionLookup;
+    return baseConnections;
   }
 
-  const patched: ConnectionsConfig = {connections: {}};
-  for (const [name, entry] of Object.entries(baseConfig.connections)) {
-    if (entry.workingDirectory === undefined) {
-      patched.connections[name] = {...entry, workingDirectory: workingDir};
-    } else {
-      patched.connections[name] = entry;
-    }
+  // Create a temporary MalloyConfig with patched entries
+  const patched: Record<string, ConnectionConfigEntry> = {};
+  for (const [name, entry] of Object.entries(map)) {
+    patched[name] =
+      entry.workingDirectory === undefined
+        ? {...entry, workingDirectory: workingDir}
+        : entry;
   }
-
-  return createConnectionsFromConfig(patched);
+  const tempConfig = new MalloyConfig(JSON.stringify({connections: patched}));
+  return tempConfig.connections;
 }
