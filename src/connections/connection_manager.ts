@@ -32,12 +32,8 @@ import {
 import {fileURLToPath} from 'url';
 import path from 'path';
 
-// Import db packages for their side-effect of registering connection types
-import '@malloydata/db-bigquery';
-import '@malloydata/db-duckdb';
-import '@malloydata/db-postgres';
-import '@malloydata/db-trino';
-import '@malloydata/db-snowflake';
+// Import for side-effect of registering all connection types
+import '@malloydata/malloy-connections';
 
 let malloyConfig: MalloyConfig;
 let baseConnections: LookupConnection<Connection>;

@@ -126,11 +126,22 @@ export async function buildFiles(
       continue;
     }
 
-    if (plan.graphs.length === 0) {
+    if (plan.tagParseLog.length === 0 && plan.graphs.length === 0) {
       continue;
     }
 
     out(`\n${chalk.bold(displayPath)}`);
+
+    for (const msg of plan.tagParseLog) {
+      out(
+        `  ${chalk.red('✗')} ${chalk.red(`tag parse error: ${msg.message}`)}`
+      );
+      totalErrors++;
+    }
+
+    if (plan.graphs.length === 0) {
+      continue;
+    }
 
     for (const graph of plan.graphs) {
       const connName = graph.connectionName;
