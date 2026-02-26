@@ -27,6 +27,7 @@ import * as esbuild from 'esbuild';
 import * as path from 'path';
 import fs from 'fs';
 import {generateDisclaimer} from './license_disclaimer';
+import {getDuckDBExternals} from './utils/fetch-duckdb';
 
 export const defaultBuildDirectory = 'dist/';
 let buildDirectory = 'dist/';
@@ -42,16 +43,10 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     },
     // The @duckdb/node-bindings package dispatches to platform-specific
     // packages (e.g. @duckdb/node-bindings-darwin-arm64/duckdb.node).
-    // Those are marked external so they're resolved at runtime. For
-    // production packaging, the correct platform's .node file should be
-    // copied alongside the bundle.
-    external: [
-      '@duckdb/node-bindings-linux-x64',
-      '@duckdb/node-bindings-linux-arm64',
-      '@duckdb/node-bindings-darwin-arm64',
-      '@duckdb/node-bindings-darwin-x64',
-      '@duckdb/node-bindings-win32-x64',
-    ],
+    // Those are marked external so they're resolved at runtime.
+    // The list is read from @duckdb/node-bindings/package.json so it
+    // stays in sync automatically when duckdb updates.
+    external: getDuckDBExternals(),
   };
 };
 
@@ -98,13 +93,6 @@ export async function doBuild(
   config.entryPoints = ['./src/index.ts'];
   config.outfile = path.join(buildDirectory, 'cli.js');
 
-  await build(config).catch(errorHandler);
-}
-
-export async function doPostInstallBuild(development = false): Promise<void> {
-  const config = commonCLIConfig(development);
-  config.entryPoints = ['./scripts/post-install.ts'];
-  config.outfile = path.join(buildDirectory, 'post-install.js');
   await build(config).catch(errorHandler);
 }
 

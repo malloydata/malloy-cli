@@ -23,8 +23,9 @@
 
 import path from 'path';
 import fs from 'fs';
-import {defaultBuildDirectory, doBuild, doPostInstallBuild} from './build';
+import {defaultBuildDirectory, doBuild} from './build';
 import {readPackageJson} from './utils/licenses';
+import {getDuckDBNativePackages} from './utils/fetch-duckdb';
 
 const args = process.argv.slice(1);
 
@@ -34,12 +35,23 @@ const buildDirectory =
     ? path.join(__dirname, '..', 'test', '.build', 'npmBin')
     : defaultBuildDirectory;
 
-// this is run before publishing to NPM - places
-// built file in dist/, and also a post-install script
-// into dist that will run to copy the appropriate duckdb.node
-// from the platform-specific npm package
+// Sync duckdb native binding packages into optionalDependencies,
+// reading versions from @duckdb/node-bindings/package.json so they
+// stay in sync automatically when duckdb is updated.
+const pkgJsonPath = path.join(__dirname, '..', 'package.json');
+const originalContent = fs.readFileSync(pkgJsonPath, 'utf-8');
+const pkgJson = JSON.parse(originalContent);
+pkgJson.optionalDependencies = {
+  ...pkgJson.optionalDependencies,
+  ...getDuckDBNativePackages(),
+};
+const updatedContent = JSON.stringify(pkgJson, null, 2) + '\n';
+if (updatedContent !== originalContent) {
+  fs.writeFileSync(pkgJsonPath, updatedContent);
+}
+
+// Build the CLI bundle into dist/ (or test build directory).
 doBuild(false, buildDirectory);
-doPostInstallBuild();
 
 const version = readPackageJson(
   path.join(__dirname, '..', 'package.json')

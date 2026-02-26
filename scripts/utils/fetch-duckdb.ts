@@ -21,24 +21,69 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-// Maps platform-arch targets to the @duckdb/node-bindings-* package that
-// contains the native .node binary.  With duckdb-node-neo the binaries are
-// installed via npm optional dependencies — no HTTP fetching required.
+// Reads the platform-specific native binding packages directly from
+// @duckdb/node-bindings/package.json so we never fall out of sync.
 
-export const targetDuckDBPackageMap: Record<string, string> = {
-  'darwin-arm64': '@duckdb/node-bindings-darwin-arm64',
-  'darwin-x64': '@duckdb/node-bindings-darwin-x64',
-  'linux-arm64': '@duckdb/node-bindings-linux-arm64',
-  'linux-x64': '@duckdb/node-bindings-linux-x64',
-  'win32-x64': '@duckdb/node-bindings-win32-x64',
-};
+import fs from 'fs';
+
+const BINDINGS_PREFIX = '@duckdb/node-bindings-';
+
+interface DuckDBBindingsPackageJson {
+  optionalDependencies?: Record<string, string>;
+}
+
+function readBindingsPackageJson(): DuckDBBindingsPackageJson {
+  const pkgPath = require.resolve('@duckdb/node-bindings/package.json');
+  return JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+}
+
+/**
+ * Returns the optionalDependencies from @duckdb/node-bindings — the
+ * canonical set of platform-specific native binding packages and their
+ * versions. Example: { "@duckdb/node-bindings-linux-arm64": "1.4.3-r.1" }
+ */
+export function getDuckDBNativePackages(): Record<string, string> {
+  const pkg = readBindingsPackageJson();
+  const deps = pkg.optionalDependencies;
+  if (!deps || Object.keys(deps).length === 0) {
+    throw new Error(
+      '@duckdb/node-bindings has no optionalDependencies — cannot determine native binding packages'
+    );
+  }
+  return deps;
+}
+
+/**
+ * Returns the package names as an array, for use as esbuild externals.
+ */
+export function getDuckDBExternals(): string[] {
+  return Object.keys(getDuckDBNativePackages());
+}
+
+/**
+ * Maps "platform-arch" targets (e.g. "linux-arm64") to the @duckdb
+ * package name that contains the native .node binary.  The target
+ * key is simply the package name with the "@duckdb/node-bindings-"
+ * prefix stripped, so new platforms added by duckdb are picked up
+ * automatically.
+ */
+export function getTargetDuckDBPackageMap(): Record<string, string> {
+  const packages = getDuckDBNativePackages();
+  const map: Record<string, string> = {};
+  for (const pkg of Object.keys(packages)) {
+    if (pkg.startsWith(BINDINGS_PREFIX)) {
+      map[pkg.slice(BINDINGS_PREFIX.length)] = pkg;
+    }
+  }
+  return map;
+}
 
 /**
  * Resolve the path to the native duckdb .node file for a given target.
- * The file lives inside the platform-specific @duckdb/node-bindings-* package.
  */
 export function resolveDuckDBNative(target: string): string {
-  const pkg = targetDuckDBPackageMap[target];
+  const map = getTargetDuckDBPackageMap();
+  const pkg = map[target];
   if (!pkg) {
     throw new Error(`No DuckDB native binding package for target: ${target}`);
   }

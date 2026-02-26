@@ -17,8 +17,8 @@
     "lint": "tsc --noEmit && gts lint",
     "test": "NODE_ENV=test jest --projects jest.config.js --runInBand",
     "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest  --projects jest.config.js --runInBand --reporters jest-silent-reporter",
-    "test-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
-    "test-silent-e2e": "npm run package-npm test > /dev/null 2>&1 && ts-node test/.build/npmBin/post-install.js > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --projects=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
+    "test-e2e": "npm run package-npm test > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
+    "test-silent-e2e": "npm run package-npm test > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --projects=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
     "build": "ts-node scripts/build",
     "build-action": "esbuild --platform=node --bundle ./.github/actions/permission-check/lib/index.ts --outfile=./.github/actions/permission-check/dist/index.js",
     "build-action-dev": "npm run build-action -- --watch",
@@ -27,7 +27,6 @@
     "package": "ts-node scripts/package",
     "package-npm": "ts-node scripts/package-npm",
     "npm-publish": "ts-node scripts/npm-publish",
-    "postinstall": "node -e \"try{require('./dist/post-install')} catch {}\"",
     "postpack": "npm run build",
     "malloy-update-next": "npm install  --no-fund --no-audit --save-exact $(./scripts/malloy-packages.ts next)",
     "malloy-update": "npm install  --no-fund --no-audit --save-exact $(./scripts/malloy-packages.ts latest)",
@@ -60,10 +59,18 @@
     "logform",
     "winston"
   ],
+  "optionalDependencies": {
+    "@duckdb/node-bindings-darwin-arm64": "1.4.3-r.1",
+    "@duckdb/node-bindings-darwin-x64": "1.4.3-r.1",
+    "@duckdb/node-bindings-linux-arm64": "1.4.3-r.1",
+    "@duckdb/node-bindings-linux-x64": "1.4.3-r.1",
+    "@duckdb/node-bindings-win32-x64": "1.4.3-r.1"
+  },
   "devDependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
     "@commander-js/extra-typings": "^12.1.0",
+    "@duckdb/node-bindings": "1.4.3-r.1",
     "@malloydata/db-bigquery": "0.0.348",
     "@malloydata/db-duckdb": "0.0.348",
     "@malloydata/db-postgres": "0.0.348",
