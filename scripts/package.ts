@@ -28,7 +28,7 @@ import path from 'path';
 import * as fs from 'fs';
 import {Command} from '@commander-js/extra-typings';
 import {
-  targetDuckDBPackageMap,
+  getTargetDuckDBPackageMap,
   resolveDuckDBNative,
 } from './utils/fetch-duckdb';
 
@@ -50,6 +50,7 @@ async function packageCLI(
     console.log('Signing not yet implemented');
   }
 
+  const targetDuckDBPackageMap = getTargetDuckDBPackageMap();
   if (!targetDuckDBPackageMap[target]) {
     throw new Error(`No DuckDB native binding package for target: ${target}`);
   }
