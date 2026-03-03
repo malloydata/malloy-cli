@@ -21,9 +21,14 @@ function writeModel(filename: string, content: string): string {
   return filePath;
 }
 
-function readManifest(): Record<string, {tableName: string}> {
+interface ManifestFile {
+  entries: Record<string, {tableName: string}>;
+  strict: boolean;
+}
+
+function readManifest(): ManifestFile {
   const manifestPath = getManifestFilePath();
-  if (!fs.existsSync(manifestPath)) return {};
+  if (!fs.existsSync(manifestPath)) return {entries: {}, strict: false};
   return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 }
 
@@ -160,7 +165,7 @@ describe('build command', () => {
 
       // Dry run should not write a manifest
       const manifest = readManifest();
-      expect(Object.keys(manifest)).toHaveLength(0);
+      expect(Object.keys(manifest.entries)).toHaveLength(0);
     });
 
     it('skips files without experimental.persistence', async () => {
@@ -182,10 +187,10 @@ describe('build command', () => {
       await runBuild([file]);
 
       const manifest = readManifest();
-      const names = Object.values(manifest).map(e => e.tableName);
+      const names = Object.values(manifest.entries).map(e => e.tableName);
       expect(names).toContain('by_manufacturer');
       expect(names).toContain('by_type');
-      expect(Object.keys(manifest)).toHaveLength(2);
+      expect(Object.keys(manifest.entries)).toHaveLength(2);
     });
 
     it('incremental build: unchanged source is skipped, new source is built', async () => {
@@ -193,7 +198,7 @@ describe('build command', () => {
       await runBuild([file]);
 
       const manifest1 = readManifest();
-      const names1 = Object.values(manifest1).map(e => e.tableName);
+      const names1 = Object.values(manifest1.entries).map(e => e.tableName);
       expect(names1).toContain('by_manufacturer');
       expect(names1).toContain('by_type');
 
@@ -206,11 +211,11 @@ describe('build command', () => {
       await runBuild([file]);
 
       const manifest2 = readManifest();
-      const names2 = Object.values(manifest2).map(e => e.tableName);
+      const names2 = Object.values(manifest2.entries).map(e => e.tableName);
       expect(names2).toContain('by_manufacturer');
       expect(names2).toContain('by_year');
       expect(names2).not.toContain('by_type');
-      expect(Object.keys(manifest2)).toHaveLength(2);
+      expect(Object.keys(manifest2.entries)).toHaveLength(2);
     });
 
     it('rebuild same model is all up-to-date', async () => {
@@ -236,7 +241,7 @@ describe('build command', () => {
 
       // No manifest should be written (no successful builds)
       const manifest = readManifest();
-      expect(Object.keys(manifest)).toHaveLength(0);
+      expect(Object.keys(manifest.entries)).toHaveLength(0);
     });
   });
 
@@ -246,7 +251,7 @@ describe('build command', () => {
       await runBuild([file]);
 
       const manifest1 = readManifest();
-      const buildIds1 = Object.keys(manifest1);
+      const buildIds1 = Object.keys(manifest1.entries);
       expect(buildIds1).toHaveLength(2);
 
       // Rebuild with refresh on by_manufacturer
@@ -255,11 +260,47 @@ describe('build command', () => {
       });
 
       const manifest2 = readManifest();
-      const names2 = Object.values(manifest2).map(e => e.tableName);
+      const names2 = Object.values(manifest2.entries).map(e => e.tableName);
       expect(names2).toContain('by_manufacturer');
       expect(names2).toContain('by_type');
       // BuildIDs should be the same (SQL didn't change)
-      expect(Object.keys(manifest2).sort()).toEqual(buildIds1.sort());
+      expect(Object.keys(manifest2.entries).sort()).toEqual(buildIds1.sort());
+    });
+  });
+
+  describe('strict flag', () => {
+    it('new manifest is written with strict: true', async () => {
+      const file = writeModel('test.malloy', modelV1());
+      await runBuild([file]);
+
+      const manifest = readManifest();
+      expect(manifest.strict).toBe(true);
+      expect(Object.keys(manifest.entries).length).toBeGreaterThan(0);
+    });
+
+    it('preserves strict: false from existing manifest', async () => {
+      const file = writeModel('test.malloy', modelV1());
+
+      // First build creates manifest with strict: true
+      await runBuild([file]);
+      const manifest1 = readManifest();
+      expect(manifest1.strict).toBe(true);
+
+      // Manually set strict: false in the manifest file (as if user edited it)
+      const manifestPath = getManifestFilePath();
+      const patched = {...manifest1, strict: false};
+      fs.writeFileSync(manifestPath, JSON.stringify(patched, null, 2));
+
+      // Reload config so the manifest is re-read from disk
+      await loadConfig();
+      loadConnections(malloyConfig);
+
+      // Change model so something actually gets built
+      writeModel('test.malloy', modelV2());
+      await runBuild([file]);
+
+      const manifest2 = readManifest();
+      expect(manifest2.strict).toBe(false);
     });
   });
 
@@ -271,7 +312,7 @@ describe('build command', () => {
       await runBuild([modelDir]);
 
       const manifest = readManifest();
-      const names = Object.values(manifest).map(e => e.tableName);
+      const names = Object.values(manifest.entries).map(e => e.tableName);
       expect(names).toContain('by_manufacturer');
       expect(names).toContain('by_type');
     });
@@ -284,7 +325,7 @@ describe('build command', () => {
       await runBuild([modelDir]);
 
       const manifest = readManifest();
-      const names = Object.values(manifest).map(e => e.tableName);
+      const names = Object.values(manifest.entries).map(e => e.tableName);
       expect(names).toContain('by_manufacturer');
     });
 
@@ -296,7 +337,7 @@ describe('build command', () => {
         await runBuild([]);
 
         const manifest = readManifest();
-        expect(Object.keys(manifest).length).toBeGreaterThan(0);
+        expect(Object.keys(manifest.entries).length).toBeGreaterThan(0);
       } finally {
         process.chdir(origCwd);
       }

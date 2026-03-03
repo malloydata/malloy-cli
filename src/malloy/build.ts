@@ -86,6 +86,7 @@ export async function buildFiles(
 
   const manifest = malloyConfig.manifest;
   const buildManifest = manifest.buildManifest;
+  const isNewManifest = !fs.existsSync(getManifestFilePath());
   const connectionDigests: Record<string, string> = {};
   let totalBuilt = 0;
   let totalUpToDate = 0;
@@ -206,7 +207,7 @@ export async function buildFiles(
         const buildId = source.makeBuildId(connectionDigests[connName], sql);
 
         // Already built and not in refresh list — skip
-        if (buildManifest[buildId] && !forceRefresh) {
+        if (buildManifest.entries[buildId] && !forceRefresh) {
           manifest.touch(buildId);
           out(
             `  ${chalk.green('✓')} ${source.name} ${chalk.dim(
@@ -262,6 +263,9 @@ export async function buildFiles(
 
   // Write manifest
   if (!options.dryRun && (totalBuilt > 0 || totalUpToDate > 0)) {
+    if (isNewManifest) {
+      manifest.strict = true;
+    }
     const manifestPath = getManifestFilePath();
     createDirectoryOrError(
       path.dirname(manifestPath),
