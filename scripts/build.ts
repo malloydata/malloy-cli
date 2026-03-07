@@ -46,7 +46,7 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     // Those are marked external so they're resolved at runtime.
     // The list is read from @duckdb/node-bindings/package.json so it
     // stays in sync automatically when duckdb updates.
-    external: getDuckDBExternals(),
+    external: [...getDuckDBExternals(), 'lz4'],
   };
 };
 
