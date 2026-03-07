@@ -32,7 +32,7 @@ describe('commands', () => {
         path.join(__dirname, '..', '..', 'package.json')
       ).version;
 
-      expect(withNpmCli('-V')).toBe(packageVersion);
+      expect(withNpmCli('-V').split('\n')[0]).toBe(packageVersion);
     });
   });
 });
