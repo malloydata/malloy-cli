@@ -97,12 +97,12 @@ export async function buildFiles(
     const displayPath = path.relative(process.cwd(), file);
 
     const runtime = new Runtime({
+      config: malloyConfig,
       urlReader: {
         readURL: async (u: URL) =>
           fs.readFileSync(url.fileURLToPath(u), 'utf8'),
       },
       connections: getConnectionLookup(fileURL),
-      buildManifest,
     });
 
     let model;

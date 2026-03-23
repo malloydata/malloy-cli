@@ -28,10 +28,8 @@ import {
   Runtime,
 } from '@malloydata/malloy';
 import url, {fileURLToPath as fileURLToPath} from 'node:url';
-import {
-  getBuildManifest,
-  getConnectionLookup,
-} from '../connections/connection_manager';
+import {getConnectionLookup} from '../connections/connection_manager';
+import {malloyConfig} from '../config';
 import {
   QueryOptionsType,
   RunOrCompileOptions,
@@ -60,13 +58,13 @@ export async function runMalloy(
   const fileURL = url.pathToFileURL(filePath);
 
   const malloyRuntime = new Runtime({
+    config: malloyConfig,
     urlReader: {
       readURL: async (url: URL) => {
         return fs.readFileSync(fileURLToPath(url), 'utf8');
       },
     },
     connections: getConnectionLookup(fileURL),
-    buildManifest: getBuildManifest(),
   });
 
   try {

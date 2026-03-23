@@ -22,7 +22,6 @@
  */
 
 import {
-  BuildManifest,
   Connection,
   ConnectionConfigEntry,
   LookupConnection,
@@ -70,10 +69,6 @@ function withRegistryFallback(
 export function loadConnections(config: MalloyConfig): void {
   malloyConfig = config;
   baseConnections = withRegistryFallback(config.connections);
-}
-
-export function getBuildManifest(): BuildManifest {
-  return malloyConfig.manifest.buildManifest;
 }
 
 export function getConnectionLookup(
