@@ -32,6 +32,7 @@ import {
   errorMessage,
 } from './util';
 import {logger} from './log';
+import {validateConfig} from './config_validation';
 
 const urlReader: URLReader = {
   readURL: async (u: URL) => fs.readFileSync(url.fileURLToPath(u), 'utf8'),
@@ -132,6 +133,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
       malloyConfig = new MalloyConfig(urlReader, configURL);
       await malloyConfig.load();
       logger.debug(`Configuration loaded from ${configFilePath}`);
+      warnOnValidationErrors(configFilePath);
     } catch (e) {
       exitWithError(
         `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
@@ -162,6 +164,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
       malloyConfig = new MalloyConfig(urlReader, configURL);
       await malloyConfig.load();
       logger.debug(`Configuration loaded from ${configFilePath}`);
+      warnOnValidationErrors(configFilePath);
     } catch (e) {
       exitWithError(
         `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
@@ -176,6 +179,18 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
 }
 
 export {malloyConfig};
+
+function warnOnValidationErrors(filePath: string): void {
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return;
+  }
+  for (const w of validateConfig(raw)) {
+    logger.warn(`${filePath}: ${w.path}: ${w.message}`);
+  }
+}
 
 /**
  * Derive the manifest file path using the same convention as MalloyConfig:
