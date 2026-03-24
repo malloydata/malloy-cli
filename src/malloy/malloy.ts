@@ -21,15 +21,14 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import fs from 'fs';
 import {
   ModelMaterializer,
   QueryMaterializer,
   Runtime,
 } from '@malloydata/malloy';
-import url, {fileURLToPath as fileURLToPath} from 'node:url';
+import url from 'node:url';
 import {getConnectionLookup} from '../connections/connection_manager';
-import {malloyConfig} from '../config';
+import {malloyConfig, urlReader} from '../config';
 import {
   QueryOptionsType,
   RunOrCompileOptions,
@@ -59,11 +58,7 @@ export async function runMalloy(
 
   const malloyRuntime = new Runtime({
     config: malloyConfig,
-    urlReader: {
-      readURL: async (url: URL) => {
-        return fs.readFileSync(fileURLToPath(url), 'utf8');
-      },
-    },
+    urlReader,
     connections: getConnectionLookup(fileURL),
   });
 
