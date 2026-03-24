@@ -4,9 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 import chalk from 'chalk';
-import {Runtime, type Connection, type PersistSource} from '@malloydata/malloy';
+import {Runtime, Connection, PersistSource} from '@malloydata/malloy';
 import {getConnectionLookup} from '../connections/connection_manager';
-import {malloyConfig, getManifestFilePath} from '../config';
+import {malloyConfig, getManifestFilePath, urlReader} from '../config';
 import {out} from '../log';
 import {exitWithError, createDirectoryOrError} from '../util';
 import {flattenBuildNodes} from './build_graph';
@@ -98,10 +98,7 @@ export async function buildFiles(
 
     const runtime = new Runtime({
       config: malloyConfig,
-      urlReader: {
-        readURL: async (u: URL) =>
-          fs.readFileSync(url.fileURLToPath(u), 'utf8'),
-      },
+      urlReader,
       connections: getConnectionLookup(fileURL),
     });
 

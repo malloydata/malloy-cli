@@ -21,13 +21,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import url, {fileURLToPath as fileURLToPath} from 'node:url';
+import url from 'node:url';
 import fs from 'fs';
 import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {errorMessage, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {getConnectionLookup} from '../connections/connection_manager';
-import {malloyConfig} from '../config';
+import {malloyConfig, urlReader} from '../config';
 import {
   QueryOptionsType,
   RunOrCompileOptions,
@@ -121,11 +121,7 @@ export async function runMalloySQL(
 
     const fileURL = url.pathToFileURL(filePath);
 
-    const virtualURIFileHandler = new VirtualURIFileHandler({
-      readURL: async (url: URL) => {
-        return fs.readFileSync(fileURLToPath(url), 'utf8');
-      },
-    });
+    const virtualURIFileHandler = new VirtualURIFileHandler(urlReader);
 
     const malloyRuntime = new Runtime({
       config: malloyConfig,

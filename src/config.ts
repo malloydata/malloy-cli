@@ -33,7 +33,7 @@ import {
 } from './util';
 import {logger} from './log';
 
-const urlReader: URLReader = {
+export const urlReader: URLReader = {
   readURL: async (u: URL) => fs.readFileSync(url.fileURLToPath(u), 'utf8'),
 };
 
