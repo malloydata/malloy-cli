@@ -32,7 +32,6 @@ import {
   errorMessage,
 } from './util';
 import {logger} from './log';
-import {validateConfig} from './config_validation';
 
 export const urlReader: URLReader = {
   readURL: async (u: URL) => fs.readFileSync(url.fileURLToPath(u), 'utf8'),
@@ -133,7 +132,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
       malloyConfig = new MalloyConfig(urlReader, configURL);
       await malloyConfig.load();
       logger.debug(`Configuration loaded from ${configFilePath}`);
-      warnOnValidationErrors(configFilePath);
+      logConfigMessages(configFilePath);
     } catch (e) {
       exitWithError(
         `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
@@ -164,7 +163,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
       malloyConfig = new MalloyConfig(urlReader, configURL);
       await malloyConfig.load();
       logger.debug(`Configuration loaded from ${configFilePath}`);
-      warnOnValidationErrors(configFilePath);
+      logConfigMessages(configFilePath);
     } catch (e) {
       exitWithError(
         `Error parsing config file at ${configFilePath}: ${errorMessage(e)}`
@@ -180,15 +179,13 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
 
 export {malloyConfig};
 
-function warnOnValidationErrors(filePath: string): void {
-  let raw: Record<string, unknown>;
-  try {
-    raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch {
-    return;
-  }
-  for (const w of validateConfig(raw)) {
-    logger.warn(`${filePath}: ${w.path}: ${w.message}`);
+function logConfigMessages(filePath: string): void {
+  for (const msg of malloyConfig.log) {
+    if (msg.severity === 'error') {
+      logger.error(`${filePath}: ${msg.message}`);
+    } else if (msg.severity === 'warn') {
+      logger.warn(`${filePath}: ${msg.message}`);
+    }
   }
 }
 
