@@ -201,7 +201,10 @@ export async function buildFiles(
           buildManifest,
           connectionDigests,
         });
-        const buildId = source.makeBuildId(connectionDigests[connName], sql);
+        const buildId = source.makeBuildId(
+          connectionDigests[connName],
+          source.getSQL()
+        );
 
         // Already built and not in refresh list — skip
         if (buildManifest.entries[buildId] && !forceRefresh) {
