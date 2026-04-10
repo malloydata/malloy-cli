@@ -109,16 +109,18 @@ describe('config validation', () => {
     }
   });
 
-  it('warns when env var reference points to unset variable', () => {
+  it('silently drops unset env var references', () => {
+    // The new MalloyConfig design (0.0.373) silently drops references to
+    // known overlays that return undefined — matching the behavior of unset
+    // env vars in the old codebase. If the dropped property was required,
+    // the connection factory will complain at lookup time, not config time.
     delete process.env['DEFINITELY_NOT_SET_12345'];
     const log = validateConfig({
       connections: {
         mydb: {is: 'duckdb', databasePath: {env: 'DEFINITELY_NOT_SET_12345'}},
       },
     });
-    expect(log).toHaveLength(1);
-    expect(log[0].message).toContain('DEFINITELY_NOT_SET_12345');
-    expect(log[0].message).toContain('not set');
+    expect(log).toEqual([]);
   });
 
   it('accepts valid manifestPath', () => {

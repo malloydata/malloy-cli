@@ -22,15 +22,31 @@
  */
 
 import {
-  ConnectionConfigEntry,
   MalloyConfig,
   TestableConnection,
   getConnectionProperties,
   getRegisteredConnectionTypes,
 } from '@malloydata/malloy';
-import {malloyConfig, saveConfig} from '../config';
+import {readConfigPojo, saveConfig} from '../config';
 import {out} from '../log';
 import {errorMessage, exitWithError} from '../util';
+
+/**
+ * Read the raw connections map from the config file on disk.
+ * Returns the unresolved entries — overlay references preserved as-is.
+ */
+function readRawConnections(): Record<string, Record<string, unknown>> {
+  const pojo = readConfigPojo();
+  const connections = pojo?.connections;
+  if (
+    connections &&
+    typeof connections === 'object' &&
+    !Array.isArray(connections)
+  ) {
+    return connections as Record<string, Record<string, unknown>>;
+  }
+  return {};
+}
 
 function formatPropertiesTable(typeName: string): string {
   const props = getConnectionProperties(typeName);
@@ -49,12 +65,6 @@ function formatPropertiesTable(typeName: string): string {
   });
 
   return lines.join('\n');
-}
-
-function connectionEntryFromName(
-  name: string
-): ConnectionConfigEntry | undefined {
-  return malloyConfig.connectionMap?.[name];
 }
 
 function parseKeyValuePairs(
@@ -120,25 +130,30 @@ export function createConnectionCommand(
       )}`
     );
 
-  if (connectionEntryFromName(name))
+  const connections = readRawConnections();
+  if (connections[name])
     exitWithError(`A connection named ${name} already exists`);
 
   const parsed = parseKeyValuePairs(kvPairs, type);
-  const entry: ConnectionConfigEntry = {is: type, ...parsed};
+  connections[name] = {is: type, ...parsed};
 
-  malloyConfig.connectionMap![name] = entry;
-  saveConfig();
+  saveConfig(connections);
   out(`Connection ${name} created`);
 }
 
 export function updateConnectionCommand(name: string, kvPairs: string[]): void {
-  const entry = connectionEntryFromName(name);
+  const connections = readRawConnections();
+  const entry = connections[name];
   if (!entry) exitWithError(`A connection named ${name} could not be found`);
 
-  const parsed = parseKeyValuePairs(kvPairs, entry.is);
+  const typeName = entry.is;
+  if (typeof typeName !== 'string')
+    exitWithError(`Connection ${name} has no type`);
+
+  const parsed = parseKeyValuePairs(kvPairs, typeName);
   Object.assign(entry, parsed);
 
-  saveConfig();
+  saveConfig(connections);
   out(`Connection ${name} updated`);
 }
 
@@ -165,7 +180,8 @@ export function describeConnectionCommand(type?: string): void {
 }
 
 export async function testConnectionCommand(name: string): Promise<void> {
-  const entry = connectionEntryFromName(name);
+  const connections = readRawConnections();
+  const entry = connections[name];
   if (!entry) exitWithError(`A connection named ${name} could not be found`);
 
   const testMalloyConfig = new MalloyConfig(
@@ -182,10 +198,12 @@ export async function testConnectionCommand(name: string): Promise<void> {
 }
 
 export function showConnectionCommand(name: string): void {
-  const entry = malloyConfig.connectionMap?.[name];
+  const connections = readRawConnections();
+  const entry = connections[name];
   if (!entry) exitWithError(`Could not find a connection named ${name}`);
 
-  const props = getConnectionProperties(entry.is);
+  const typeName = typeof entry.is === 'string' ? entry.is : undefined;
+  const props = typeName ? getConnectionProperties(typeName) : undefined;
   const passwordFields = new Set(
     props
       ?.filter(p => p.type === 'password' || p.type === 'secret')
@@ -201,11 +219,11 @@ export function showConnectionCommand(name: string): void {
 }
 
 export function listConnectionsCommand(): void {
-  const map = malloyConfig.connectionMap ?? {};
-  const names = Object.keys(map);
+  const connections = readRawConnections();
+  const names = Object.keys(connections);
   if (names.length > 0) {
     for (const name of names) {
-      out(`${name}:\n\ttype: ${map[name].is}`);
+      out(`${name}:\n\ttype: ${connections[name].is}`);
     }
   } else {
     out('No connections found');
@@ -213,11 +231,10 @@ export function listConnectionsCommand(): void {
 }
 
 export function removeConnectionCommand(name: string): void {
-  const map = malloyConfig.connectionMap;
-  if (map && map[name]) {
-    delete map[name];
-    malloyConfig.connectionMap = map;
-    saveConfig();
+  const connections = readRawConnections();
+  if (connections[name]) {
+    delete connections[name];
+    saveConfig(connections);
     out(`${name} removed from connections`);
   } else {
     exitWithError(`Could not find a connection named ${name}`);

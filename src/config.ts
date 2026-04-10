@@ -24,7 +24,12 @@
 import path from 'path';
 import fs from 'fs';
 import url from 'url';
-import {MalloyConfig, URLReader} from '@malloydata/malloy';
+import {
+  MalloyConfig,
+  URLReader,
+  contextOverlay,
+  discoverConfig,
+} from '@malloydata/malloy';
 import {
   exitWithError,
   isWindows,
@@ -99,8 +104,14 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
   }
 }
 
-let malloyConfig = new MalloyConfig('{"connections":{}}');
-let configFilePath: string;
+// The resolved config for Runtime — immutable after construction.
+let malloyConfig: MalloyConfig = new MalloyConfig({
+  includeDefaultConnections: true,
+});
+
+// The path to the config file on disk — needed for connections commands
+// and manifest path computation. undefined when no config file exists.
+let configFilePath: string | undefined;
 
 /**
  * Resolve an explicit --config path to a config file path.
@@ -118,9 +129,94 @@ function resolveConfigPath(configPath: string): string {
   return resolved;
 }
 
-export async function loadConfig(explicitPath?: string): Promise<void> {
-  if (explicitPath) {
-    configFilePath = resolveConfigPath(explicitPath);
+/**
+ * Read a config file and build a MalloyConfig from the POJO.
+ * Sets configURL in the overlay so manifestURL resolves correctly.
+ * Does NOT set rootDirectory — --config means "use this file", not
+ * "this is my project root". DuckDB falls back to cwd.
+ *
+ * Forces includeDefaultConnections: true so that all registered backends
+ * are available even if the config file only lists some connections.
+ * This preserves CLI backwards compatibility — duckdb.table(...) works
+ * with a config that only mentions postgres.
+ */
+function loadConfigFromFile(filePath: string): MalloyConfig {
+  const text = fs.readFileSync(filePath, 'utf8');
+  let pojo: Record<string, unknown>;
+  try {
+    pojo = JSON.parse(text);
+  } catch (e) {
+    exitWithError(
+      `Error parsing config file at ${filePath}: ${errorMessage(e)}`
+    );
+  }
+  pojo.includeDefaultConnections = true;
+  const configURL = url.pathToFileURL(filePath).toString();
+  return new MalloyConfig(pojo, {
+    config: contextOverlay({configURL}),
+  });
+}
+
+export async function loadConfig(
+  explicitConfigPath?: string,
+  projectDir?: string
+): Promise<void> {
+  // --projectDir mode: use core's discovery helper
+  if (projectDir) {
+    const resolvedProjectDir = path.resolve(projectDir);
+    const cwd = process.cwd();
+
+    // Validate cwd is at or below the project directory
+    if (
+      !cwd.startsWith(resolvedProjectDir + path.sep) &&
+      cwd !== resolvedProjectDir
+    ) {
+      exitWithError(
+        'Current directory is not inside project directory: ' +
+          resolvedProjectDir
+      );
+    }
+
+    const cwdURL = url.pathToFileURL(cwd + path.sep);
+    const ceilingURL = url.pathToFileURL(resolvedProjectDir + path.sep);
+
+    logger.debug(
+      `Discovering config: cwd=${cwdURL.toString()}, ceiling=${ceilingURL.toString()}`
+    );
+
+    const discovered = await discoverConfig(cwdURL, ceilingURL, urlReader);
+
+    if (discovered) {
+      malloyConfig = discovered;
+      // Extract configFilePath from the overlay for connections commands
+      const discoveredURL = discovered.readOverlay('config', 'configURL');
+      if (typeof discoveredURL === 'string') {
+        configFilePath = url.fileURLToPath(discoveredURL);
+      }
+      logger.debug(`Configuration discovered at ${configFilePath}`);
+      logConfigMessages(configFilePath ?? 'discovered config');
+    } else {
+      // No config found — soloist experience with defaults.
+      // Set configFilePath to the project root so connections create
+      // can bootstrap a malloy-config.json there.
+      configFilePath = path.join(resolvedProjectDir, 'malloy-config.json');
+      logger.debug('No config file found in project directory, using defaults');
+      malloyConfig = new MalloyConfig(
+        {includeDefaultConnections: true},
+        {
+          config: contextOverlay({
+            rootDirectory: ceilingURL.toString(),
+            configURL: url.pathToFileURL(configFilePath).toString(),
+          }),
+        }
+      );
+    }
+    return;
+  }
+
+  // --config mode: read that specific file, no discovery
+  if (explicitConfigPath) {
+    configFilePath = resolveConfigPath(explicitConfigPath);
     logger.debug(`Loading config from --config: ${configFilePath}`);
 
     if (!fs.existsSync(configFilePath)) {
@@ -128,9 +224,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
     }
 
     try {
-      const configURL = url.pathToFileURL(configFilePath).toString();
-      malloyConfig = new MalloyConfig(urlReader, configURL);
-      await malloyConfig.load();
+      malloyConfig = loadConfigFromFile(configFilePath);
       logger.debug(`Configuration loaded from ${configFilePath}`);
       logConfigMessages(configFilePath);
     } catch (e) {
@@ -141,6 +235,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
     return;
   }
 
+  // Default mode: global config at ~/.config/malloy/malloy-config.json
   const folder = getDefaultOSConfigFolderPath();
   const malloyDir = path.join(folder, 'malloy');
   configFilePath = path.join(malloyDir, 'malloy-config.json');
@@ -159,9 +254,7 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
 
   if (fs.existsSync(configFilePath)) {
     try {
-      const configURL = url.pathToFileURL(configFilePath).toString();
-      malloyConfig = new MalloyConfig(urlReader, configURL);
-      await malloyConfig.load();
+      malloyConfig = loadConfigFromFile(configFilePath);
       logger.debug(`Configuration loaded from ${configFilePath}`);
       logConfigMessages(configFilePath);
     } catch (e) {
@@ -173,7 +266,8 @@ export async function loadConfig(explicitPath?: string): Promise<void> {
     logger.debug(
       'No config file found in default location, using empty config'
     );
-    malloyConfig = new MalloyConfig('{"connections":{}}');
+    malloyConfig = new MalloyConfig({includeDefaultConnections: true});
+    configFilePath = path.join(malloyDir, 'malloy-config.json');
   }
 }
 
@@ -190,42 +284,44 @@ function logConfigMessages(filePath: string): void {
 }
 
 /**
- * Derive the manifest file path using the same convention as MalloyConfig:
- * <configDir>/<manifestPath>/malloy-manifest.json
- * where manifestPath defaults to "MANIFESTS".
- *
- * TODO: Replace this with a `manifestRoot` getter on MalloyConfig in core,
- * so the path convention lives in one place. MalloyConfig.load() already
- * computes `new URL(manifestPath, configURL)` — it just needs to store and
- * expose it. Then this function becomes:
- *   new URL('malloy-manifest.json', malloyConfig.manifestRoot)
+ * Read the raw config POJO from the config file on disk.
+ * Returns the unresolved JSON — overlay references like {env: "..."} are
+ * preserved as-is. Returns undefined if no config file exists.
  */
-export function getManifestFilePath(): string {
-  const manifestDir = malloyConfig.data?.manifestPath ?? 'MANIFESTS';
-  return path.join(
-    path.dirname(configFilePath),
-    manifestDir,
-    'malloy-manifest.json'
-  );
+export function readConfigPojo(): Record<string, unknown> | undefined {
+  if (!configFilePath || !fs.existsSync(configFilePath)) return undefined;
+  try {
+    return JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+  } catch {
+    return undefined;
+  }
 }
 
-export function saveConfig(): void {
+/**
+ * Save an updated connections map back to the config file.
+ * Re-reads the file to preserve all non-connections fields, then splices
+ * in the new connections and writes it back.
+ */
+export function saveConfig(connections: Record<string, unknown>): void {
+  if (!configFilePath) {
+    exitWithError('No config file path — cannot save');
+  }
+
   createDirectoryOrError(
     path.dirname(configFilePath),
     `Attempt to create default configuration folder at ${configFilePath} failed`
   );
 
-  try {
-    const saveData = {
-      ...malloyConfig.data,
-      connections: malloyConfig.connectionMap ?? {},
-    };
-    fs.writeFileSync(configFilePath, JSON.stringify(saveData, null, 2));
-  } catch (e) {
-    exitWithError(
-      `Could not write configuration information to ${configFilePath}: ${errorMessage(
-        e
-      )}`
-    );
+  let raw: Record<string, unknown> = {};
+  if (fs.existsSync(configFilePath)) {
+    try {
+      raw = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+    } catch {
+      logger.warn(
+        `Could not parse ${configFilePath}, non-connections fields will be lost`
+      );
+    }
   }
+  raw.connections = connections;
+  fs.writeFileSync(configFilePath, JSON.stringify(raw, null, 2));
 }

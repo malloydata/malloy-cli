@@ -4,9 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 import chalk from 'chalk';
-import {Runtime, Connection, PersistSource} from '@malloydata/malloy';
-import {getConnectionLookup} from '../connections/connection_manager';
-import {malloyConfig, getManifestFilePath, urlReader} from '../config';
+import {Runtime, Connection, PersistSource, Manifest} from '@malloydata/malloy';
+import {malloyConfig, urlReader} from '../config';
 import {out} from '../log';
 import {exitWithError, createDirectoryOrError} from '../util';
 import {flattenBuildNodes} from './build_graph';
@@ -73,6 +72,25 @@ function collectMalloyFiles(dir: string, into: string[]): void {
   }
 }
 
+/**
+ * Get the filesystem path for the manifest file.
+ * Uses MalloyConfig.manifestURL when available (set via configURL overlay
+ * in --projectDir, --config, or default config modes).
+ */
+function getManifestFilePath(): string {
+  if (malloyConfig.manifestURL) {
+    return url.fileURLToPath(malloyConfig.manifestURL);
+  }
+  // Fallback: use rootDirectory if available (--projectDir with no config
+  // file), otherwise cwd. This keeps manifest placement anchored to the
+  // project root rather than the shell directory.
+  const rootDir = malloyConfig.readOverlay('config', 'rootDirectory');
+  const baseDir =
+    typeof rootDir === 'string' ? url.fileURLToPath(rootDir) : process.cwd();
+  const manifestDir = malloyConfig.manifestPath ?? 'MANIFESTS';
+  return path.join(baseDir, manifestDir, 'malloy-manifest.json');
+}
+
 export async function buildFiles(
   paths: string[],
   options: BuildOptions
@@ -84,9 +102,23 @@ export async function buildFiles(
     return;
   }
 
-  const manifest = malloyConfig.manifest;
+  const manifestPath = getManifestFilePath();
+  const manifest = new Manifest();
+  const isNewManifest = !fs.existsSync(manifestPath);
+
+  if (!isNewManifest) {
+    try {
+      manifest.loadText(fs.readFileSync(manifestPath, 'utf8'));
+    } catch (e) {
+      exitWithError(
+        `Error reading manifest at ${manifestPath}: ${
+          e instanceof Error ? e.message : e
+        }`
+      );
+    }
+  }
+
   const buildManifest = manifest.buildManifest;
-  const isNewManifest = !fs.existsSync(getManifestFilePath());
   const connectionDigests: Record<string, string> = {};
   let totalBuilt = 0;
   let totalUpToDate = 0;
@@ -99,7 +131,7 @@ export async function buildFiles(
     const runtime = new Runtime({
       config: malloyConfig,
       urlReader,
-      connections: getConnectionLookup(fileURL),
+      buildManifest,
     });
 
     let model;
@@ -146,10 +178,11 @@ export async function buildFiles(
 
       // Get or cache the connection and its digest
       if (!(connName in connectionDigests)) {
-        const connectionLookup = getConnectionLookup(fileURL);
         let connection: Connection;
         try {
-          connection = await connectionLookup.lookupConnection(connName);
+          connection = await malloyConfig.connections.lookupConnection(
+            connName
+          );
         } catch (e) {
           out(
             `  ${chalk.red('✗')} ${chalk.red(
@@ -232,8 +265,9 @@ export async function buildFiles(
         // Build the table
         const startTime = Date.now();
         try {
-          const connectionLookup = getConnectionLookup(fileURL);
-          const connection = await connectionLookup.lookupConnection(connName);
+          const connection = await malloyConfig.connections.lookupConnection(
+            connName
+          );
 
           await createTableFromSelect(connection, source, tableName, sql);
 
@@ -266,7 +300,6 @@ export async function buildFiles(
     if (isNewManifest) {
       manifest.strict = true;
     }
-    const manifestPath = getManifestFilePath();
     createDirectoryOrError(
       path.dirname(manifestPath),
       `Could not create manifest directory at ${path.dirname(manifestPath)}`

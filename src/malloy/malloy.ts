@@ -27,7 +27,6 @@ import {
   Runtime,
 } from '@malloydata/malloy';
 import url from 'node:url';
-import {getConnectionLookup} from '../connections/connection_manager';
 import {malloyConfig, urlReader} from '../config';
 import {
   QueryOptionsType,
@@ -59,7 +58,6 @@ export async function runMalloy(
   const malloyRuntime = new Runtime({
     config: malloyConfig,
     urlReader,
-    connections: getConnectionLookup(fileURL),
   });
 
   try {

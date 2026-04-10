@@ -22,11 +22,9 @@
  */
 
 import url from 'node:url';
-import fs from 'fs';
 import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
 import {errorMessage, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
-import {getConnectionLookup} from '../connections/connection_manager';
 import {malloyConfig, urlReader} from '../config';
 import {
   QueryOptionsType,
@@ -126,7 +124,6 @@ export async function runMalloySQL(
     const malloyRuntime = new Runtime({
       config: malloyConfig,
       urlReader: virtualURIFileHandler,
-      connections: getConnectionLookup(fileURL),
     });
     let modelMaterializer: ModelMaterializer | undefined;
 
@@ -146,7 +143,6 @@ export async function runMalloySQL(
       }
 
       let compiledStatement = statement.text;
-      const connectionLookup = getConnectionLookup(fileURL);
 
       resultsLog.task(`Running statement: ${i + 1}`);
 
@@ -223,7 +219,7 @@ export async function runMalloySQL(
           return JSON.stringify(json);
         } else {
           try {
-            const connection = await connectionLookup.lookupConnection(
+            const connection = await malloyConfig.connections.lookupConnection(
               statement.config?.connection
             );
 
