@@ -5,8 +5,8 @@ import fs from 'fs';
 import os from 'os';
 import {buildFiles, BuildOptions} from '../../src/malloy/build';
 import {createBasicLogger, silenceOut} from '../../src/log';
-import {loadConnections} from '../../src/connections/connection_manager';
-import {malloyConfig, loadConfig, getManifestFilePath} from '../../src/config';
+import '../../src/connections/connection_manager';
+import {loadConfig} from '../../src/config';
 
 const TEST_DATA = path.join(__dirname, '..', 'files');
 const AUTO_RECALLS_CSV = path.join(TEST_DATA, 'auto_recalls.csv');
@@ -26,10 +26,14 @@ interface ManifestFile {
   strict: boolean;
 }
 
+function manifestFilePath(): string {
+  return path.join(tempDir, 'malloy', 'MANIFESTS', 'malloy-manifest.json');
+}
+
 function readManifest(): ManifestFile {
-  const manifestPath = getManifestFilePath();
-  if (!fs.existsSync(manifestPath)) return {entries: {}, strict: false};
-  return JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  const p = manifestFilePath();
+  if (!fs.existsSync(p)) return {entries: {}, strict: false};
+  return JSON.parse(fs.readFileSync(p, 'utf-8'));
 }
 
 async function runBuild(
@@ -143,7 +147,6 @@ describe('build command', () => {
     process.env['XDG_CONFIG_HOME'] = tempDir;
 
     await loadConfig();
-    loadConnections(malloyConfig);
   });
 
   afterEach(() => {
@@ -204,7 +207,6 @@ describe('build command', () => {
 
       // Reload config to get a fresh manifest (simulates a new CLI invocation)
       await loadConfig();
-      loadConnections(malloyConfig);
 
       // Change the model: drop by_type, add by_year
       writeModel('test.malloy', modelV2());
@@ -287,13 +289,11 @@ describe('build command', () => {
       expect(manifest1.strict).toBe(true);
 
       // Manually set strict: false in the manifest file (as if user edited it)
-      const manifestPath = getManifestFilePath();
       const patched = {...manifest1, strict: false};
-      fs.writeFileSync(manifestPath, JSON.stringify(patched, null, 2));
+      fs.writeFileSync(manifestFilePath(), JSON.stringify(patched, null, 2));
 
       // Reload config so the manifest is re-read from disk
       await loadConfig();
-      loadConnections(malloyConfig);
 
       // Change model so something actually gets built
       writeModel('test.malloy', modelV2());

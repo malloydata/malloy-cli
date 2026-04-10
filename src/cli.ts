@@ -23,7 +23,7 @@
 
 import {Command, Option} from '@commander-js/extra-typings';
 import {runCommand} from './commands/run';
-import {loadConfig, malloyConfig} from './config';
+import {loadConfig} from './config';
 import {
   createConnectionCommand,
   updateConnectionCommand,
@@ -34,7 +34,9 @@ import {
   testConnectionCommand,
 } from './commands/connections';
 import {createBasicLogger, silenceOut} from './log';
-import {loadConnections} from './connections/connection_manager';
+// Side-effect import: registers all connection types before any MalloyConfig
+// is constructed. Must be imported before loadConfig runs.
+import './connections/connection_manager';
 import {showThirdPartyCommand} from './commands/third_party';
 import {compileCommand} from './commands/compile';
 import {buildCommand} from './commands/build';
@@ -106,7 +108,13 @@ export function createCLI(): Command {
       new Option(
         '-c, --config <path>',
         'path to malloy-config.json or directory containing it'
-      )
+      ).conflicts('projectDir')
+    )
+    .addOption(
+      new Option(
+        '-p, --project-dir <dir>',
+        'project root for config discovery (walks up from cwd)'
+      ).conflicts('config')
     );
 
   if (process.env.NODE_ENV === 'test') {
@@ -136,8 +144,7 @@ export function createCLI(): Command {
 
     if (cli.opts().quiet) silenceOut();
 
-    await loadConfig(cli.opts().config);
-    loadConnections(malloyConfig);
+    await loadConfig(cli.opts().config, cli.opts().projectDir);
   });
 
   cli

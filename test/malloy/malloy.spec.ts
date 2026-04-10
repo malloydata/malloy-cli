@@ -24,8 +24,8 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import {malloyConfig, loadConfig} from '../../src/config';
-import {loadConnections} from '../../src/connections/connection_manager';
+import {loadConfig} from '../../src/config';
+import '../../src/connections/connection_manager';
 import {createBasicLogger, silenceOut} from '../../src/log';
 
 const configFixture = path.resolve(
@@ -46,7 +46,6 @@ describe('Malloy', () => {
 
     createBasicLogger();
     await loadConfig();
-    loadConnections(malloyConfig);
     silenceOut();
   });
 

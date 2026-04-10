@@ -28,8 +28,8 @@ import {runMalloySQL} from '../../src/malloy/malloySQL';
 import {createBasicLogger, silenceOut} from '../../src/log';
 import {QueryOptionsType} from '../../src/malloy/util';
 import {errorMessage} from '../../src/util';
-import {loadConnections} from '../../src/connections/connection_manager';
-import {malloyConfig, loadConfig} from '../../src/config';
+import '../../src/connections/connection_manager';
+import {loadConfig} from '../../src/config';
 
 const duckdbMalloySQL = path.join(__dirname, '..', 'files', 'duckdb.malloysql');
 const complex1 = path.join(
@@ -39,9 +39,7 @@ const complex1 = path.join(
   'malloysql_complex_1.malloysql'
 );
 
-const configFixture = path.resolve(
-  path.join(__dirname, '..', 'files', 'merged_config.json')
-);
+const testFilesDir = path.resolve(path.join(__dirname, '..', 'files'));
 
 describe('MalloySQL', () => {
   let originalXDG: string | undefined;
@@ -52,12 +50,21 @@ describe('MalloySQL', () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'malloy-cli-test-'));
     const malloyDir = path.join(tempDir, 'malloy');
     fs.mkdirSync(malloyDir, {recursive: true});
-    fs.copyFileSync(configFixture, path.join(malloyDir, 'malloy-config.json'));
+    // DuckDB resolves relative paths from workingDirectory (which defaults
+    // to cwd when no rootDirectory overlay is set). The test model files
+    // use relative CSV paths, so we set workingDirectory explicitly.
+    fs.writeFileSync(
+      path.join(malloyDir, 'malloy-config.json'),
+      JSON.stringify({
+        connections: {
+          duckdb: {is: 'duckdb', workingDirectory: testFilesDir},
+        },
+      })
+    );
     process.env['XDG_CONFIG_HOME'] = tempDir;
 
     createBasicLogger();
     await loadConfig();
-    loadConnections(malloyConfig);
     silenceOut();
   });
 
