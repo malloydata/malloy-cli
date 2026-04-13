@@ -189,7 +189,7 @@ export async function loadConfig(
     if (discovered) {
       malloyConfig = discovered;
       // Extract configFilePath from the overlay for connections commands
-      const discoveredURL = discovered.readOverlay('config', 'configURL');
+      const discoveredURL = await discovered.readOverlay('config', 'configURL');
       if (typeof discoveredURL === 'string') {
         configFilePath = url.fileURLToPath(discoveredURL);
       }

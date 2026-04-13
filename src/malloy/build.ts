@@ -77,14 +77,14 @@ function collectMalloyFiles(dir: string, into: string[]): void {
  * Uses MalloyConfig.manifestURL when available (set via configURL overlay
  * in --projectDir, --config, or default config modes).
  */
-function getManifestFilePath(): string {
+async function getManifestFilePath(): Promise<string> {
   if (malloyConfig.manifestURL) {
     return url.fileURLToPath(malloyConfig.manifestURL);
   }
   // Fallback: use rootDirectory if available (--projectDir with no config
   // file), otherwise cwd. This keeps manifest placement anchored to the
   // project root rather than the shell directory.
-  const rootDir = malloyConfig.readOverlay('config', 'rootDirectory');
+  const rootDir = await malloyConfig.readOverlay('config', 'rootDirectory');
   const baseDir =
     typeof rootDir === 'string' ? url.fileURLToPath(rootDir) : process.cwd();
   const manifestDir = malloyConfig.manifestPath ?? 'MANIFESTS';
@@ -102,7 +102,7 @@ export async function buildFiles(
     return;
   }
 
-  const manifestPath = getManifestFilePath();
+  const manifestPath = await getManifestFilePath();
   const manifest = new Manifest();
   const isNewManifest = !fs.existsSync(manifestPath);
 
