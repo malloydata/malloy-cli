@@ -142,7 +142,7 @@ describe('config loading', () => {
 
       await loadConfig(undefined, tempDir);
 
-      const rootDir = malloyConfig.readOverlay('config', 'rootDirectory');
+      const rootDir = await malloyConfig.readOverlay('config', 'rootDirectory');
       expect(typeof rootDir).toBe('string');
       expect((rootDir as string).replace(/\/$/, '')).toContain(
         path.basename(tempDir)
