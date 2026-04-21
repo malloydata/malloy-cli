@@ -23,7 +23,7 @@
 
 import {Command, Option} from '@commander-js/extra-typings';
 import {runCommand} from './commands/run';
-import {loadConfig} from './config';
+import {loadConfig, malloyConfig} from './config';
 import {
   createConnectionCommand,
   updateConnectionCommand,
@@ -34,7 +34,6 @@ import {
   testConnectionCommand,
 } from './commands/connections';
 import {createBasicLogger, silenceOut} from './log';
-import {malloyConfig} from './config';
 // Side-effect import: registers all connection types before any MalloyConfig
 // is constructed. Must be imported before loadConfig runs.
 import './connections/connection_manager';
