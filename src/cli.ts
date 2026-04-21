@@ -287,7 +287,12 @@ export async function run() {
     await cli.parseAsync(process.argv);
   } finally {
     // Release cached connections so backends (e.g. mysql) can drain their
-    // socket pools and the node event loop exits naturally.
-    await malloyConfig.releaseConnections();
+    // socket pools and the node event loop exits naturally. Guarded so a
+    // teardown failure can't mask the command's original error.
+    try {
+      await malloyConfig.releaseConnections();
+    } catch {
+      // ignore
+    }
   }
 }
