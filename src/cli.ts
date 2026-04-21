@@ -34,6 +34,7 @@ import {
   testConnectionCommand,
 } from './commands/connections';
 import {createBasicLogger, silenceOut} from './log';
+import {malloyConfig} from './config';
 // Side-effect import: registers all connection types before any MalloyConfig
 // is constructed. Must be imported before loadConfig runs.
 import './connections/connection_manager';
@@ -282,5 +283,11 @@ builds from the current directory.`
 
 export const cli = createCLI();
 export async function run() {
-  await cli.parseAsync(process.argv);
+  try {
+    await cli.parseAsync(process.argv);
+  } finally {
+    // Release cached connections so backends (e.g. mysql) can drain their
+    // socket pools and the node event loop exits naturally.
+    await malloyConfig.releaseConnections();
+  }
 }
