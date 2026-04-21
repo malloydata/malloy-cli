@@ -194,6 +194,13 @@ export async function testConnectionCommand(name: string): Promise<void> {
     out('Connection test successful');
   } catch (e) {
     exitWithError(`Connection test unsuccessful: ${errorMessage(e)}`);
+  } finally {
+    // Release so backends (e.g. mysql) can drain their socket pools.
+    try {
+      await testMalloyConfig.releaseConnections();
+    } catch {
+      // ignore
+    }
   }
 }
 
