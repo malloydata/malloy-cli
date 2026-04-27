@@ -71,4 +71,28 @@ export function createBasicLogger(level = 'warning'): void {
   });
 }
 
+/**
+ * Route all log output to stderr. Needed when stdout is reserved for a
+ * protocol stream (e.g. MCP's JSON-RPC over stdio).
+ */
+export function createStderrLogger(level = 'warning'): void {
+  logger = createWinstonLogger({
+    level,
+    transports: [
+      new transports.Console({
+        stderrLevels: ['error', 'warn', 'info', 'verbose', 'debug', 'silly'],
+      }),
+    ],
+    format: format.combine(
+      format.timestamp(),
+      format.printf(({level, message}) => {
+        return `${level}: ${message}`;
+      })
+    ),
+    defaultMeta: {
+      service: 'MalloyCLI',
+    },
+  });
+}
+
 export {logger};

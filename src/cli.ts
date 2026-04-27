@@ -33,13 +33,14 @@ import {
   showConnectionCommand,
   testConnectionCommand,
 } from './commands/connections';
-import {createBasicLogger, silenceOut} from './log';
+import {createBasicLogger, createStderrLogger, silenceOut} from './log';
 // Side-effect import: registers all connection types before any MalloyConfig
 // is constructed. Must be imported before loadConfig runs.
 import './connections/connection_manager';
 import {showThirdPartyCommand} from './commands/third_party';
 import {compileCommand} from './commands/compile';
 import {buildCommand} from './commands/build';
+import {mcpCommand} from './commands/mcp';
 
 const compileDescription = `compile a Malloy file (.malloy or .malloysql)
 
@@ -137,12 +138,18 @@ export function createCLI(): Command {
   }
 
   // config, logging, connections
-  cli.hook('preAction', async (_thisCommand, _actionCommand) => {
-    // if packaged, respect debug flag, but if not, debug = true
-    if (cli.opts().debug) createBasicLogger('debug');
-    else createBasicLogger(cli.opts().logLevel);
-
-    if (cli.opts().quiet) silenceOut();
+  cli.hook('preAction', async (_thisCommand, actionCommand) => {
+    const isMcp = actionCommand.name() === 'mcp';
+    const level = cli.opts().debug ? 'debug' : cli.opts().logLevel;
+    // MCP uses stdout for JSON-RPC, so all logging must go to stderr and
+    // the CLI's `out()` channel must be silenced entirely.
+    if (isMcp) {
+      createStderrLogger(level);
+      silenceOut();
+    } else {
+      createBasicLogger(level);
+      if (cli.opts().quiet) silenceOut();
+    }
 
     await loadConfig(cli.opts().config, cli.opts().projectDir);
   });
@@ -271,6 +278,19 @@ builds from the current directory.`
     .description('remove a database connection')
     .argument('<name>')
     .action(removeConnectionCommand);
+
+  cli
+    .command('mcp')
+    .summary('run an MCP server over stdio')
+    .description(
+      `run an MCP server over stdio
+
+Exposes Malloy authoring capabilities (compile_malloy tool, bundled
+language-reference prompts) as a Model Context Protocol server. Intended to
+be spawned by an MCP client (Claude Code, Claude Desktop, etc.) — not run
+interactively. Reads JSON-RPC frames on stdin and writes replies on stdout.`
+    )
+    .action(mcpCommand);
 
   cli
     .command('third-party')
