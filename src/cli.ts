@@ -201,6 +201,10 @@ export function createCLI(): Command {
       ).conflicts('index')
     )
     .addOption(new Option('-j, --json', 'output json'))
+    .addOption(
+      new Option('--row-limit <number>', 'maximum number of rows to return')
+        .argParser(parseFloat)
+    )
     .summary('execute a Malloy file (.malloy or .malloysql)')
     .description(runDescription)
     .addHelpText('after', afterRunHelp)
@@ -289,6 +293,12 @@ Exposes Malloy authoring capabilities (compile_malloy tool, bundled
 language-reference prompts) as a Model Context Protocol server. Intended to
 be spawned by an MCP client (Claude Code, Claude Desktop, etc.) — not run
 interactively. Reads JSON-RPC frames on stdin and writes replies on stdout.`
+    )
+    .addOption(
+      new Option(
+        '--keep-alive',
+        'keep database connections open between tool calls (default: release after each call)'
+      )
     )
     .action(mcpCommand);
 

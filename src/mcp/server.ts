@@ -7,6 +7,7 @@ import {compile, listRuns} from './compile';
 import {run} from './run';
 import {listTopics, getTopic} from './help';
 import {loadSkills, skillsDir} from './skills';
+import {malloyConfig} from '../config';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pkg = require('../../package.json');
@@ -92,7 +93,17 @@ error whose fix is not obvious from the message — problem entries carry
 a \`help_topic\` field when there's a natural match.
 `.trim();
 
-export async function runMcpServer(): Promise<void> {
+export interface McpServerOptions {
+  keepAlive?: boolean;
+}
+
+export async function runMcpServer(options: McpServerOptions = {}): Promise<void> {
+  const {keepAlive = false} = options;
+
+  async function releaseIfNeeded(): Promise<void> {
+    if (!keepAlive) await malloyConfig.releaseConnections();
+  }
+
   const server = new McpServer(
     {
       name: 'malloy-cli',
@@ -127,8 +138,11 @@ export async function runMcpServer(): Promise<void> {
         emit_run_sql: emitRunSqlSchema,
       },
     },
-    async ({uri, expand, emit_run_sql}) =>
-      toContent(await compile({uri}, {expand, emitRunSql: emit_run_sql}))
+    async ({uri, expand, emit_run_sql}) => {
+      const result = await compile({uri}, {expand, emitRunSql: emit_run_sql});
+      await releaseIfNeeded();
+      return toContent(result);
+    }
   );
 
   // ------------------------------------------------------------------
@@ -153,13 +167,14 @@ export async function runMcpServer(): Promise<void> {
         emit_run_sql: emitRunSqlSchema,
       },
     },
-    async ({source, base_uri, expand, emit_run_sql}) =>
-      toContent(
-        await compile(
-          {source, baseUri: base_uri},
-          {expand, emitRunSql: emit_run_sql}
-        )
-      )
+    async ({source, base_uri, expand, emit_run_sql}) => {
+      const result = await compile(
+        {source, baseUri: base_uri},
+        {expand, emitRunSql: emit_run_sql}
+      );
+      await releaseIfNeeded();
+      return toContent(result);
+    }
   );
 
   // ------------------------------------------------------------------
@@ -173,7 +188,7 @@ export async function runMcpServer(): Promise<void> {
         'Execute one run: or named query from a .malloy file against the ' +
         "user's configured connections. Selection: `name` wins if provided, " +
         'else `index` (0-based into run: statements), else the final run:. ' +
-        'Returns the generated SQL and the first 200 rows.',
+        'Returns the generated SQL and rows (default 10000, set row_limit to override).',
       inputSchema: {
         uri: uriSchema,
         name: z
@@ -187,9 +202,18 @@ export async function runMcpServer(): Promise<void> {
           .int()
           .optional()
           .describe('0-based index into run: statements.'),
+        row_limit: z
+          .number()
+          .int()
+          .optional()
+          .describe('Maximum number of rows to return. Defaults to 10000.'),
       },
     },
-    async ({uri, name, index}) => toContent(await run({uri}, {name, index}))
+    async ({uri, name, index, row_limit}) => {
+      const result = await run({uri}, {name, index, rowLimit: row_limit});
+      await releaseIfNeeded();
+      return toContent(result);
+    }
   );
 
   // ------------------------------------------------------------------
@@ -202,12 +226,23 @@ export async function runMcpServer(): Promise<void> {
       description:
         'Compile an inline Malloy source and execute its final run: ' +
         "statement against the user's configured connections. Returns the " +
-        'generated SQL and the first 200 rows. Use this after compile is ' +
+        'generated SQL and rows (default 10000, set row_limit to override). Use this after compile is ' +
         'clean to see the answer.',
-      inputSchema: {source: sourceSchema, base_uri: baseUriSchema},
+      inputSchema: {
+        source: sourceSchema,
+        base_uri: baseUriSchema,
+        row_limit: z
+          .number()
+          .int()
+          .optional()
+          .describe('Maximum number of rows to return. Defaults to 10000.'),
+      },
     },
-    async ({source, base_uri}) =>
-      toContent(await run({source, baseUri: base_uri}))
+    async ({source, base_uri, row_limit}) => {
+      const result = await run({source, baseUri: base_uri}, {rowLimit: row_limit});
+      await releaseIfNeeded();
+      return toContent(result);
+    }
   );
 
   // ------------------------------------------------------------------
@@ -270,7 +305,11 @@ export async function runMcpServer(): Promise<void> {
         'schema (sources, measures, views, joins), use compile_file instead.',
       inputSchema: {uri: uriSchema},
     },
-    async ({uri}) => toContent(await listRuns({uri}))
+    async ({uri}) => {
+      const result = await listRuns({uri});
+      await releaseIfNeeded();
+      return toContent(result);
+    }
   );
 
   // ------------------------------------------------------------------

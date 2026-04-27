@@ -30,6 +30,7 @@ export async function runCommand(
     index?: number | undefined;
     name?: string | undefined;
     json?: true | undefined;
+    rowLimit?: number | undefined;
   }
 ): Promise<void> {
   await runOrCompile(source, query, options);

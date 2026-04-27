@@ -174,8 +174,11 @@ export async function runMalloySQL(
             } else {
               resultsLog.task('Running Malloy');
 
-              const results = await finalQuery.run();
-
+              const results = await finalQuery.run({rowLimit: options.rowLimit});
+              const rows = results.toJSON().queryResult.result;
+              if (rows.length === options.rowLimit) {
+                resultsLog.result(`WARNING: Results truncated to ${options.rowLimit} results.`);
+              }
               if (results) {
                 resultsLog.result('Results:');
                 // TODO console.table?

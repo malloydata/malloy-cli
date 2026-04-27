@@ -96,11 +96,13 @@ export async function runMalloy(
       return JSON.stringify(json);
     }
 
-    const results = await query.run();
-    resultsLog.result(
-      JSON.stringify(results.toJSON().queryResult.result, null, 2)
-    );
-    json['results'] = JSON.stringify(results.toJSON().queryResult.result);
+    const results = await query.run({rowLimit: options.rowLimit});
+    const rows = results.toJSON().queryResult.result;
+    if (rows.length === options.rowLimit) {
+      resultsLog.result(`WARNING: Results truncated to ${options.rowLimit} results.`);
+    }
+    resultsLog.result(JSON.stringify(rows, null, 2));
+    json['results'] = JSON.stringify(rows);
 
     return JSON.stringify(json);
   } catch (e) {
