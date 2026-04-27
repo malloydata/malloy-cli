@@ -27,6 +27,7 @@ import {errorMessage, loadFile} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {malloyConfig, urlReader} from '../config';
 import {
+  DEFAULT_ROW_LIMIT,
   QueryOptionsType,
   RunOrCompileOptions,
   StandardOutputType,
@@ -174,10 +175,11 @@ export async function runMalloySQL(
             } else {
               resultsLog.task('Running Malloy');
 
-              const results = await finalQuery.run({rowLimit: options.rowLimit});
+              const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
+              const results = await finalQuery.run({rowLimit});
               const rows = results.toJSON().queryResult.result;
-              if (rows.length === options.rowLimit) {
-                resultsLog.result(`WARNING: Results truncated to ${options.rowLimit} results.`);
+              if (rows.length === rowLimit) {
+                resultsLog.result(`WARNING: Results truncated to ${rowLimit} results.`);
               }
               if (results) {
                 resultsLog.result('Results:');

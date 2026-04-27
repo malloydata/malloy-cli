@@ -29,6 +29,7 @@ import {
 import url from 'node:url';
 import {malloyConfig, urlReader} from '../config';
 import {
+  DEFAULT_ROW_LIMIT,
   QueryOptionsType,
   RunOrCompileOptions,
   StandardOutputType,
@@ -96,10 +97,11 @@ export async function runMalloy(
       return JSON.stringify(json);
     }
 
-    const results = await query.run({rowLimit: options.rowLimit});
+    const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
+    const results = await query.run({rowLimit});
     const rows = results.toJSON().queryResult.result;
-    if (rows.length === options.rowLimit) {
-      resultsLog.result(`WARNING: Results truncated to ${options.rowLimit} results.`);
+    if (rows.length === rowLimit) {
+      resultsLog.result(`WARNING: Results truncated to ${rowLimit} results.`);
     }
     resultsLog.result(JSON.stringify(rows, null, 2));
     json['results'] = JSON.stringify(rows);

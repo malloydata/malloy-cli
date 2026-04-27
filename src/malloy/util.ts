@@ -76,7 +76,7 @@ export interface RunOrCompileOptions {
   compileOnly: boolean;
   queryOptions?: QueryOptions;
   json: boolean;
-  rowLimit: number;
+  rowLimit?: number;
 }
 
 export async function runOrCompile(
