@@ -41,6 +41,7 @@ import {showThirdPartyCommand} from './commands/third_party';
 import {compileCommand} from './commands/compile';
 import {buildCommand} from './commands/build';
 import {mcpCommand} from './commands/mcp';
+import {fmtCommand} from './commands/fmt';
 
 const compileDescription = `compile a Malloy file (.malloy or .malloysql)
 
@@ -278,6 +279,42 @@ builds from the current directory.`
     .description('remove a database connection')
     .argument('<name>')
     .action(removeConnectionCommand);
+
+  cli
+    .command('fmt')
+    .argument(
+      '[paths...]',
+      'files or directories to format (default: read from stdin)'
+    )
+    .addOption(
+      new Option(
+        '-w, --write',
+        'write formatted output back to each file'
+      ).conflicts('check')
+    )
+    .addOption(
+      new Option(
+        '--check',
+        'list files that would be reformatted; exit non-zero if any'
+      ).conflicts('write')
+    )
+    .summary('format Malloy source')
+    .description(
+      `format Malloy source (.malloy)
+
+With no path: reads from stdin and writes formatted source to stdout.
+With one file and no flag: writes formatted source to stdout.
+With -w / --write: rewrites each .malloy file in place.
+With --check: lists files that would change and exits non-zero if any.
+
+Directories are walked recursively for .malloy files (skipping hidden
+directories and node_modules).
+
+The formatter is experimental — it surfaces parse errors only. Files with
+parse errors are skipped (the original is left untouched) and the command
+exits non-zero.`
+    )
+    .action(fmtCommand);
 
   cli
     .command('mcp')
