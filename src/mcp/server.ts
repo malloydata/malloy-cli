@@ -97,7 +97,9 @@ export interface McpServerOptions {
   keepAlive?: boolean;
 }
 
-export async function runMcpServer(options: McpServerOptions = {}): Promise<void> {
+export async function runMcpServer(
+  options: McpServerOptions = {}
+): Promise<void> {
   const {keepAlive = false} = options;
 
   async function releaseIfNeeded(): Promise<void> {
@@ -239,7 +241,10 @@ export async function runMcpServer(options: McpServerOptions = {}): Promise<void
       },
     },
     async ({source, base_uri, row_limit}) => {
-      const result = await run({source, baseUri: base_uri}, {rowLimit: row_limit});
+      const result = await run(
+        {source, baseUri: base_uri},
+        {rowLimit: row_limit}
+      );
       await releaseIfNeeded();
       return toContent(result);
     }

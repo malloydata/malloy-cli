@@ -202,8 +202,10 @@ export function createCLI(): Command {
     )
     .addOption(new Option('-j, --json', 'output json'))
     .addOption(
-      new Option('--row-limit <number>', 'maximum number of rows to return')
-        .argParser(parseFloat)
+      new Option(
+        '--row-limit <number>',
+        'maximum number of rows to return'
+      ).argParser(parseFloat)
     )
     .summary('execute a Malloy file (.malloy or .malloysql)')
     .description(runDescription)
