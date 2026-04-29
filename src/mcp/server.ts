@@ -8,6 +8,7 @@ import {run} from './run';
 import {listTopics, getTopic} from './help';
 import {loadSkills, skillsDir} from './skills';
 import {malloyConfig} from '../config';
+import {prettifyMalloy} from '../malloy/prettify';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pkg = require('../../package.json');
@@ -248,6 +249,25 @@ export async function runMcpServer(
       await releaseIfNeeded();
       return toContent(result);
     }
+  );
+
+  // ------------------------------------------------------------------
+  // prettify — reformat a Malloy source string.
+  // ------------------------------------------------------------------
+  server.registerTool(
+    'prettify',
+    {
+      title: 'Pretty-print Malloy source',
+      description:
+        'Reformat a Malloy source string. Returns the formatted source and ' +
+        'any parse errors (lexer + parser only — semantic errors are not ' +
+        'checked here; use `compile` for that). When `errors` is non-empty ' +
+        'the formatted output is best-effort and may not round-trip; fix the ' +
+        'parse errors first. Useful for cleaning up freshly-authored or ' +
+        'machine-generated Malloy before saving.',
+      inputSchema: {source: sourceSchema},
+    },
+    async ({source}) => toContent(prettifyMalloy(source))
   );
 
   // ------------------------------------------------------------------
