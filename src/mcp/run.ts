@@ -25,6 +25,8 @@ export interface RunResult {
   rowCount?: number;
   truncated?: boolean;
   rows?: unknown[];
+  compileTimeMS?: number;
+  totalTimeMS?: number;
   problems: Problem[];
 }
 
@@ -113,8 +115,11 @@ export async function run(
     }
 
     const rowLimit = selector.rowLimit ?? DEFAULT_ROW_LIMIT;
+    const t0 = Date.now();
     const sql = (await query.getSQL()).trim();
+    const t1 = Date.now();
     const results = await query.run({rowLimit});
+    const t2 = Date.now();
     const json = results.toJSON();
     const rows = (json.queryResult?.result ?? []) as unknown[];
     const truncated = rows.length === rowLimit;
@@ -124,6 +129,8 @@ export async function run(
       rowCount: rows.length,
       truncated,
       rows,
+      compileTimeMS: t1 - t0,
+      totalTimeMS: t2 - t0,
       problems: loadRes.problems,
     };
   } catch (e) {
