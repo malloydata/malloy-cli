@@ -8,14 +8,15 @@ import {
   mapProblems,
   errorProblem,
 } from './loader';
-
-const ROW_LIMIT = 200;
+import {DEFAULT_ROW_LIMIT} from '../malloy/util';
 
 export interface RunSelector {
   /** Prepared-query name (matches a `query:` definition). */
   name?: string;
   /** 0-based index into the file's top-level run: statements. */
   index?: number;
+  /** Maximum number of rows to return. Defaults to DEFAULT_ROW_LIMIT. */
+  rowLimit?: number;
 }
 
 export interface RunResult {
@@ -111,17 +112,18 @@ export async function run(
       query = materializer.loadFinalQuery();
     }
 
+    const rowLimit = selector.rowLimit ?? DEFAULT_ROW_LIMIT;
     const sql = (await query.getSQL()).trim();
-    const results = await query.run();
+    const results = await query.run({rowLimit});
     const json = results.toJSON();
     const rows = (json.queryResult?.result ?? []) as unknown[];
-    const truncated = rows.length > ROW_LIMIT;
+    const truncated = rows.length === rowLimit;
     return {
       ok: true,
       sql,
       rowCount: rows.length,
       truncated,
-      rows: truncated ? rows.slice(0, ROW_LIMIT) : rows,
+      rows,
       problems: loadRes.problems,
     };
   } catch (e) {

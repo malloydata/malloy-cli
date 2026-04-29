@@ -40,7 +40,7 @@ export enum StandardOutputType {
 export const ResultsColors = {
   malloy: chalk.blue,
   'compiled-sql': chalk.magenta,
-  results: chalk.grey,
+  results: (s: string) => s,
   tasks: chalk.yellowBright,
 };
 
@@ -70,10 +70,13 @@ export type QueryOptions =
   | QueryOptionsName
   | QueryOptionsString;
 
+export const DEFAULT_ROW_LIMIT = 10000;
+
 export interface RunOrCompileOptions {
   compileOnly: boolean;
   queryOptions?: QueryOptions;
   json: boolean;
+  rowLimit?: number;
 }
 
 export async function runOrCompile(
@@ -83,6 +86,7 @@ export async function runOrCompile(
     index?: number | undefined;
     name?: string | undefined;
     json?: true | undefined;
+    rowLimit?: number | undefined;
   },
   compileOnly = false
 ): Promise<void> {
@@ -136,6 +140,7 @@ export async function runOrCompile(
     compileOnly,
     json: options.json === true,
     queryOptions,
+    rowLimit: options.rowLimit ?? DEFAULT_ROW_LIMIT,
   };
 
   if (extension === '.malloysql') {
