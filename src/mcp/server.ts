@@ -67,7 +67,31 @@ joins actually exist and how they relate. Always prefer \`compile_file\`
 (or \`compile\` for an inline draft) over reading a .malloy file with a
 generic text tool.
 
-Typical workflows:
+## Always show the Malloy source and timing
+
+After every \`run\`, \`run_file\`, \`compile\`, or \`compile_file\` call — whether
+it succeeded or failed — show the user:
+
+1. **The Malloy query** that was submitted (the inline \`source\` string, or the
+   file URI plus the name/index selected). Show it even when there are errors.
+2. **Execution time**: on a successful run, display \`totalTimeMS\` as
+   "X ms total (Y ms compile)". On failure, omit timing.
+
+Example success display:
+\`\`\`
+Malloy:
+  run: flights -> { aggregate: flight_count is count() }
+Result: 42 rows in 312 ms total (18 ms compile)
+\`\`\`
+
+Example failure display:
+\`\`\`
+Malloy:
+  run: flights -> { aggregate: fligth_count is count() }
+Error: field-not-found — 'fligth_count' does not exist on 'flights'
+\`\`\`
+
+## Typical workflows
 
 - "What's in this .malloy file?" / "What can I ask of this model?"
     → call \`compile_file\` on the file. Inspect \`model.sources\`, \`.queries\`,
@@ -91,6 +115,14 @@ pick expressions, time ranges, tags/annotations), call
 \`language_help(topic)\` before guessing. Call it again after any compile
 error whose fix is not obvious from the message — problem entries carry
 a \`help_topic\` field when there's a natural match.
+
+## Logging analyses to a notebook
+
+When the user says "let's log this", "save this", "add this to the
+notebook", or any similar phrase — load and follow the
+\`log-analysis-to-notebook\` skill (available as an MCP prompt/resource).
+It describes the .malloynb cell format, how to ask for the target file
+if one hasn't been specified, and what to append.
 `.trim();
 
 export interface McpServerOptions {

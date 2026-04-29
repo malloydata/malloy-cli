@@ -123,6 +123,14 @@ measure:
   pct_delayed is count() { where: dep_delay > 30 } / count()
 ```
 
+**`count(expr)` counts distinct values.** Unlike SQL's `COUNT(DISTINCT expr)`, Malloy uses `count(expr)` for distinct counting. The `count(distinct expr)` form is a deprecated syntax that will produce an error. Use `count()` for total row count, `count(field)` for distinct values of that field:
+
+```malloy
+aggregate:
+  total_rows is count()               -- all rows
+  unique_carriers is count(carrier)   -- distinct carriers
+```
+
 Measures can be filtered inline with `{ where: ... }`, which is how you build things like "percent of flights delayed" without subqueries.
 
 ### Views
@@ -296,6 +304,20 @@ run: airports -> {
 ```
 
 `all(expr)` removes all grouping. `all(expr, dim1, dim2)` keeps only the specified grouping dimensions. `exclude(expr, dim)` removes the specified dimension from grouping.
+
+**Important:** `all(expr, dim)` takes the **local alias name** as defined in the query's `group_by:`, not a dotted path. If you want to partition by a joined field, alias it first:
+
+```malloy
+-- WRONG: all(count(), director.primaryName)  -- dot paths don't work here
+-- RIGHT:
+run: movies -> {
+  group_by: director is director.primaryName   -- alias it
+  aggregate:
+    movies is count()
+    director_total is all(count(), director)   -- reference the alias
+    pct is count() / all(count(), director)
+}
+```
 
 ## Expressions
 

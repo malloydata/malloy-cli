@@ -132,6 +132,23 @@ export function errorProblem(e: unknown, uri?: string): Problem {
 }
 
 /**
+ * When a manifest is configured, inline sources need ##! experimental.persistence
+ * in their root compilation unit or the Runtime silently ignores the manifest
+ * (it only checks the root file's tags, not imported files).
+ */
+function withPersistenceTag(source: string): string {
+  if (!malloyConfig.manifestURL) return source;
+  const lines = source.split('\n');
+  const tagIdx = lines.findIndex(l => /^##!/.test(l));
+  if (tagIdx !== -1) {
+    if (lines[tagIdx].includes('experimental.persistence')) return source;
+    lines[tagIdx] += ' experimental.persistence';
+    return lines.join('\n');
+  }
+  return '##! experimental.persistence\n' + source;
+}
+
+/**
  * Load and compile a Malloy model from either a file URI or an inline source
  * string. Returns the loaded Model plus the root URL it was loaded from (so
  * callers can distinguish "local to this file" from "imported").
@@ -153,10 +170,13 @@ export async function loadModel(input: SourceInput): Promise<LoadResult> {
     };
   }
 
+  const resolvedSource =
+    input.source !== undefined ? withPersistenceTag(input.source) : undefined;
+
   const rootUrl = input.uri
     ? normalizeUri(input.uri)
     : inlineVirtualUrl(input.baseUri);
-  const {urlReader, readSource} = makeReader(rootUrl, input.source);
+  const {urlReader, readSource} = makeReader(rootUrl, resolvedSource);
   const runtime = new Runtime({config: malloyConfig, urlReader});
 
   try {
