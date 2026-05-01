@@ -333,12 +333,6 @@ language-reference prompts) as a Model Context Protocol server. Intended to
 be spawned by an MCP client (Claude Code, Claude Desktop, etc.) — not run
 interactively. Reads JSON-RPC frames on stdin and writes replies on stdout.`
     )
-    .addOption(
-      new Option(
-        '--keep-alive',
-        'keep database connections open between tool calls (default: release after each call)'
-      )
-    )
     .action(mcpCommand);
 
   cli

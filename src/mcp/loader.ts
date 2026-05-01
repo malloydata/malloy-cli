@@ -11,6 +11,7 @@ import {
   LogMessage,
 } from '@malloydata/malloy';
 import {malloyConfig} from '../config';
+import {withDuckdbLockRetry} from '../util';
 import {helpTopicForCode} from './help';
 
 /**
@@ -180,7 +181,9 @@ export async function loadModel(input: SourceInput): Promise<LoadResult> {
   const runtime = new Runtime({config: malloyConfig, urlReader});
 
   try {
-    const model = await runtime.loadModel(rootUrl).getModel();
+    const model = await withDuckdbLockRetry(() =>
+      runtime.loadModel(rootUrl).getModel()
+    );
     return {
       ok: true,
       loaded: {model, rootUrl, runtime, readSource},
