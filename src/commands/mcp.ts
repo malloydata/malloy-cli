@@ -7,8 +7,6 @@ import {runMcpServer} from '../mcp/server';
  * frames; the preAction hook in cli.ts has already routed logging to stderr
  * and silenced `out()` for this subcommand.
  */
-export async function mcpCommand(options: {
-  keepAlive?: boolean;
-}): Promise<void> {
-  await runMcpServer({keepAlive: options.keepAlive ?? false});
+export async function mcpCommand(): Promise<void> {
+  await runMcpServer();
 }

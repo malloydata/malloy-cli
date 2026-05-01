@@ -9,6 +9,7 @@ import {
   errorProblem,
 } from './loader';
 import {DEFAULT_ROW_LIMIT} from '../malloy/util';
+import {withDuckdbLockRetry} from '../util';
 
 export interface RunSelector {
   /** Prepared-query name (matches a `query:` definition). */
@@ -118,10 +119,10 @@ export async function run(
     const t0 = Date.now();
     const sql = (await query.getSQL()).trim();
     const t1 = Date.now();
-    const results = await query.run({rowLimit});
+    const results = await withDuckdbLockRetry(() => query.run({rowLimit}));
     const t2 = Date.now();
     const json = results.toJSON();
-    const rows = (json.queryResult?.result ?? []) as unknown[];
+    const rows = json.queryResult.result;
     const truncated = rows.length === rowLimit;
     return {
       ok: true,

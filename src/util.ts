@@ -86,3 +86,55 @@ export function loadFile(filePath: string): string {
 export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : `${error}`;
 }
+
+// Matches DuckDB's file-lock error. DuckDB doesn't expose a typed error code
+// for this; the message is the only signal.
+const DUCKDB_LOCK_ERROR = /Could not set lock on file/;
+
+/**
+ * Run an operation, retrying on DuckDB file-lock errors with exponential
+ * backoff (~3s total). Handles the race where another writer (typically the
+ * VS Code extension idling between operations) has just released the file.
+ *
+ * Between attempts the connection cache is reset via `shutdown('idle')` so
+ * the retry constructs a fresh underlying DuckDBInstance instead of replaying
+ * a connection whose `init()` already rejected.
+ */
+function lockContentionError(original: unknown): Error {
+  return new Error(
+    'DuckDB database file is held by another process. This usually means ' +
+      'a VS Code window with the Malloy extension or another CLI ' +
+      'invocation has the same database open. Close that process (or wait ' +
+      'for it to finish its current operation) and try again.\n' +
+      `Original error: ${errorMessage(original)}`
+  );
+}
+
+export async function withDuckdbLockRetry<T>(fn: () => Promise<T>): Promise<T> {
+  // Lazy import to avoid a circular dependency: util is imported by config.
+  const {malloyConfig} = await import('./config');
+  const delays = [100, 200, 400, 800, 1500];
+  for (const delay of delays) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!DUCKDB_LOCK_ERROR.test(errorMessage(e))) throw e;
+      try {
+        // Re-arm DuckDB connections so the next attempt opens a fresh
+        // DuckDBInstance instead of replaying a connection whose init() rejected.
+        await malloyConfig.shutdown('idle');
+      } catch {
+        // best-effort reset; if shutdown fails, retry anyway
+      }
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  // Final attempt — wrap lock errors with a friendlier message; pass anything
+  // else through unchanged.
+  try {
+    return await fn();
+  } catch (e) {
+    if (DUCKDB_LOCK_ERROR.test(errorMessage(e))) throw lockContentionError(e);
+    throw e;
+  }
+}

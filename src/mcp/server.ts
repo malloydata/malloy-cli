@@ -51,10 +51,16 @@ const baseUriSchema = z
       'If omitted, imports must be absolute.'
   );
 
-function toContent(result: unknown) {
+function toContent(result: object) {
+  // MCP spec requires `structuredContent` to be a JSON object (zod
+  // `Record<string, unknown>`). Tool results here are typed objects
+  // (CompileResult, RunResult, ...) without explicit index signatures, so
+  // TS won't assign them directly to `Record<string, unknown>` — spread
+  // produces an equivalent shape with the index-signature TS demands.
+  const structuredContent: Record<string, unknown> = {...result};
   return {
     content: [{type: 'text' as const, text: JSON.stringify(result, null, 2)}],
-    structuredContent: result as {[k: string]: unknown},
+    structuredContent,
   };
 }
 
@@ -126,17 +132,14 @@ It describes the .malloynb cell format, how to ask for the target file
 if one hasn't been specified, and what to append.
 `.trim();
 
-export interface McpServerOptions {
-  keepAlive?: boolean;
-}
-
-export async function runMcpServer(
-  options: McpServerOptions = {}
-): Promise<void> {
-  const {keepAlive = false} = options;
-
-  async function releaseIfNeeded(): Promise<void> {
-    if (!keepAlive) await malloyConfig.releaseConnections();
+export async function runMcpServer(): Promise<void> {
+  // After every tool call, idle (not close) the connection cache so the next
+  // call transparently reattaches with its schema cache intact while file
+  // locks / pooled sockets are released between calls. Lets a co-running
+  // DuckDB process (e.g., a VS Code extension or a separate CLI invocation)
+  // acquire the same DB file.
+  async function idleConnections(): Promise<void> {
+    await malloyConfig.shutdown('idle');
   }
 
   const server = new McpServer(
@@ -175,7 +178,7 @@ export async function runMcpServer(
     },
     async ({uri, expand, emit_run_sql}) => {
       const result = await compile({uri}, {expand, emitRunSql: emit_run_sql});
-      await releaseIfNeeded();
+      await idleConnections();
       return toContent(result);
     }
   );
@@ -207,7 +210,7 @@ export async function runMcpServer(
         {source, baseUri: base_uri},
         {expand, emitRunSql: emit_run_sql}
       );
-      await releaseIfNeeded();
+      await idleConnections();
       return toContent(result);
     }
   );
@@ -246,7 +249,7 @@ export async function runMcpServer(
     },
     async ({uri, name, index, row_limit}) => {
       const result = await run({uri}, {name, index, rowLimit: row_limit});
-      await releaseIfNeeded();
+      await idleConnections();
       return toContent(result);
     }
   );
@@ -278,7 +281,7 @@ export async function runMcpServer(
         {source, baseUri: base_uri},
         {rowLimit: row_limit}
       );
-      await releaseIfNeeded();
+      await idleConnections();
       return toContent(result);
     }
   );
@@ -364,7 +367,7 @@ export async function runMcpServer(
     },
     async ({uri}) => {
       const result = await listRuns({uri});
-      await releaseIfNeeded();
+      await idleConnections();
       return toContent(result);
     }
   );

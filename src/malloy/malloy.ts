@@ -35,7 +35,7 @@ import {
   StandardOutputType,
   getFilteredResultsLogger,
 } from './util';
-import {errorMessage} from '../util';
+import {errorMessage, withDuckdbLockRetry} from '../util';
 
 export async function runMalloy(
   filePath: string,
@@ -53,60 +53,60 @@ export async function runMalloy(
   );
   const json = JSON.parse('{}');
 
-  let modelMaterializer: ModelMaterializer | undefined;
   const fileURL = url.pathToFileURL(filePath);
 
-  const malloyRuntime = new Runtime({
-    config: malloyConfig,
-    urlReader,
-  });
-
   try {
-    if (!modelMaterializer) {
-      modelMaterializer = malloyRuntime.loadModel(fileURL);
-    } else {
-      modelMaterializer.extendModel(fileURL);
-    }
+    return await withDuckdbLockRetry(async () => {
+      const malloyRuntime = new Runtime({
+        config: malloyConfig,
+        urlReader,
+      });
 
-    let query: QueryMaterializer;
-    if (options.queryOptions) {
-      switch (options.queryOptions.type) {
-        case QueryOptionsType.Index:
-          query = modelMaterializer.loadQueryByIndex(
-            options.queryOptions.index
-          );
-          break;
-        case QueryOptionsType.Name:
-          query = modelMaterializer.loadQueryByName(options.queryOptions.name);
-          break;
-        case QueryOptionsType.String:
-          query = modelMaterializer.loadQuery(
-            `run: ${options.queryOptions.query}`
-          );
-          break;
+      const modelMaterializer: ModelMaterializer =
+        malloyRuntime.loadModel(fileURL);
+
+      let query: QueryMaterializer;
+      if (options.queryOptions) {
+        switch (options.queryOptions.type) {
+          case QueryOptionsType.Index:
+            query = modelMaterializer.loadQueryByIndex(
+              options.queryOptions.index
+            );
+            break;
+          case QueryOptionsType.Name:
+            query = modelMaterializer.loadQueryByName(
+              options.queryOptions.name
+            );
+            break;
+          case QueryOptionsType.String:
+            query = modelMaterializer.loadQuery(
+              `run: ${options.queryOptions.query}`
+            );
+            break;
+        }
+      } else query = modelMaterializer.loadFinalQuery();
+
+      const sql = await query.getSQL();
+      json['sql'] = sql.trim();
+
+      if (options.compileOnly) {
+        resultsLog.sql('Compiled SQL:');
+        resultsLog.sql(sql);
+
+        return JSON.stringify(json);
       }
-    } else query = modelMaterializer.loadFinalQuery();
 
-    const sql = await query.getSQL();
-    json['sql'] = sql.trim();
-
-    if (options.compileOnly) {
-      resultsLog.sql('Compiled SQL:');
-      resultsLog.sql(sql);
+      const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
+      const results = await query.run({rowLimit});
+      const rows = results.toJSON().queryResult.result;
+      if (rows.length === rowLimit) {
+        resultsLog.result(`WARNING: Results truncated to ${rowLimit} results.`);
+      }
+      resultsLog.result(JSON.stringify(rows, null, 2));
+      json['results'] = JSON.stringify(rows);
 
       return JSON.stringify(json);
-    }
-
-    const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
-    const results = await query.run({rowLimit});
-    const rows = results.toJSON().queryResult.result;
-    if (rows.length === rowLimit) {
-      resultsLog.result(`WARNING: Results truncated to ${rowLimit} results.`);
-    }
-    resultsLog.result(JSON.stringify(rows, null, 2));
-    json['results'] = JSON.stringify(rows);
-
-    return JSON.stringify(json);
+    });
   } catch (e) {
     resultsLog.error(errorMessage(e));
   }

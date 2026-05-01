@@ -7,7 +7,11 @@ import chalk from 'chalk';
 import {Runtime, Connection, PersistSource, Manifest} from '@malloydata/malloy';
 import {malloyConfig, urlReader} from '../config';
 import {out} from '../log';
-import {exitWithError, createDirectoryOrError} from '../util';
+import {
+  exitWithError,
+  createDirectoryOrError,
+  withDuckdbLockRetry,
+} from '../util';
 import {flattenBuildNodes} from './build_graph';
 
 /**
@@ -136,7 +140,9 @@ export async function buildFiles(
 
     let model;
     try {
-      model = await runtime.loadModel(fileURL).getModel();
+      model = await withDuckdbLockRetry(() =>
+        runtime.loadModel(fileURL).getModel()
+      );
     } catch (e) {
       out(`\n${chalk.bold(displayPath)}`);
       out(
@@ -265,11 +271,12 @@ export async function buildFiles(
         // Build the table
         const startTime = Date.now();
         try {
-          const connection = await malloyConfig.connections.lookupConnection(
-            connName
-          );
-
-          await createTableFromSelect(connection, source, tableName, sql);
+          await withDuckdbLockRetry(async () => {
+            const connection = await malloyConfig.connections.lookupConnection(
+              connName
+            );
+            await createTableFromSelect(connection, source, tableName, sql);
+          });
 
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
           manifest.update(buildId, {tableName});

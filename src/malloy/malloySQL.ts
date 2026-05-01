@@ -23,7 +23,7 @@
 
 import url from 'node:url';
 import {ModelMaterializer, Runtime, URLReader} from '@malloydata/malloy';
-import {errorMessage, loadFile} from '../util';
+import {errorMessage, loadFile, withDuckdbLockRetry} from '../util';
 import {MalloySQLParser, MalloySQLStatementType} from '@malloydata/malloy-sql';
 import {malloyConfig, urlReader} from '../config';
 import {
@@ -167,7 +167,9 @@ export async function runMalloySQL(
 
           try {
             const finalQuery = modelMaterializer.loadQuery(fileURL);
-            const finalQuerySQL = await finalQuery.getSQL();
+            const finalQuerySQL = await withDuckdbLockRetry(() =>
+              finalQuery.getSQL()
+            );
 
             if (compileOnly) {
               resultsLog.sql('Compiled SQL:');
@@ -176,7 +178,9 @@ export async function runMalloySQL(
               resultsLog.task('Running Malloy');
 
               const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
-              const results = await finalQuery.run({rowLimit});
+              const results = await withDuckdbLockRetry(() =>
+                finalQuery.run({rowLimit})
+              );
               const rows = results.toJSON().queryResult.result;
               if (rows.length === rowLimit) {
                 resultsLog.result(
@@ -206,7 +210,9 @@ export async function runMalloySQL(
             const runnable = modelMaterializer.loadQuery(
               `\nrun: ${malloyQuery.query}`
             );
-            const generatedSQL = await runnable.getSQL();
+            const generatedSQL = await withDuckdbLockRetry(() =>
+              runnable.getSQL()
+            );
 
             compiledStatement = compiledStatement.replace(
               malloyQuery.text,
@@ -233,7 +239,9 @@ export async function runMalloySQL(
             resultsLog.sql('Executing SQL:');
             resultsLog.sql(compiledStatement);
 
-            const sqlResults = await connection.runSQL(compiledStatement);
+            const sqlResults = await withDuckdbLockRetry(() =>
+              connection.runSQL(compiledStatement)
+            );
 
             if (sqlResults) {
               resultsLog.task('Results:');
