@@ -250,9 +250,7 @@ describe('build command', () => {
         const result = await conn.runSQL(
           'SELECT table_name FROM duckdb_tables() ORDER BY table_name'
         );
-        return (result.rows as Array<{table_name: string}>).map(
-          r => r.table_name
-        );
+        return result.rows.map(row => String(row['table_name']));
       }
       expect(await tablesInDb()).toEqual(
         expect.arrayContaining(['by_manufacturer', 'by_type'])
@@ -260,7 +258,7 @@ describe('build command', () => {
 
       // Simulate the user scenario: drop the connection so the file lock
       // is released, then delete the database file. Manifest stays.
-      await malloyConfig.releaseConnections();
+      await malloyConfig.shutdown('close');
       fs.unlinkSync(dbPath);
       const walPath = `${dbPath}.wal`;
       if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
