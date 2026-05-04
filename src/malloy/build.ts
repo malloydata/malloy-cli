@@ -31,6 +31,30 @@ async function createTableFromSelect(
   await conn.runSQL(`CREATE TABLE ${t} AS ${selectSQL}`);
 }
 
+/**
+ * Check that a manifest table is still usable by compiling a tiny Malloy
+ * source against it. This goes through the same schema-fetch path query
+ * compilation will, so success here means the manifest entry can actually
+ * back queries — not just "exists in the catalog." Used to validate a
+ * proposed "up to date" skip before trusting the manifest. Failure (table
+ * dropped, file moved, connection unreachable, etc.) returns false and the
+ * source falls through to rebuild.
+ */
+async function manifestTableStillUsable(
+  runtime: Runtime,
+  connName: string,
+  tableName: string
+): Promise<boolean> {
+  const escaped = tableName.replace(/'/g, "''");
+  const probe = `source: __doesItBlend is ${connName}.table('${escaped}')`;
+  try {
+    await runtime.loadModel(probe).getModel();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface BuildOptions {
   refresh: Set<string>; // "connection:tableName" pairs
   dryRun: boolean;
@@ -245,16 +269,37 @@ export async function buildFiles(
           source.getSQL()
         );
 
-        // Already built and not in refresh list — skip
-        if (buildManifest.entries[buildId] && !forceRefresh) {
-          manifest.touch(buildId);
-          out(
-            `  ${chalk.green('✓')} ${source.name} ${chalk.dim(
-              `(${connName})`
-            )} — ${chalk.dim('up to date')}`
+        // Already built and not in refresh list — skip, but only if the
+        // table the manifest points to is still usable. The manifest can
+        // outlive its database (file deleted, project copied without the
+        // data dir, restored from a backup that didn't include it, etc.);
+        // trusting it blindly produced "build complete" with no data on
+        // disk. We probe via a Malloy compile against the same connection
+        // so this matches what query compilation will see.
+        const existingEntry = buildManifest.entries[buildId];
+        if (existingEntry && !forceRefresh) {
+          const usable = await manifestTableStillUsable(
+            runtime,
+            connName,
+            existingEntry.tableName
           );
-          totalUpToDate++;
-          continue;
+          if (usable) {
+            manifest.touch(buildId);
+            out(
+              `  ${chalk.green('✓')} ${source.name} ${chalk.dim(
+                `(${connName})`
+              )} — ${chalk.dim('up to date')}`
+            );
+            totalUpToDate++;
+            continue;
+          }
+          out(
+            `  ${chalk.yellow('…')} ${source.name} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.yellow(
+              `manifest entry stale (${existingEntry.tableName} missing), rebuilding`
+            )}`
+          );
         }
 
         if (options.dryRun) {

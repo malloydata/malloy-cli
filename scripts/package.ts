@@ -26,11 +26,42 @@ import {defaultBuildDirectory, doBuild} from './build';
 import * as pkg from 'pkg';
 import path from 'path';
 import * as fs from 'fs';
+import {execSync} from 'child_process';
 import {Command} from '@commander-js/extra-typings';
 import {
   getTargetDuckDBPackageMap,
   resolveDuckDBNative,
 } from './utils/fetch-duckdb';
+
+/**
+ * Build metadata for binary builds: tells the user which commit a
+ * locally-built binary corresponds to. Returns a semver build-metadata
+ * suffix (`+<date>.<sha>[.dirty]`); leaves npm semver ordering alone
+ * because build metadata is ignored for ordering. Returns '' if we can't
+ * read git (e.g. building from a tarball outside a repo).
+ */
+function getBuildMetadataSuffix(): string {
+  try {
+    const sha = execSync('git rev-parse --short=7 HEAD', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    }).trim();
+    const dirty = execSync('git status --porcelain', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    }).trim()
+      ? '.dirty'
+      : '';
+    const now = new Date();
+    const date = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}.${String(now.getDate()).padStart(2, '0')}`;
+    return `+${date}.${sha}${dirty}`;
+  } catch {
+    return '';
+  }
+}
 
 const nodeTarget = 'node18';
 const outputFolder = 'pkg/';
@@ -40,7 +71,8 @@ async function packageCLI(
   architecture: string,
   sign = true,
   skipPackageStep = false,
-  version = 'dev'
+  version = 'dev',
+  filenameVersion = version
 ) {
   let target = `${platform}-${architecture}`;
 
@@ -83,7 +115,7 @@ async function packageCLI(
     '--target',
     `${nodeTarget}-${target}`,
     '--output',
-    path.join(outputFolder, `/malloy-cli-${target}-${version}`),
+    path.join(outputFolder, `/malloy-cli-${target}-${filenameVersion}`),
     '--compress',
     'gzip',
   ]);
@@ -161,6 +193,8 @@ interface PackageTarget {
   fs.mkdirSync(outputFolder, {recursive: true});
 
   const versionBits = getVersionBits();
+  const filenameVersion = versionBits.join('.');
+  const version = filenameVersion + getBuildMetadataSuffix();
 
   for (const target of targets) {
     console.log(
@@ -171,7 +205,8 @@ interface PackageTarget {
       target.architecture,
       options.sign,
       options.skipPackage,
-      versionBits.join('.')
+      version,
+      filenameVersion
     );
   }
 })()

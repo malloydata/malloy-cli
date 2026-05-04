@@ -6,7 +6,7 @@ import os from 'os';
 import {buildFiles, BuildOptions} from '../../src/malloy/build';
 import {createBasicLogger, silenceOut} from '../../src/log';
 import '../../src/connections/connection_manager';
-import {loadConfig} from '../../src/config';
+import {loadConfig, malloyConfig} from '../../src/config';
 
 const TEST_DATA = path.join(__dirname, '..', 'files');
 const AUTO_RECALLS_CSV = path.join(TEST_DATA, 'auto_recalls.csv');
@@ -218,6 +218,63 @@ describe('build command', () => {
       expect(names2).toContain('by_year');
       expect(names2).not.toContain('by_type');
       expect(Object.keys(manifest2.entries)).toHaveLength(2);
+    });
+
+    it('rebuilds when the database file is missing even if manifest says up-to-date', async () => {
+      // Repro of the user-reported "build succeeds with checkmarks but no
+      // data" bug: manifest entries persist across CLI invocations, but if
+      // the database file has gone missing (rm, restored backup without
+      // data/, machine move, etc.) the cli currently trusts the manifest,
+      // skips DROP/CREATE, and exits successfully — leaving an empty
+      // freshly-initialized DuckDB file (12288 bytes) with no tables.
+      //
+      // Use a file-backed duckdb connection (the default config in this
+      // suite is :memory:, which can't reproduce the bug because the
+      // tables vanish with the connection anyway).
+      const dbPath = path.join(tempDir, 'test.duckdb');
+      const malloyDir = path.join(tempDir, 'malloy');
+      fs.writeFileSync(
+        path.join(malloyDir, 'malloy-config.json'),
+        JSON.stringify({
+          connections: {duckdb: {is: 'duckdb', databasePath: dbPath}},
+        })
+      );
+      await loadConfig();
+
+      const file = writeModel('test.malloy', modelV1());
+      await runBuild([file]);
+
+      // First build: tables should be in the file.
+      async function tablesInDb(): Promise<string[]> {
+        const conn = await malloyConfig.connections.lookupConnection('duckdb');
+        const result = await conn.runSQL(
+          'SELECT table_name FROM duckdb_tables() ORDER BY table_name'
+        );
+        return result.rows.map(row => String(row['table_name']));
+      }
+      expect(await tablesInDb()).toEqual(
+        expect.arrayContaining(['by_manufacturer', 'by_type'])
+      );
+
+      // Simulate the user scenario: drop the connection so the file lock
+      // is released, then delete the database file. Manifest stays.
+      await malloyConfig.shutdown('close');
+      fs.unlinkSync(dbPath);
+      const walPath = `${dbPath}.wal`;
+      if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+
+      // Reload config so the next build starts from a clean connection cache.
+      await loadConfig();
+      expect(fs.existsSync(dbPath)).toBe(false);
+
+      // Re-run the build. The cli currently prints "up to date" for every
+      // source and writes nothing to the database — that's the bug. After
+      // the fix, the build should detect the missing tables and rebuild.
+      await runBuild([file]);
+
+      expect(await tablesInDb()).toEqual(
+        expect.arrayContaining(['by_manufacturer', 'by_type'])
+      );
     });
 
     it('rebuild same model is all up-to-date', async () => {
