@@ -75,6 +75,11 @@ interface NamedQueryInfo {
   annotations?: string[];
   location?: Loc;
   body?: string;
+  /**
+   * Surface names of givens this query references (transitive). Look up
+   * details in `model.givens[]`. Only emitted when non-empty.
+   */
+  givens?: string[];
 }
 
 interface RunInfo {
@@ -84,11 +89,36 @@ interface RunInfo {
   location?: Loc;
   sql?: string;
   error?: string;
+  /**
+   * Surface names of givens this run references (transitive). Look up
+   * details in `model.givens[]`. Only emitted when non-empty.
+   */
+  givens?: string[];
+}
+
+interface GivenInfo {
+  name: string;
+  /**
+   * Malloy-syntax rendering of the declared type. Atomic types render to
+   * their type name (`"string"`, `"number"`, `"date"`, ...); arrays as
+   * `"T[]"`; records collapse to `"record"` / `"record[]"`; filter
+   * expressions render as `"filter<T>"`. For full compound-type detail
+   * see `body`.
+   */
+  type: string;
+  /** True if the declaration provides a default — caller may omit a value. */
+  hasDefault: boolean;
+  /** Verbatim source slice of the declaration when locally defined. */
+  body?: string;
+  annotations?: string[];
+  location?: Loc;
 }
 
 interface ModelDescription {
   rootUri: string;
   annotations?: string[];
+  /** Givens declared in (or imported into) this model. Only when non-empty. */
+  givens?: GivenInfo[];
   sources: SourceInfo[];
   queries: NamedQueryInfo[];
   runs: RunInfo[];
@@ -330,6 +360,74 @@ function describeExplore(e: Explore, ctx: DescribeContext): SourceInfo {
   return out;
 }
 
+/**
+ * Structural subset of the malloy `GivenTypeDef` union (`AtomicTypeDef |
+ * FilterExpressionParamTypeDef`). Neither type is re-exported from the
+ * package root, so we describe the fields we actually read.
+ */
+type GivenTypeShape = {
+  type: string;
+  filterType?: string;
+  elementTypeDef?: GivenTypeShape;
+};
+
+function renderGivenType(t: GivenTypeShape): string {
+  if (t.type === 'filter expression') {
+    return t.filterType ? `filter<${t.filterType}>` : 'filter';
+  }
+  if (t.type === 'array') {
+    const elem = t.elementTypeDef;
+    if (!elem) return 'array';
+    if (elem.type === 'record_element') return 'record[]';
+    return `${renderGivenType(elem)}[]`;
+  }
+  return t.type;
+}
+
+/**
+ * Structural subset of the malloy foundation `Given` wrapper class. The
+ * class itself isn't re-exported from the package root, so we accept any
+ * value that supplies the fields we read.
+ */
+type GivenLike = {
+  readonly type: GivenTypeShape;
+  readonly default: unknown;
+  readonly location: MalloyLocation | undefined;
+  getTaglines(prefix?: RegExp): string[];
+};
+
+function describeGiven(
+  g: GivenLike,
+  surfaceName: string,
+  ctx: DescribeContext
+): GivenInfo {
+  const info: GivenInfo = {
+    name: surfaceName,
+    type: renderGivenType(g.type),
+    hasDefault: g.default !== undefined,
+  };
+  const annotations = g.getTaglines?.() ?? [];
+  if (annotations.length > 0) info.annotations = annotations;
+  const loc = g.location;
+  if (loc && isLocal(loc, ctx.rootUri)) {
+    const l = toLoc(loc);
+    if (l) info.location = l;
+    const body = sliceSource(ctx.readSource(loc.url), loc);
+    if (body) info.body = body;
+  }
+  return info;
+}
+
+function readQueryGivens(
+  getPq: () => {givens: ReadonlyMap<string, unknown>}
+): string[] {
+  try {
+    return [...getPq().givens.keys()];
+  } catch {
+    return [];
+  }
+}
+
 function annotationNotes(
   ann: {notes?: {text: string}[]; blockNotes?: {text: string}[]} | undefined
 ): string[] {
@@ -362,13 +460,18 @@ async function describeModel(
   for (const nq of model.namedQueries) {
     const loc = nq.location as MalloyLocation | undefined;
     if (!isLocal(loc, rootUri)) continue;
-    const info: NamedQueryInfo = {name: nq.as ?? nq.name ?? ''};
+    const queryName = nq.as ?? nq.name ?? '';
+    const info: NamedQueryInfo = {name: queryName};
     const notes = annotationNotes(nq.annotation);
     if (notes.length > 0) info.annotations = notes;
     const l = toLoc(loc);
     if (l) info.location = l;
     const body = sliceSource(readSource(rootUri), loc);
     if (body) info.body = body;
+    const givenNames = readQueryGivens(() =>
+      model.getPreparedQueryByName(queryName)
+    );
+    if (givenNames.length > 0) info.givens = givenNames;
     queries.push(info);
   }
 
@@ -382,20 +485,33 @@ async function describeModel(
     if (notes.length > 0) info.annotations = notes;
     const l = toLoc(q.location as MalloyLocation | undefined);
     if (l) info.location = l;
-    if (opts.emitRunSql) {
-      try {
-        const pq = model.getPreparedQueryByIndex(idx);
+    try {
+      const pq = model.getPreparedQueryByIndex(idx);
+      const givenNames = [...pq.givens.keys()];
+      if (givenNames.length > 0) info.givens = givenNames;
+      if (opts.emitRunSql) {
         info.sql = pq.preparedResult.sql.trim();
-      } catch (e) {
+      }
+    } catch (e) {
+      // Pre-givens behavior: errors here were only surfaced when the caller
+      // asked for SQL. Preserve that — silently omit givens if reading them
+      // fails outside an SQL request.
+      if (opts.emitRunSql) {
         info.error = e instanceof Error ? e.message : String(e);
       }
     }
     runs.push(info);
   }
 
+  const givensList: GivenInfo[] = [];
+  for (const [surfaceName, g] of model.givens) {
+    givensList.push(describeGiven(g, surfaceName, ctx));
+  }
+
   const modelAnnotations = model.getTaglines?.() ?? [];
   const out: ModelDescription = {rootUri, sources, queries, runs};
   if (modelAnnotations.length > 0) out.annotations = modelAnnotations;
+  if (givensList.length > 0) out.givens = givensList;
   return out;
 }
 
@@ -442,8 +558,14 @@ export async function listRuns(input: SourceInput): Promise<{
     name?: string;
     location?: Loc;
     annotations?: string[];
+    givens?: string[];
   }>;
-  queries: Array<{name: string; location?: Loc; annotations?: string[]}>;
+  queries: Array<{
+    name: string;
+    location?: Loc;
+    annotations?: string[];
+    givens?: string[];
+  }>;
   problems: Problem[];
 }> {
   const res = await loadModel(input);
@@ -458,12 +580,17 @@ export async function listRuns(input: SourceInput): Promise<{
       name?: string;
       location?: Loc;
       annotations?: string[];
+      givens?: string[];
     } = {index: idx};
     if (q.name) entry.name = q.name;
     const l = toLoc(q.location as MalloyLocation | undefined);
     if (l) entry.location = l;
     const notes = annotationNotes(q.annotation);
     if (notes.length > 0) entry.annotations = notes;
+    const givenNames = readQueryGivens(() =>
+      model.getPreparedQueryByIndex(idx)
+    );
+    if (givenNames.length > 0) entry.givens = givenNames;
     return entry;
   });
   const queries = model.namedQueries
@@ -471,13 +598,21 @@ export async function listRuns(input: SourceInput): Promise<{
       isLocal(nq.location as MalloyLocation | undefined, rootUrl.href)
     )
     .map(nq => {
-      const entry: {name: string; location?: Loc; annotations?: string[]} = {
-        name: nq.as ?? nq.name ?? '',
-      };
+      const queryName = nq.as ?? nq.name ?? '';
+      const entry: {
+        name: string;
+        location?: Loc;
+        annotations?: string[];
+        givens?: string[];
+      } = {name: queryName};
       const l = toLoc(nq.location as MalloyLocation | undefined);
       if (l) entry.location = l;
       const notes = annotationNotes(nq.annotation);
       if (notes.length > 0) entry.annotations = notes;
+      const givenNames = readQueryGivens(() =>
+        model.getPreparedQueryByName(queryName)
+      );
+      if (givenNames.length > 0) entry.givens = givenNames;
       return entry;
     });
   return {

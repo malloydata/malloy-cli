@@ -11,8 +11,8 @@ This CLI exposes five tools. "Compile" means parse + typecheck + build the model
 |-----------------|----------------------------------------|--------------------------------------------------------------------------------|
 | `compile_file`  | `{ uri, expand? }`                     | Fetch+compile a .malloy file; returns structured model with problems[].        |
 | `compile`       | `{ source, base_uri?, expand? }`       | Same, on an inline source string.                                              |
-| `run_file`      | `{ uri, name?, index? }`               | Execute one run: from a file. `name` wins over `index`; else last run:.        |
-| `run`           | `{ source, base_uri? }`                | Execute the final run: from an inline source.                                  |
+| `run_file`      | `{ uri, name?, index?, givens? }`      | Execute one run: from a file. `name` wins over `index`; else last run:.        |
+| `run`           | `{ source, base_uri?, givens? }`       | Execute the final run: from an inline source.                                  |
 | `list_runs`     | `{ uri }`                              | Cheap discovery: runnable run: + named queries, no model serialization.        |
 
 Every tool returns a uniform `problems[]` with `{ severity, message, code, uri?, line, column, endLine?, endColumn? }`. Compile errors, import-resolution errors, and runtime SQL errors all use this shape.
@@ -78,6 +78,21 @@ Feed that whole thing to `compile`. Imports resolve against `base_uri` if suppli
 - **Aggregate locality** — `sum(joined.x)` across a join boundary requires explicit locality: `source.sum(joined.x)` or `joined.x.sum()`.
 - **Mixed reduction/projection** — a single stage uses either `group_by:`/`aggregate:` OR `select:`, not both.
 - **Calculation in source** — `calculate:` (window functions) only lives in queries, never in source definitions.
+
+## Running a query that declares givens
+
+Givens are model-level parameters (`given: TENANT :: string`, referenced as `$TENANT`). When a model declares them:
+
+1. `compile_file` (or `list_runs`) reports `model.givens[]` (full list with type/default) and per-run/per-query `givens: ["NAME", ...]` arrays — the names that run needs supplied.
+2. Pass values to `run`/`run_file` via the `givens` map, keyed by surface name (no `$`):
+
+```jsonc
+{ "uri": "file:///.../model.malloy", "givens": { "TENANT": "acme", "MAX_ROWS": 100 } }
+```
+
+3. **For per-type JS shapes** (date as ISO string, naive timestamp as ISO without offset, record as JS object, `filter<T>` as a Malloy filter source string, etc.) call `language_help("givens")` — the "JS shapes for supplied values" subsection is the canonical reference. Don't guess; the compiler validates and rejects bad shapes with a path to the offending field.
+
+A given with a default is optional in the `givens` map. A given without a default must be supplied or the run fails with a missing-given error.
 
 ## Before writing non-trivial Malloy
 

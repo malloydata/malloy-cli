@@ -11,12 +11,13 @@ A core design principle is that **most queries are themselves designing a new se
 
 ## Documents and Statements
 
-A Malloy file (`.malloy`) is a sequence of statements, optionally separated by semicolons. There are four statement types:
+A Malloy file (`.malloy`) is a sequence of statements, optionally separated by semicolons. There are five statement types:
 
 - **`import`** — import sources and queries from another `.malloy` file
 - **`source:`** — define a named, reusable data source with its schema and extensions
 - **`query:`** — define a named query (source + view) for reuse
 - **`run:`** — execute a query (the "do it now" statement)
+- **`given:`** — declare model-level parameters supplied at run time (experimental, see Givens)
 
 ```malloy
 import "shared_model.malloy"
@@ -419,7 +420,7 @@ Not all annotations are tags. An annotation is just text. Tags are annotations t
 The character(s) immediately after `#` route the annotation to different consumers:
 
 - `# ` (hash-space) — renderer tags, parsed by the Malloy VS Code extension for visualization
-- `##!` — compiler directives (e.g., `##! experimental.parameters`)
+- `##!` — compiler directives (e.g., `##! experimental.parameters`, `##! experimental.givens`)
 - `#"` — reserved for documentation strings
 - `#(appName)` — application-specific tags (e.g., `#(docs) hidden`)
 
@@ -442,6 +443,142 @@ tName.sub.path=value          -- deep path assignment
 ```
 
 Values can be unquoted identifiers, quoted strings, numbers, or typed values prefixed with `@` (`@true`, `@false`, `@2024-01-15`).
+
+## Givens (Model-Level Parameters)
+
+**Status: experimental, gated by `##! experimental.givens`.** Naming is provisional.
+
+Givens are values supplied at run time that the model can reference in any expression. The motivating use case is row-level access control — a model written once with `where: x.tenant_id = $TENANT` and the tenant supplied per API call — but they also fit configuration values, session context, and any "one compiled model, many invocations with varying context" pattern.
+
+Givens are model-wide: a single namespace, one value per name per compilation. They are *complementary to* source/query parameters (`source: foo(x :: string) is ...`), not a replacement. Use a parameter when you want two differently-bound copies of the same source side-by-side in one model; use a given when you want one value visible everywhere in the compilation.
+
+### Declaration
+
+The `given:` top-level statement introduces givens, with a name, a type, and an optional default:
+
+```malloy
+given:
+  TENANT :: string
+  MAX_ROWS :: number is 1000
+  CUTOFF_DATE :: date is @2024-01-01
+```
+
+Type can be any Malloy atomic type or compound type, including `filter<T>`:
+
+```malloy
+given:
+  ROLE :: string
+  ALLOWED_ROLES :: string[]
+  SESSION :: { user_id :: string, tenant :: string }
+  TENANT_FILTER :: filter<string>
+```
+
+Defaults are expressions over constants and other givens. Annotations attach to given declarations the same way they attach to sources or measures.
+
+### Reference: the `$` sigil
+
+Inside any expression, a given is referenced with a leading `$`:
+
+```malloy
+source: orders_for_user is orders extend {
+  where: orders.tenant_id = $TENANT
+}
+
+query: recent_orders is orders_for_user -> {
+  where: order_date >= $CUTOFF_DATE
+  limit: $MAX_ROWS
+}
+```
+
+`$` appears *only* at expression references. The other three sites where a given's name appears — declaration, import, and supply (caller side) — use the bare name, because syntactic position already disambiguates. Givens share the top-level declaration namespace with sources/queries/views, so `source: x is ...` plus `given: x :: string` is a name-conflict error.
+
+### Imports
+
+Givens behave like every other top-level named thing under import:
+
+- **Bare import** (`import "b.malloy"`) brings B's full export surface in, including all of B's givens, under their original names.
+- **Selective import** (`import { source1 } from "b.malloy"`) brings in only what's listed. To surface a given to your callers, list it: `import { source1, MAX_ROWS } from "b.malloy"`.
+- **Rename** uses the existing `LOCAL is REMOTE` form: `import { CAP is MAX_ROWS } from "b.malloy"`.
+
+Surfacing controls *who can supply a value*, not whether internal references work. An imported source can reference a given the importer didn't surface; the reference still resolves internally, and at run time the unsurfaced given relies on its declaration-site default.
+
+A common project convention is a shared `tenant_givens.malloy` (declaring `$TENANT`, `$USER_ROLE`, etc.) that every root file bare-imports on line 1, so the project's given contract is visible at the top of any model.
+
+### Satisfiability
+
+A query referencing `$X` is satisfiable if either `$X` is in the model's namespace (so a caller can supply a value) or `$X` has a default at its declaration site. Otherwise the query is unsatisfiable and errors. Latent definitions (views, dimensions, measures) that reference `$X` are fine if no query actually invokes them — satisfiability is a property of running queries.
+
+### Supplying values
+
+Values can be supplied at two layers, which compose (per-query overrides per-runtime):
+
+**Per-runtime** — bound to a `Runtime`, applied as defaults to every query through it. Two paths:
+
+1. **`givensPath` in `malloy-config.json`** points at a JSON file of `name → value`:
+   ```jsonc
+   { "givensPath": "./local-givens.json" }
+   // or env-var indirection (resolved at config load):
+   { "givensPath": { "env": "GAME_STORE_GIVENS" } }
+   ```
+   The values file is a flat JSON map, keys are caller-facing surface names:
+   ```jsonc
+   { "TENANT": "acme", "USER_ROLE": "admin", "CUTOFF_DATE": "2024-01-01" }
+   ```
+
+2. **Direct on the Runtime constructor** (for per-request multi-tenant servers, tests, scripts):
+   ```typescript
+   const runtime = new Runtime({
+     config,
+     givens: { TENANT: claims.tenant_id, USER_ROLE: claims.role },
+     urlReader,
+   });
+   ```
+   Constructor values *merge over* the file at `givensPath` per-key.
+
+**Per-query** — supplied on a single `.run({ givens: ... })` call:
+```typescript
+await query.run({ givens: { STATE_FILTER: "CA", LIMIT_OVERRIDE: 50 } })
+```
+Available on every compile-or-run entry point (`runtime.loadQuery(...).run(options)`, `preparedQuery.getPreparedResult(options)`, `preparedQuery.getSQL(options)`).
+
+The resolved per-runtime values are exposed on `runtime.givens` (read-only) for diagnostics.
+
+### Finalized givens (security primitive)
+
+A multi-tenant deployment usually wants `TENANT`/`USER_ROLE`/`REGION` to be runtime-bound and **un-overridable per-query** — otherwise a downstream endpoint that accidentally accepts user-controlled query params and plumbs them into `.run({ givens: ... })` becomes a tenant-leak vulnerability.
+
+`finalizeGivens` in the config locks names at the API surface:
+
+```jsonc
+{
+  "givensPath": { "env": "GAME_STORE_GIVENS" },
+  "finalizeGivens": ["TENANT", "USER_ROLE", "REGION"]
+}
+```
+
+Finalize doesn't change *what* a given resolves to — only *who* can supply it. A `.run({ givens: { TENANT: ... } })` for a finalized name throws at API entry (named, not silently dropped). Finalized givens are filtered out of `Model.givens` and `PreparedQuery.givens` so introspection-driven UIs don't render editors for locked names.
+
+### JS shapes for supplied values
+
+Both the JSON values file and per-query `givens` maps accept the same per-type shapes:
+
+| Malloy type | JS |
+|---|---|
+| `string` | string |
+| `number` | `number`, `bigint`, or string (precision escape hatch) |
+| `boolean` | boolean |
+| `date` | ISO date string `"2024-01-15"` |
+| `timestamp` (naive) | ISO string without offset — *not* a JS `Date` |
+| `timestamptz` | JS `Date` or ISO string with offset (string preferred — makes TZ choice visible) |
+| `T[]` | JS array |
+| `{ name :: T, ... }` | JS object |
+| `filter<T>` | JS string (Malloy filter expression source) |
+
+Naive timestamp givens reject `Date` because `Date` represents a UTC instant, not a wall-clock value, and `new Date("2001-01-01T00:00:00")` silently picks up the system's local TZ. Type mismatches throw at the boundary with a path that points at the offending location (e.g., `givens.SESSION.user_id: expected string, got number`). `null` is legal for any given type.
+
+### Introspection
+
+`Model.givens` and `PreparedQuery.givens` expose, to the host, the supplyable givens — for whole-model parameter editors and per-query "run this" forms respectively. Each entry carries name, type, default expression (or undefined if the caller must supply), location, and access to declaration-site annotations via `tagParse`/`getTaglines`.
 
 ## How a Malloy Query Becomes SQL
 

@@ -2,6 +2,7 @@
 
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
+import {GivenValue} from '@malloydata/malloy';
 import {z} from 'zod';
 import {compile, listRuns} from './compile';
 import {run} from './run';
@@ -42,6 +43,21 @@ const uriSchema = z
 
 const sourceSchema = z.string().describe('Malloy source code.');
 
+const givensSchema = z
+  .record(z.string(), z.unknown())
+  .optional()
+  .describe(
+    'Per-query given values, keyed by caller-facing surface name (no `$` ' +
+      "prefix). Override the runtime's defaults for this call only. Use " +
+      '`compile_file` (or `list_runs`) to see which givens a run/query ' +
+      'needs — each entry carries a `givens` array of the names it ' +
+      'references. For per-type JS shapes (date as ISO string, naive ' +
+      'timestamp as ISO without offset, record as JS object, ' +
+      'filter<T> as Malloy filter source string, ...) call ' +
+      '`language_help("givens")` — the "JS shapes for supplied values" ' +
+      'subsection is the canonical reference.'
+  );
+
 const baseUriSchema = z
   .string()
   .optional()
@@ -50,6 +66,18 @@ const baseUriSchema = z
       'Typically the file:// URI of the file the snippet will live next to. ' +
       'If omitted, imports must be absolute.'
   );
+
+/**
+ * Single place we acknowledge the wire→JS type gap: MCP carries JSON, and
+ * JSON values are a runtime subset of malloy's `GivenValue` (which also
+ * admits `Date` and `bigint` for native JS callers). Malloy validates
+ * per-type when consuming.
+ */
+function asGivens(
+  v: Record<string, unknown> | undefined
+): Record<string, GivenValue> | undefined {
+  return v as Record<string, GivenValue> | undefined;
+}
 
 function toContent(result: object) {
   // MCP spec requires `structuredContent` to be a JSON object (zod
@@ -162,7 +190,10 @@ export async function runMcpServer(): Promise<void> {
         'Compile a .malloy file at the given URI and return the full ' +
         'structured model: sources (with dimensions, measures, views, ' +
         'joins), named queries, top-level run: statements with their SQL, ' +
-        'and annotations. This is the primary way to understand what is in ' +
+        'givens (model-level parameters declared with `given:`), and ' +
+        'annotations. Each query/run carries the transitive set of given ' +
+        'names it references — the values a caller must supply to execute it. ' +
+        'This is the primary way to understand what is in ' +
         'a .malloy file — what data sources it defines, what can be queried, ' +
         'what the schema looks like — whether you are about to edit it, ' +
         'answer a question with it, or just explore it. Reading the file as ' +
@@ -226,7 +257,10 @@ export async function runMcpServer(): Promise<void> {
         'Execute one run: or named query from a .malloy file against the ' +
         "user's configured connections. Selection: `name` wins if provided, " +
         'else `index` (0-based into run: statements), else the final run:. ' +
-        'Returns the generated SQL and rows (default 10000, set row_limit to override).',
+        'Returns the generated SQL and rows (default 10000, set row_limit ' +
+        'to override). If the run/query references givens (model-level ' +
+        'parameters — see `compile_file` output), supply per-call values ' +
+        'via the `givens` map.',
       inputSchema: {
         uri: uriSchema,
         name: z
@@ -245,10 +279,14 @@ export async function runMcpServer(): Promise<void> {
           .int()
           .optional()
           .describe('Maximum number of rows to return. Defaults to 10000.'),
+        givens: givensSchema,
       },
     },
-    async ({uri, name, index, row_limit}) => {
-      const result = await run({uri}, {name, index, rowLimit: row_limit});
+    async ({uri, name, index, row_limit, givens}) => {
+      const result = await run(
+        {uri},
+        {name, index, rowLimit: row_limit, givens: asGivens(givens)}
+      );
       await idleConnections();
       return toContent(result);
     }
@@ -264,7 +302,9 @@ export async function runMcpServer(): Promise<void> {
       description:
         'Compile an inline Malloy source and execute its final run: ' +
         "statement against the user's configured connections. Returns the " +
-        'generated SQL and rows (default 10000, set row_limit to override). Use this after compile is ' +
+        'generated SQL and rows (default 10000, set row_limit to override). ' +
+        'If the source declares givens (model-level parameters), supply ' +
+        'per-call values via the `givens` map. Use this after compile is ' +
         'clean to see the answer.',
       inputSchema: {
         source: sourceSchema,
@@ -274,12 +314,13 @@ export async function runMcpServer(): Promise<void> {
           .int()
           .optional()
           .describe('Maximum number of rows to return. Defaults to 10000.'),
+        givens: givensSchema,
       },
     },
-    async ({source, base_uri, row_limit}) => {
+    async ({source, base_uri, row_limit, givens}) => {
       const result = await run(
         {source, baseUri: base_uri},
-        {rowLimit: row_limit}
+        {rowLimit: row_limit, givens: asGivens(givens)}
       );
       await idleConnections();
       return toContent(result);
@@ -360,9 +401,12 @@ export async function runMcpServer(): Promise<void> {
       description:
         'Lightweight discovery: return the runnable run: statements (with ' +
         'optional names and indexes) and named `query:` definitions in a ' +
-        'file, without serializing the full model. Use this when you only ' +
-        'need to know what can be executed; if you need to understand the ' +
-        'schema (sources, measures, views, joins), use compile_file instead.',
+        'file, without serializing the full model. Each entry also carries ' +
+        'the transitive set of given names it references — the parameters ' +
+        'a caller must supply to execute it. Use this when you only need ' +
+        'to know what can be executed; if you need the full givens schema ' +
+        '(types, defaults, annotations) or any source/field detail, use ' +
+        'compile_file instead.',
       inputSchema: {uri: uriSchema},
     },
     async ({uri}) => {
