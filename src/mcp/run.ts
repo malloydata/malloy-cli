@@ -1,6 +1,6 @@
 /* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */
 
-import {MalloyError} from '@malloydata/malloy';
+import {MalloyError, GivenValue} from '@malloydata/malloy';
 import {
   SourceInput,
   Problem,
@@ -18,6 +18,13 @@ export interface RunSelector {
   index?: number;
   /** Maximum number of rows to return. Defaults to DEFAULT_ROW_LIMIT. */
   rowLimit?: number;
+  /**
+   * Per-query given values, keyed by caller-facing surface name. Override
+   * runtime-level defaults for this call only. The set of given names a
+   * query needs is reported by `compile_file` / `list_runs` on the run or
+   * query entry.
+   */
+  givens?: Record<string, GivenValue>;
 }
 
 export interface RunResult {
@@ -116,10 +123,13 @@ export async function run(
     }
 
     const rowLimit = selector.rowLimit ?? DEFAULT_ROW_LIMIT;
+    const compileOpts = selector.givens ? {givens: selector.givens} : undefined;
     const t0 = Date.now();
-    const sql = (await query.getSQL()).trim();
+    const sql = (await query.getSQL(compileOpts)).trim();
     const t1 = Date.now();
-    const results = await withDuckdbLockRetry(() => query.run({rowLimit}));
+    const results = await withDuckdbLockRetry(() =>
+      query.run({rowLimit, ...compileOpts})
+    );
     const t2 = Date.now();
     const json = results.toJSON();
     const rows = json.queryResult.result;
