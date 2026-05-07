@@ -99,7 +99,6 @@ function migrateOldConfig(oldConfigPath: string, newConfigPath: string): void {
   }
 }
 
-// The resolved config for Runtime — immutable after construction.
 let malloyConfig: MalloyConfig = new MalloyConfig({
   includeDefaultConnections: true,
 });
@@ -125,15 +124,8 @@ function resolveConfigPath(configPath: string): string {
 }
 
 /**
- * Read a config file and build a MalloyConfig from the POJO.
- * Sets configURL so manifestURL/givensURL resolve correctly. Does NOT set
- * rootDirectory — --config means "use this file", not "this is my project
- * root". DuckDB falls back to cwd.
- *
- * Forces includeDefaultConnections: true so that all registered backends
- * are available even if the config file only lists some connections.
- * This preserves CLI backwards compatibility — duckdb.table(...) works
- * with a config that only mentions postgres.
+ * Does NOT set rootDirectory — --config means "use this file", not "this is
+ * my project root". DuckDB falls back to cwd. (See CONTEXT.md invariant #3.)
  */
 function loadConfigFromFile(filePath: string): MalloyConfig {
   const text = fs.readFileSync(filePath, 'utf8');
@@ -181,10 +173,8 @@ export async function loadConfig(
 
     if (discovered) {
       malloyConfig = discovered;
-      // Extract configFilePath from the overlay for connections commands
-      const discoveredURL = await discovered.readOverlay('config', 'configURL');
-      if (typeof discoveredURL === 'string') {
-        configFilePath = url.fileURLToPath(discoveredURL);
+      if (discovered.configURL) {
+        configFilePath = url.fileURLToPath(discovered.configURL);
       }
       logger.debug(`Configuration discovered at ${configFilePath}`);
       logConfigMessages(configFilePath ?? 'discovered config');
