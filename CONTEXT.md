@@ -39,9 +39,11 @@ overlay resolution, property defaults, or discovery, the fix belongs in core, no
    defaults to `{config: 'rootDirectory'}` via the registry, so this distinction controls
    where relative paths in Malloy files resolve.
 
-4. **`configURL` overlay must be set whenever a config file is loaded.**
-   `MalloyConfig.manifestURL` is computed from `manifestPath` against `configURL`. Forget
-   the overlay → manifest path resolution silently falls back to cwd.
+4. **`configURL` must be passed whenever a config file is loaded.** Pass it via the typed
+   `MalloyConfigOptions` second arg (`new MalloyConfig(pojo, {configURL})`). Core computes
+   `MalloyConfig.manifestURL` (and `givensURL`) from `manifestPath`/`givensPath` against
+   `configURL`; forget it → those URLs are `undefined` and the CLI silently falls back to
+   cwd-anchored paths.
 
 5. **`malloyConfig` is a mutable module singleton.** `loadConfig` reassigns it; everything
    else imports the live binding. Don't change to `const`. The teardown in `cli.ts:run()`

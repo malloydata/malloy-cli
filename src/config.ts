@@ -24,12 +24,7 @@
 import path from 'path';
 import fs from 'fs';
 import url from 'url';
-import {
-  MalloyConfig,
-  URLReader,
-  contextOverlay,
-  discoverConfig,
-} from '@malloydata/malloy';
+import {MalloyConfig, URLReader, discoverConfig} from '@malloydata/malloy';
 import {
   exitWithError,
   isWindows,
@@ -131,9 +126,9 @@ function resolveConfigPath(configPath: string): string {
 
 /**
  * Read a config file and build a MalloyConfig from the POJO.
- * Sets configURL in the overlay so manifestURL resolves correctly.
- * Does NOT set rootDirectory — --config means "use this file", not
- * "this is my project root". DuckDB falls back to cwd.
+ * Sets configURL so manifestURL/givensURL resolve correctly. Does NOT set
+ * rootDirectory — --config means "use this file", not "this is my project
+ * root". DuckDB falls back to cwd.
  *
  * Forces includeDefaultConnections: true so that all registered backends
  * are available even if the config file only lists some connections.
@@ -152,9 +147,7 @@ function loadConfigFromFile(filePath: string): MalloyConfig {
   }
   pojo.includeDefaultConnections = true;
   const configURL = url.pathToFileURL(filePath).toString();
-  return new MalloyConfig(pojo, {
-    config: contextOverlay({configURL}),
-  });
+  return new MalloyConfig(pojo, {configURL});
 }
 
 export async function loadConfig(
@@ -204,10 +197,8 @@ export async function loadConfig(
       malloyConfig = new MalloyConfig(
         {includeDefaultConnections: true},
         {
-          config: contextOverlay({
-            rootDirectory: ceilingURL.toString(),
-            configURL: url.pathToFileURL(configFilePath).toString(),
-          }),
+          rootDirectory: ceilingURL.toString(),
+          configURL: url.pathToFileURL(configFilePath).toString(),
         }
       );
     }
