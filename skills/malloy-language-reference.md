@@ -492,6 +492,56 @@ query: recent_orders is orders_for_user -> {
 
 `$` appears *only* at expression references. The other three sites where a given's name appears — declaration, import, and supply (caller side) — use the bare name, because syntactic position already disambiguates. Givens share the top-level declaration namespace with sources/queries/views, so `source: x is ...` plus `given: x :: string` is a name-conflict error.
 
+### Set membership: `expr in $arrayGiven`
+
+The RHS of `in` is either a parenthesized list of expressions (`in (1, 2, x, y * 7)`, same as SQL) or a given with an array value (`in $ARR`). A bare array-typed expression — a dimension, a joined array field, an inline `[a, b, c]` literal — is *not* legal on the RHS; arrays only reach the RHS via the given form.
+
+When a given has array type, `expr in $ARR` tests `expr` against the runtime-bound array; `not in $ARR` is the negation. The left-hand side must match the array's element type (`string in $string[]`, `number in $number[]`, etc.); mismatches are translate-time errors. Records and nested arrays are out of scope.
+
+```malloy
+given:
+  ALLOWED_STATES :: string[]
+  URGENT_STATUSES :: string[]
+
+source: orders extend {
+  where: state in $ALLOWED_STATES
+  dimension: is_urgent is order_status in $URGENT_STATUSES
+}
+```
+
+At SQL emit, the array's contents land in a generated `IN (...)` clause. Empty or `null` arrays collapse to the obvious result (`IN` → `FALSE`, `NOT IN` → `TRUE`). NULL elements inside a non-empty array follow standard SQL `IN` semantics.
+
+To derive a value from an array — typically a boolean gate — *without* the array itself reaching row-position SQL, use an inline given (below).
+
+### Inline givens
+
+An `inline` given is evaluated at **bind time**, before SQL is emitted: its default expression runs against the resolved given values and reduces to a literal, and that literal is what reaches SQL.
+
+```malloy
+given:
+  CAPABILITIES :: string[]
+  inline CAN_READ_ORDERS :: boolean is 'read_orders' in $CAPABILITIES
+  inline CAN_MUTATE :: boolean
+    is 'write_orders' in $CAPABILITIES or 'admin' in $CAPABILITIES
+
+source: orders extend {
+  where: $CAN_READ_ORDERS   -- SQL sees: WHERE ... AND TRUE  (or FALSE)
+}
+```
+
+This is the **row-level access-control gate** pattern: the host supplies a capability list as a regular given, an inline given derives a boolean from it, and only the boolean — not the list — crosses into row-position SQL. The query planner sees a constant predicate.
+
+Rules:
+
+- An inline given **must** have a default. `inline FOO :: number` with no `is` clause is a translate-time error.
+- The default may use:
+  - Boolean and comparison operators: `and`, `or`, `not`, `=`, `!=`, `<`, `<=`, `>`, `>=`
+  - The `in $array` test against another given
+  - Literals (string, number, boolean, null, array) and references to other givens
+- The default cannot call SQL functions, reference fields, or use any operator outside that list. Disallowed operators are reported at translate time with the offending operator names.
+- Inline givens are filtered out of `Model.givens` and `PreparedQuery.givens` — they're computed, not supplied — so introspection-driven UIs don't render editors for them. A caller can still shadow one by binding it explicitly (useful in tests).
+- `inline` is a context-sensitive modifier, not a reserved keyword: fields, sources, views, dimensions, and joins can still be named `inline`.
+
 ### Imports
 
 Givens behave like every other top-level named thing under import:

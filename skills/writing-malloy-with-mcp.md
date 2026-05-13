@@ -94,6 +94,10 @@ Givens are model-level parameters (`given: TENANT :: string`, referenced as `$TE
 
 A given with a default is optional in the `givens` map. A given without a default must be supplied or the run fails with a missing-given error.
 
+**Inline givens** (declared `inline NAME :: T is …`) are evaluated at bind time and don't take supplied values, so they are filtered out of `model.givens[]` and the per-run `givens[]` lists. If you see `$X` referenced in source but missing from introspection, it's an inline.
+
+**Array givens with `in`.** The RHS of `in` is either a parenthesized list of expressions (`in (1, 2, x, y * 7)`, as in SQL) or a given with an array value (`in $ARR`). Use the given form (`where: state in $ALLOWED_STATES`) when the values come from outside the model — bare array expressions (a dimension, joined field, `[a, b, c]` literal) are not legal on the RHS.
+
 ## Before writing non-trivial Malloy
 
 Pull the `malloy-language-reference` prompt first. The language has real scoping and typing rules that the compiler will enforce; don't guess.
