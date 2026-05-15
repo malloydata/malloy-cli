@@ -15,8 +15,9 @@ import {
 import {flattenBuildNodes} from './build_graph';
 
 /**
- * Create a table from a SELECT statement, using the dialect to quote
- * the table name properly. Uses DROP+CREATE for cross-dialect safety.
+ * Create a table from a SELECT statement, validating the user-supplied
+ * name through the dialect to get a SQL-safe canonical form. Uses
+ * DROP+CREATE for cross-dialect safety.
  *
  * TODO: Move to core once this stabilizes.
  */
@@ -26,7 +27,11 @@ async function createTableFromSelect(
   tableName: string,
   selectSQL: string
 ): Promise<void> {
-  const t = source.dialect.quoteTablePath(tableName);
+  const result = source.dialect.sqlValidateTableName(tableName);
+  if (!result.ok) {
+    throw new Error(`Invalid persist name '${tableName}': ${result.error}`);
+  }
+  const t = result.canonical;
   await conn.runSQL(`DROP TABLE IF EXISTS ${t}`);
   await conn.runSQL(`CREATE TABLE ${t} AS ${selectSQL}`);
 }
