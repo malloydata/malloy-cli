@@ -67,17 +67,22 @@ describe('parseGivensSpec', () => {
 
     it('reports the file path on missing file', () => {
       const p = path.join(tempDir, 'nope.json');
-      expect(() => parseGivensSpec(`@${p}`)).toThrow(
-        new RegExp(`cannot read ${p.replace(/\//g, '\\/')}`)
-      );
+      expect(() => parseGivensSpec(`@${p}`)).toThrow(`cannot read ${p}`);
     });
 
     it('reports the file path on invalid JSON', () => {
       const p = path.join(tempDir, 'bad.json');
       fs.writeFileSync(p, '{nope');
-      expect(() => parseGivensSpec(`@${p}`)).toThrow(
-        new RegExp(`${path.basename(p)}.*invalid JSON`)
-      );
+      const thrown = (() => {
+        try {
+          parseGivensSpec(`@${p}`);
+          return undefined;
+        } catch (e) {
+          return e instanceof Error ? e.message : String(e);
+        }
+      })();
+      expect(thrown).toContain(p);
+      expect(thrown).toContain('invalid JSON');
     });
   });
 
