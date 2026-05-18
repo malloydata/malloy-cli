@@ -1,0 +1,5 @@
+##! experimental.givens
+given:
+  favorite :: number is 1
+
+run: duckdb.sql("SELECT 1 as one") -> { select: current_favorite is $favorite }

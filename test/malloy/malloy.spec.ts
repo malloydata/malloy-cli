@@ -27,6 +27,7 @@ import os from 'os';
 import {loadConfig} from '../../src/config';
 import '../../src/connections/connection_manager';
 import {createBasicLogger, silenceOut} from '../../src/log';
+import {runMalloy} from '../../src/malloy/malloy';
 
 const configFixture = path.resolve(
   path.join(__dirname, '..', 'files', 'merged_config.json')
@@ -60,5 +61,27 @@ describe('Malloy', () => {
 
   it('runs Malloy, outputs results', () => {
     // TODO
+  });
+
+  describe('givens', () => {
+    const fixture = path.resolve(
+      path.join(__dirname, '..', 'files', 'givens_sql.malloy')
+    );
+
+    it('default value reaches compiled SQL when no givens supplied', async () => {
+      const out = await runMalloy(fixture, {compileOnly: true, json: true});
+      const {sql} = JSON.parse(out as string);
+      expect(sql).toMatch(/1\s+as\s+"current_favorite"/i);
+    });
+
+    it('--givens override reaches compiled SQL', async () => {
+      const out = await runMalloy(fixture, {
+        compileOnly: true,
+        json: true,
+        givens: {favorite: 137},
+      });
+      const {sql} = JSON.parse(out as string);
+      expect(sql).toMatch(/137\s+as\s+"current_favorite"/i);
+    });
   });
 });

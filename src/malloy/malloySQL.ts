@@ -100,6 +100,7 @@ export async function runMalloySQL(
       );
     }
     const statements = parse.statements;
+    const givensOpt = options.givens ? {givens: options.givens} : {};
 
     if (statementIndex !== null) {
       resultsLog.task(
@@ -168,7 +169,7 @@ export async function runMalloySQL(
           try {
             const finalQuery = modelMaterializer.loadQuery(fileURL);
             const finalQuerySQL = await withDuckdbLockRetry(() =>
-              finalQuery.getSQL()
+              finalQuery.getSQL(givensOpt)
             );
 
             if (compileOnly) {
@@ -179,7 +180,7 @@ export async function runMalloySQL(
 
               const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
               const results = await withDuckdbLockRetry(() =>
-                finalQuery.run({rowLimit})
+                finalQuery.run({rowLimit, ...givensOpt})
               );
               const rows = results.toJSON().queryResult.result;
               if (rows.length === rowLimit) {
@@ -211,7 +212,7 @@ export async function runMalloySQL(
               `\nrun: ${malloyQuery.query}`
             );
             const generatedSQL = await withDuckdbLockRetry(() =>
-              runnable.getSQL()
+              runnable.getSQL(givensOpt)
             );
 
             compiledStatement = compiledStatement.replace(
