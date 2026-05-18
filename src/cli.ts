@@ -45,50 +45,26 @@ import {fmtCommand} from './commands/fmt';
 
 const compileDescription = `compile a Malloy file (.malloy or .malloysql)
 
-When compiling a MalloySQL file, all statements in the file are compiled sequentially.
-If --index is passed, the statement at that 1-based index is compiled. If this statement
-is a SQL statement, all Malloy statements (but no SQL statements) above that statement are
-also compiled.
+When compiling a MalloySQL file, all statements in the file are compiled sequentially. If --index is passed, the statement at that 1-based index is compiled. If this statement is a SQL statement, all Malloy statements (but no SQL statements) above that statement are also compiled.
 
 When compiling a query using a Malloy file....`;
 
-const givensHelp = `
-Supplying givens (model parameters declared with \`given:\`) — three modes:
-  --givens '{"TENANT":"acme","MAX_ROWS":100}'   inline JSON object
-  --givens @givens.json                         read from a file
-  --givens @-                                   read from stdin
-
-Values layer over any \`givensPath\` in the project's malloy-config.json
-(per-key, --givens wins). Names finalized at the runtime layer
-(\`finalizeGivens\` in config) cannot be supplied this way.`;
-
 const afterCompileHelp = `
-${givensHelp}
-
 Examples:
 
 Compile a MalloySQL file and output SQL:
 compile file.malloysql -o malloy compiled-sql
 
 Compile a MalloySQL file and output each statement as SQL using JSON:
-compile file.malloysql -f json
-
-Compile with a given supplied inline:
-compile file.malloy --givens '{"TENANT":"acme"}'`;
+compile file.malloysql -f json`;
 
 const runDescription = `execute a Malloy file (.malloy or .malloysql)
 
-When executing a MalloySQL file, all statements in the file are executed sequentially.
-If --index is passed, the statement at that 1-based index is executed. If this statement
-is a SQL statement, all Malloy statements (but no SQL statements) above that statement are
-also executed.
+When executing a MalloySQL file, all statements in the file are executed sequentially. If --index is passed, the statement at that 1-based index is executed. If this statement is a SQL statement, all Malloy statements (but no SQL statements) above that statement are also executed.
 
-When executing a Malloy file, include either a name to a query (--name), the index of a
-query (--index), or a new query as the final argument.`;
+When executing a Malloy file, include either a name to a query (--name), the index of a query (--index), or a new query as the final argument.`;
 
 const afterRunHelp = `
-${givensHelp}
-
 Examples:
 
 Run a MalloySQL file and output the malloy, the compiled SQL, and results:
@@ -101,12 +77,7 @@ Run the second MalloySQL statement in a file and output the results:
 run file.malloysql --index 2 -o results
 
 Run a Malloy query using file.malloy and output the results as JSON:
-run file.malloy "source->{ aggregate: my_field }"
-
-Run with givens supplied inline, from a file, or from stdin:
-run file.malloy --givens '{"TENANT":"acme","MAX_ROWS":100}'
-run file.malloy --givens @givens.json
-fetch-context | run file.malloy --givens @-`;
+run file.malloy "source->{ aggregate: my_field }"`;
 
 export function createCLI(): Command {
   const cli = new Command()
