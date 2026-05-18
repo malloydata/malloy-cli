@@ -85,6 +85,46 @@ describe('commands', () => {
       );
     });
 
+    it('accepts --givens with inline JSON on a malloy file that uses one', async () => {
+      await runWith(
+        'run',
+        path.resolve(path.join(__dirname, '..', 'files', 'givens_test.malloy')),
+        '--givens',
+        '{"TARGET":2}'
+      );
+    });
+
+    it('accepts --givens @file', async () => {
+      const givensFile = path.join(tempDir, 'givens.json');
+      fs.writeFileSync(givensFile, '{"TARGET":3}');
+      await runWith(
+        'run',
+        path.resolve(path.join(__dirname, '..', 'files', 'givens_test.malloy')),
+        '--givens',
+        `@${givensFile}`
+      );
+    });
+
+    it('rejects malformed --givens JSON', async () => {
+      expect.assertions(1);
+      return await runWith(
+        'run',
+        path.resolve(path.join(__dirname, '..', 'files', 'givens_test.malloy')),
+        '--givens',
+        '{not json'
+      ).catch(e => expect(errorMessage(e)).toMatch(/invalid JSON/));
+    });
+
+    it('rejects non-object --givens JSON', async () => {
+      expect.assertions(1);
+      return await runWith(
+        'run',
+        path.resolve(path.join(__dirname, '..', 'files', 'givens_test.malloy')),
+        '--givens',
+        '[1,2]'
+      ).catch(e => expect(errorMessage(e)).toMatch(/expected a JSON object/));
+    });
+
     it('fails if index and query name are both passed', async () => {
       expect.assertions(1);
       return await runWith(

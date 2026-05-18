@@ -21,6 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import {GivenValue} from '@malloydata/malloy';
 import {transports, format, createLogger as createWinstonLogger} from 'winston';
 import {TransformFunction} from 'logform';
 import {out as cliLogger, silent} from '../log';
@@ -77,6 +78,7 @@ export interface RunOrCompileOptions {
   queryOptions?: QueryOptions;
   json: boolean;
   rowLimit?: number;
+  givens?: Record<string, GivenValue>;
 }
 
 export async function runOrCompile(
@@ -87,6 +89,7 @@ export async function runOrCompile(
     name?: string | undefined;
     json?: true | undefined;
     rowLimit?: number | undefined;
+    givens?: Record<string, GivenValue> | undefined;
   },
   compileOnly = false
 ): Promise<void> {
@@ -141,6 +144,7 @@ export async function runOrCompile(
     json: options.json === true,
     queryOptions,
     rowLimit: options.rowLimit ?? DEFAULT_ROW_LIMIT,
+    givens: options.givens,
   };
 
   if (extension === '.malloysql') {

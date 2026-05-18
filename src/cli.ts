@@ -52,7 +52,18 @@ also compiled.
 
 When compiling a query using a Malloy file....`;
 
+const givensHelp = `
+Supplying givens (model parameters declared with \`given:\`) — three modes:
+  --givens '{"TENANT":"acme","MAX_ROWS":100}'   inline JSON object
+  --givens @givens.json                         read from a file
+  --givens @-                                   read from stdin
+
+Values layer over any \`givensPath\` in the project's malloy-config.json
+(per-key, --givens wins). Names finalized at the runtime layer
+(\`finalizeGivens\` in config) cannot be supplied this way.`;
+
 const afterCompileHelp = `
+${givensHelp}
 
 Examples:
 
@@ -60,7 +71,10 @@ Compile a MalloySQL file and output SQL:
 compile file.malloysql -o malloy compiled-sql
 
 Compile a MalloySQL file and output each statement as SQL using JSON:
-compile file.malloysql -f json`;
+compile file.malloysql -f json
+
+Compile with a given supplied inline:
+compile file.malloy --givens '{"TENANT":"acme"}'`;
 
 const runDescription = `execute a Malloy file (.malloy or .malloysql)
 
@@ -73,6 +87,7 @@ When executing a Malloy file, include either a name to a query (--name), the ind
 query (--index), or a new query as the final argument.`;
 
 const afterRunHelp = `
+${givensHelp}
 
 Examples:
 
@@ -86,7 +101,12 @@ Run the second MalloySQL statement in a file and output the results:
 run file.malloysql --index 2 -o results
 
 Run a Malloy query using file.malloy and output the results as JSON:
-run file.malloy "source->{ aggregate: my_field }"`;
+run file.malloy "source->{ aggregate: my_field }"
+
+Run with givens supplied inline, from a file, or from stdin:
+run file.malloy --givens '{"TENANT":"acme","MAX_ROWS":100}'
+run file.malloy --givens @givens.json
+fetch-context | run file.malloy --givens @-`;
 
 export function createCLI(): Command {
   const cli = new Command()
@@ -176,6 +196,12 @@ export function createCLI(): Command {
       ).conflicts('index')
     )
     .addOption(new Option('-j, --json', 'output json'))
+    .addOption(
+      new Option(
+        '-g, --givens <spec>',
+        'given values: inline JSON, @file.json, or @- for stdin'
+      )
+    )
     .summary('compile a Malloy file (.malloy or .malloysql)')
     .description(compileDescription)
     .addHelpText('after', afterCompileHelp)
@@ -207,6 +233,12 @@ export function createCLI(): Command {
         '--row-limit <number>',
         'maximum number of rows to return'
       ).argParser(parseFloat)
+    )
+    .addOption(
+      new Option(
+        '-g, --givens <spec>',
+        'given values: inline JSON, @file.json, or @- for stdin'
+      )
     )
     .summary('execute a Malloy file (.malloy or .malloysql)')
     .description(runDescription)

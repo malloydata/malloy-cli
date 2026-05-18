@@ -22,6 +22,8 @@
  */
 
 import {runOrCompile} from '../malloy/util';
+import {parseGivensSpec} from '../malloy/givens';
+import {exitWithError} from '../util';
 
 export async function compileCommand(
   source: string,
@@ -30,7 +32,16 @@ export async function compileCommand(
     index?: number | undefined;
     name?: string | undefined;
     json?: true | undefined;
+    givens?: string | undefined;
   }
 ): Promise<void> {
-  await runOrCompile(source, query, options, true);
+  let givens;
+  if (options.givens !== undefined) {
+    try {
+      givens = parseGivensSpec(options.givens);
+    } catch (e) {
+      exitWithError(e instanceof Error ? e.message : String(e));
+    }
+  }
+  await runOrCompile(source, query, {...options, givens}, true);
 }

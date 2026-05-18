@@ -86,7 +86,8 @@ export async function runMalloy(
         }
       } else query = modelMaterializer.loadFinalQuery();
 
-      const sql = await query.getSQL();
+      const givensOpt = options.givens ? {givens: options.givens} : {};
+      const sql = await query.getSQL(givensOpt);
       json['sql'] = sql.trim();
 
       if (options.compileOnly) {
@@ -97,7 +98,7 @@ export async function runMalloy(
       }
 
       const rowLimit = options.rowLimit ?? DEFAULT_ROW_LIMIT;
-      const results = await query.run({rowLimit});
+      const results = await query.run({rowLimit, ...givensOpt});
       const rows = results.toJSON().queryResult.result;
       if (rows.length === rowLimit) {
         resultsLog.result(`WARNING: Results truncated to ${rowLimit} results.`);
