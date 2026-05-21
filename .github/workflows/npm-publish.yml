@@ -23,13 +23,15 @@ jobs:
     permissions:
       contents: read
       packages: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+      - name: Upgrade npm for trusted publishing (OIDC)
+        run: npm install -g npm@latest
       
       - uses: 'google-github-actions/auth@v2'
         with:
@@ -45,8 +47,6 @@ jobs:
       
       - name: Publish to @next
         run: npm run npm-publish next
-        env:
-          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
       - name: Success Summary
         if: success()
@@ -83,6 +83,7 @@ jobs:
     permissions:
       contents: write  # Needed to push commits and tags
       packages: read
+      id-token: write
     steps:
       - name: Generate token from GitHub App
         id: app-token
@@ -98,7 +99,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+      - name: Upgrade npm for trusted publishing (OIDC)
+        run: npm install -g npm@latest
       
       - uses: 'google-github-actions/auth@v2'
         with:
@@ -120,14 +122,10 @@ jobs:
       - name: Publish to @latest (dry run)
         if: inputs.dry_run == true
         run: npm run npm-publish -- latest --bump-type=patch --dry-run
-        env:
-          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
       - name: Publish to @latest (real)
         if: inputs.dry_run == false
         run: npm run npm-publish -- latest --bump-type=patch
-        env:
-          NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}"
       
       - name: Success Summary
         if: success()
