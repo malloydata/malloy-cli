@@ -262,7 +262,7 @@ function describeField(
   depth: number,
   ctx: DescribeContext
 ): FieldInfo {
-  const rawAnnotations = f.getTaglines?.() ?? [];
+  const rawAnnotations = f.annotations?.texts() ?? [];
   const mLoc = f.location as MalloyLocation | undefined;
   const local = isLocal(mLoc, ctx.rootUri);
   const base: FieldInfo = {name: f.name, kind: 'dimension'};
@@ -345,7 +345,7 @@ function describeExplore(e: Explore, ctx: DescribeContext): SourceInfo {
     }
   }
 
-  const sourceAnnotations = e.getTaglines?.() ?? [];
+  const sourceAnnotations = e.annotations?.texts() ?? [];
   const out: SourceInfo = {
     name: e.name,
     dimensions: dims,
@@ -393,7 +393,7 @@ type GivenLike = {
   readonly type: GivenTypeShape;
   readonly default: unknown;
   readonly location: MalloyLocation | undefined;
-  getTaglines(prefix?: RegExp): string[];
+  readonly annotations: {texts(route?: string): string[]};
 };
 
 function describeGiven(
@@ -406,7 +406,7 @@ function describeGiven(
     type: renderGivenType(g.type),
     hasDefault: g.default !== undefined,
   };
-  const annotations = g.getTaglines?.() ?? [];
+  const annotations = g.annotations?.texts() ?? [];
   if (annotations.length > 0) info.annotations = annotations;
   const loc = g.location;
   if (loc && isLocal(loc, ctx.rootUri)) {
@@ -508,7 +508,7 @@ async function describeModel(
     givensList.push(describeGiven(g, surfaceName, ctx));
   }
 
-  const modelAnnotations = model.getTaglines?.() ?? [];
+  const modelAnnotations = model.annotations?.texts() ?? [];
   const out: ModelDescription = {rootUri, sources, queries, runs};
   if (modelAnnotations.length > 0) out.annotations = modelAnnotations;
   if (givensList.length > 0) out.givens = givensList;
