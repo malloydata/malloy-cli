@@ -242,7 +242,7 @@ export async function buildFiles(
         const source = plan.sources[node.sourceID];
         if (!source) continue;
 
-        const parsed = source.tagParse({prefix: /^#@ /});
+        const parsed = source.annotations.parseAsTag('@');
         const tableName = parsed.tag.text('name');
 
         if (!tableName) {
