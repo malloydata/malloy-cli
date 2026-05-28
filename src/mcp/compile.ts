@@ -1,6 +1,7 @@
 /* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */
 
 import {
+  Annotations,
   Explore,
   ExploreField,
   AtomicField,
@@ -25,6 +26,11 @@ import {
  */
 type Loc = [number, number];
 
+interface McpAnnotation {
+  route: string;
+  text: string;
+}
+
 interface FieldInfo {
   name: string;
   kind: 'dimension' | 'measure' | 'view' | 'join';
@@ -32,7 +38,7 @@ interface FieldInfo {
   /** Only emitted when the defining expression differs from the field name. */
   expression?: string;
   /** Only emitted when non-empty. */
-  annotations?: string[];
+  annotations?: McpAnnotation[];
   /** Only emitted when the field is defined in the local file. */
   location?: Loc;
   /**
@@ -61,7 +67,7 @@ interface FieldInfo {
 
 interface SourceInfo {
   name: string;
-  annotations?: string[];
+  annotations?: McpAnnotation[];
   location?: Loc;
   primaryKey?: string;
   dimensions: FieldInfo[];
@@ -72,7 +78,7 @@ interface SourceInfo {
 
 interface NamedQueryInfo {
   name: string;
-  annotations?: string[];
+  annotations?: McpAnnotation[];
   location?: Loc;
   body?: string;
   /**
@@ -84,8 +90,7 @@ interface NamedQueryInfo {
 
 interface RunInfo {
   index: number;
-  name?: string;
-  annotations?: string[];
+  annotations?: McpAnnotation[];
   location?: Loc;
   sql?: string;
   error?: string;
@@ -110,13 +115,13 @@ interface GivenInfo {
   hasDefault: boolean;
   /** Verbatim source slice of the declaration when locally defined. */
   body?: string;
-  annotations?: string[];
+  annotations?: McpAnnotation[];
   location?: Loc;
 }
 
 interface ModelDescription {
   rootUri: string;
-  annotations?: string[];
+  annotations?: McpAnnotation[];
   /** Givens declared in (or imported into) this model. Only when non-empty. */
   givens?: GivenInfo[];
   sources: SourceInfo[];
@@ -156,6 +161,11 @@ type MalloyLocation = {
 function toLoc(loc?: MalloyLocation): Loc | undefined {
   if (!loc) return undefined;
   return [loc.range.start.line, loc.range.start.character];
+}
+
+function mcpAnnotations(a: Annotations | undefined): McpAnnotation[] {
+  if (!a) return [];
+  return a.forRoute().map(n => ({route: n.route, text: n.content}));
 }
 
 function isLocal(loc: {url: string} | undefined, rootUri: string): boolean {
@@ -262,11 +272,11 @@ function describeField(
   depth: number,
   ctx: DescribeContext
 ): FieldInfo {
-  const rawAnnotations = f.annotations?.texts() ?? [];
+  const annotations = mcpAnnotations(f.annotations);
   const mLoc = f.location as MalloyLocation | undefined;
   const local = isLocal(mLoc, ctx.rootUri);
   const base: FieldInfo = {name: f.name, kind: 'dimension'};
-  if (rawAnnotations.length > 0) base.annotations = rawAnnotations;
+  if (annotations.length > 0) base.annotations = annotations;
   if (local) {
     const l = toLoc(mLoc);
     if (l) base.location = l;
@@ -345,7 +355,7 @@ function describeExplore(e: Explore, ctx: DescribeContext): SourceInfo {
     }
   }
 
-  const sourceAnnotations = e.annotations?.texts() ?? [];
+  const sourceAnnotations = mcpAnnotations(e.annotations);
   const out: SourceInfo = {
     name: e.name,
     dimensions: dims,
@@ -393,7 +403,7 @@ type GivenLike = {
   readonly type: GivenTypeShape;
   readonly default: unknown;
   readonly location: MalloyLocation | undefined;
-  readonly annotations: {texts(route?: string): string[]};
+  readonly annotations: Annotations;
 };
 
 function describeGiven(
@@ -406,7 +416,7 @@ function describeGiven(
     type: renderGivenType(g.type),
     hasDefault: g.default !== undefined,
   };
-  const annotations = g.annotations?.texts() ?? [];
+  const annotations = mcpAnnotations(g.annotations);
   if (annotations.length > 0) info.annotations = annotations;
   const loc = g.location;
   if (loc && isLocal(loc, ctx.rootUri)) {
@@ -428,25 +438,16 @@ function readQueryGivens(
   }
 }
 
-function annotationNotes(
-  ann: {notes?: {text: string}[]; blockNotes?: {text: string}[]} | undefined
-): string[] {
-  if (!ann) return [];
-  const out: string[] = [];
-  for (const n of ann.blockNotes ?? []) out.push(n.text);
-  for (const n of ann.notes ?? []) out.push(n.text);
-  return out;
-}
-
 async function describeModel(
   model: Model,
   rootUri: string,
   readSource: (urlHref: string) => string | undefined,
   opts: CompileOptions
 ): Promise<ModelDescription> {
+  const modelQueries = model.queries();
   const knownSources = new Set<string>([
     ...model.explores.map(e => e.name),
-    ...model.namedQueries.map(nq => nq.as ?? nq.name ?? ''),
+    ...modelQueries.named,
   ]);
   const ctx: DescribeContext = {rootUri, knownSources, opts, readSource};
 
@@ -457,36 +458,31 @@ async function describeModel(
   }
 
   const queries: NamedQueryInfo[] = [];
-  for (const nq of model.namedQueries) {
-    const loc = nq.location as MalloyLocation | undefined;
+  for (const queryName of modelQueries.named) {
+    const pq = model.getPreparedQueryByName(queryName);
+    const loc = pq.location;
     if (!isLocal(loc, rootUri)) continue;
-    const queryName = nq.as ?? nq.name ?? '';
     const info: NamedQueryInfo = {name: queryName};
-    const notes = annotationNotes(nq.annotation);
-    if (notes.length > 0) info.annotations = notes;
+    const annotations = mcpAnnotations(pq.annotations);
+    if (annotations.length > 0) info.annotations = annotations;
     const l = toLoc(loc);
     if (l) info.location = l;
     const body = sliceSource(readSource(rootUri), loc);
     if (body) info.body = body;
-    const givenNames = readQueryGivens(() =>
-      model.getPreparedQueryByName(queryName)
-    );
+    const givenNames = readQueryGivens(() => pq);
     if (givenNames.length > 0) info.givens = givenNames;
     queries.push(info);
   }
 
   const runs: RunInfo[] = [];
-  const queryList = model._modelDef.queryList ?? [];
-  for (let idx = 0; idx < queryList.length; idx++) {
-    const q = queryList[idx];
+  for (let idx = 0; idx < modelQueries.unnamed; idx++) {
+    const pq = model.getPreparedQueryByIndex(idx);
     const info: RunInfo = {index: idx};
-    if (q.name) info.name = q.name;
-    const notes = annotationNotes(q.annotation);
-    if (notes.length > 0) info.annotations = notes;
-    const l = toLoc(q.location as MalloyLocation | undefined);
+    const annotations = mcpAnnotations(pq.annotations);
+    if (annotations.length > 0) info.annotations = annotations;
+    const l = toLoc(pq.location);
     if (l) info.location = l;
     try {
-      const pq = model.getPreparedQueryByIndex(idx);
       const givenNames = [...pq.givens.keys()];
       if (givenNames.length > 0) info.givens = givenNames;
       if (opts.emitRunSql) {
@@ -508,7 +504,7 @@ async function describeModel(
     givensList.push(describeGiven(g, surfaceName, ctx));
   }
 
-  const modelAnnotations = model.annotations?.texts() ?? [];
+  const modelAnnotations = mcpAnnotations(model.annotations);
   const out: ModelDescription = {rootUri, sources, queries, runs};
   if (modelAnnotations.length > 0) out.annotations = modelAnnotations;
   if (givensList.length > 0) out.givens = givensList;
@@ -555,15 +551,14 @@ export async function listRuns(input: SourceInput): Promise<{
   rootUri?: string;
   runs: Array<{
     index: number;
-    name?: string;
     location?: Loc;
-    annotations?: string[];
+    annotations?: McpAnnotation[];
     givens?: string[];
   }>;
   queries: Array<{
     name: string;
     location?: Loc;
-    annotations?: string[];
+    annotations?: McpAnnotation[];
     givens?: string[];
   }>;
   problems: Problem[];
@@ -573,45 +568,42 @@ export async function listRuns(input: SourceInput): Promise<{
     return {ok: false, runs: [], queries: [], problems: res.problems};
   }
   const {model, rootUrl} = res.loaded;
-  const queryList = model._modelDef.queryList ?? [];
-  const runs = queryList.map((q, idx) => {
+  const modelQueries = model.queries();
+  const runs = Array.from({length: modelQueries.unnamed}, (_, idx) => {
+    const pq = model.getPreparedQueryByIndex(idx);
     const entry: {
       index: number;
-      name?: string;
       location?: Loc;
-      annotations?: string[];
+      annotations?: McpAnnotation[];
       givens?: string[];
     } = {index: idx};
-    if (q.name) entry.name = q.name;
-    const l = toLoc(q.location as MalloyLocation | undefined);
+    const l = toLoc(pq.location);
     if (l) entry.location = l;
-    const notes = annotationNotes(q.annotation);
-    if (notes.length > 0) entry.annotations = notes;
-    const givenNames = readQueryGivens(() =>
-      model.getPreparedQueryByIndex(idx)
-    );
+    const annotations = mcpAnnotations(pq.annotations);
+    if (annotations.length > 0) entry.annotations = annotations;
+    const givenNames = readQueryGivens(() => pq);
     if (givenNames.length > 0) entry.givens = givenNames;
     return entry;
   });
-  const queries = model.namedQueries
-    .filter(nq =>
-      isLocal(nq.location as MalloyLocation | undefined, rootUrl.href)
-    )
-    .map(nq => {
-      const queryName = nq.as ?? nq.name ?? '';
+  const queries = modelQueries.named
+    .map(queryName => {
+      const pq = model.getPreparedQueryByName(queryName);
+      const loc = pq.location;
+      return {pq, queryName, loc};
+    })
+    .filter(({loc}) => isLocal(loc, rootUrl.href))
+    .map(({pq, queryName, loc}) => {
       const entry: {
         name: string;
         location?: Loc;
-        annotations?: string[];
+        annotations?: McpAnnotation[];
         givens?: string[];
       } = {name: queryName};
-      const l = toLoc(nq.location as MalloyLocation | undefined);
+      const l = toLoc(loc);
       if (l) entry.location = l;
-      const notes = annotationNotes(nq.annotation);
-      if (notes.length > 0) entry.annotations = notes;
-      const givenNames = readQueryGivens(() =>
-        model.getPreparedQueryByName(queryName)
-      );
+      const annotations = mcpAnnotations(pq.annotations);
+      if (annotations.length > 0) entry.annotations = annotations;
+      const givenNames = readQueryGivens(() => pq);
       if (givenNames.length > 0) entry.givens = givenNames;
       return entry;
     });
