@@ -60,19 +60,16 @@ export async function run(
     };
   }
   const {model, rootUrl, runtime} = loadRes.loaded;
-  const queryList = model._modelDef.queryList ?? [];
+  const modelQueries = model.queries();
 
   try {
     const materializer = runtime.loadModel(rootUrl);
     let query;
     if (selector.name) {
-      const named = model.namedQueries.find(
-        nq => (nq.as ?? nq.name) === selector.name
-      );
-      if (!named) {
+      if (!modelQueries.named.includes(selector.name)) {
         const available = {
-          queries: model.namedQueries.map(nq => nq.as ?? nq.name ?? ''),
-          runs: queryList.map((q, i) => ({index: i, name: q.name ?? null})),
+          queries: modelQueries.named,
+          runs: modelQueries.unnamed,
         };
         return {
           ok: false,
@@ -90,14 +87,14 @@ export async function run(
       }
       query = materializer.loadQueryByName(selector.name);
     } else if (typeof selector.index === 'number') {
-      if (selector.index < 0 || selector.index >= queryList.length) {
+      if (selector.index < 0 || selector.index >= modelQueries.unnamed) {
         return {
           ok: false,
           problems: [
             {
               severity: 'error',
               code: 'selector-out-of-range',
-              message: `Index ${selector.index} out of range; file has ${queryList.length} run: statement(s).`,
+              message: `Index ${selector.index} out of range; file has ${modelQueries.unnamed} run: statement(s).`,
               uri: rootUrl.href,
             },
           ],
@@ -105,7 +102,7 @@ export async function run(
       }
       query = materializer.loadQueryByIndex(selector.index);
     } else {
-      if (queryList.length === 0) {
+      if (modelQueries.unnamed === 0) {
         return {
           ok: false,
           problems: [
