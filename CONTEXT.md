@@ -105,17 +105,56 @@ any file using `#@ persist`. Files without that pragma are skipped silently.
   Don't add property fallbacks that pass `{}` instead of `undefined`; you'll silently
   disable TOML auth.
 
+## Updating Malloy packages
+
+`npm run malloy-update` bumps every `@malloydata/*` dep to the latest published version.
+It is not a plain `npm update` — three steps in order:
+1. `npm install --save-exact $(./scripts/malloy-packages.ts latest)` — pins each
+   `@malloydata/*` devDependency to its exact `latest` version. `malloy-packages.ts`
+   enumerates the package names from `package.json` so the list never drifts.
+2. `ts-node scripts/sync-duckdb.ts` — re-pins `@duckdb/node-api`, `@duckdb/node-bindings`,
+   and every `@duckdb/node-bindings-{platform}` optional dep to whatever version the newly
+   installed `@malloydata/db-duckdb`'s `@duckdb/node-api` wants. Keeping these in lockstep
+   is what stops the standalone binary from loading a mismatched native lib.
+3. A final `npm install` to reconcile the lockfile.
+
+`malloy-update-next` is the same against the `next` (pre-release) tag. After either, run
+`npm run lint && npm run build && npm run test-silent`; if you touched DuckDB, also
+build + smoke-test the standalone binary (see Packaging below). The malloy packages move
+in lockstep — don't bump one in isolation.
+
 ## Packaging — Node version pin
 
-Standalone binary uses `pkg` (archived by Vercel) with `node18` target in
-`scripts/package.ts`. This pins the binary to Node 18 regardless of system Node.
-Alternatives evaluated 2026-03 and rejected:
+The repo, CI, and npm-publish all run on **Node 24** (`.node-version`, `engines: >=20`,
+the workflow `node-version` fields). The *standalone binary* embeds its own Node runtime,
+built with **`@yao-pkg/pkg`** (the maintained fork of the archived Vercel `pkg`) and a
+`node24` target in `scripts/package.ts`. yao-pkg requires Node ≥ 22 to *run* — moving the
+repo to Node 24 is what unblocked it; on Node 20 it hit an ESM-interop bug. The base
+runtime comes from `@yao-pkg/pkg-fetch`, which ships node24 binaries for all five targets
+(macos/linux/win × x64/arm64). Smoke-testing the built binary shows `process.version`
+`v24.15.0`.
+
+Cross-target builds (`--all-targets`, or any `--platform` ≠ host) need the matching
+DuckDB binding force-installed first — npm's `os`/`cpu` filters skip non-host
+`@duckdb/node-bindings-*` packages, so `resolveDuckDBNative` can't find them. The common
+path is a host-only build (`npm run package`), which just works.
+
+Alternatives to yao-pkg evaluated 2026-03 and rejected:
 - Node SEA — no native-addon support, kills DuckDB.
 - `bun build --compile` — DuckDB fails (oven-sh/bun#17312), plus BigQuery HTTP-compat
   issues.
 
 **Decision: leave as-is until it breaks.** No good single-binary alternative currently
 exists for projects with native `.node` addons.
+
+**DuckDB shared lib must be bundled as a `pkg` asset.** Since DuckDB 1.4 the native
+binding ships as `duckdb.node` *plus* an adjacent shared library
+(`libduckdb.dylib`/`.so`, `duckdb.dll`); the `.node` looks for it via `@loader_path`.
+`pkg` auto-extracts `.node` files but not the sibling lib, so the binary builds clean and
+then dies at first DuckDB use with `Library not loaded`. The `pkg.assets` glob in
+`package.json` ships the lib so it lands next to the extracted `.node`. Keep that glob.
+**Always smoke-test the binary with a real query (`run: duckdb.sql("""SELECT 1""")`), not
+`--version`** — `--version` never touches DuckDB and hides this failure.
 
 ## Copyright headers
 
