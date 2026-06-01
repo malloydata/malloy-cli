@@ -23,7 +23,7 @@
 
 /* eslint-disable no-console */
 import {defaultBuildDirectory, doBuild} from './build';
-import * as pkg from 'pkg';
+import * as pkg from '@yao-pkg/pkg';
 import path from 'path';
 import * as fs from 'fs';
 import {execSync} from 'child_process';
@@ -63,7 +63,7 @@ function getBuildMetadataSuffix(): string {
   }
 }
 
-const nodeTarget = 'node18';
+const nodeTarget = 'node24';
 const outputFolder = 'pkg/';
 
 async function packageCLI(
