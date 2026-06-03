@@ -60,10 +60,19 @@ describe('restricted MCP mode', () => {
 
     root = path.join(tempDir, 'models');
     fs.mkdirSync(path.join(root, 'sub'), {recursive: true});
+    fs.mkdirSync(path.join(root, '.hidden'), {recursive: true});
     fs.writeFileSync(path.join(root, 'published.malloy'), PUBLISHED);
     fs.writeFileSync(path.join(root, 'sub', 'nested.malloy'), NESTED);
     fs.writeFileSync(path.join(root, 'secret.malloy'), SECRET);
     fs.writeFileSync(path.join(root, 'givens_model.malloy'), GIVENS_MODEL);
+    // A marked model saved with CRLF line endings must still publish.
+    fs.writeFileSync(
+      path.join(root, 'crlf.malloy'),
+      PUBLISHED.replace(/\n/g, '\r\n')
+    );
+    // A marked model inside a hidden dir is excluded from the walk — and must
+    // also be unreachable, so listing and reachability stay in lockstep.
+    fs.writeFileSync(path.join(root, '.hidden', 'buried.malloy'), PUBLISHED);
 
     createBasicLogger();
     await loadConfig();
@@ -102,11 +111,13 @@ describe('restricted MCP mode', () => {
         models.map(m => [m.handle, m.description])
       );
       expect(Object.keys(byHandle).sort()).toEqual([
+        'crlf.malloy',
         'givens_model.malloy',
         'published.malloy',
         'sub/nested.malloy',
       ]);
       expect(byHandle['secret.malloy']).toBeUndefined();
+      expect(byHandle['.hidden/buried.malloy']).toBeUndefined();
       expect(byHandle['published.malloy']).toBe(
         'Orders for the test shop.\nTwo line description.'
       );
@@ -115,9 +126,10 @@ describe('restricted MCP mode', () => {
   });
 
   describe('resolveHandle', () => {
-    it('accepts a marked model (including nested)', () => {
+    it('accepts a marked model (including nested and CRLF)', () => {
       expect(resolveHandle(root, 'published.malloy')).toHaveProperty('abs');
       expect(resolveHandle(root, 'sub/nested.malloy')).toHaveProperty('abs');
+      expect(resolveHandle(root, 'crlf.malloy')).toHaveProperty('abs');
     });
 
     it.each([
@@ -125,6 +137,7 @@ describe('restricted MCP mode', () => {
       ['parent traversal', '../escape.malloy'],
       ['absolute path', '/etc/passwd'],
       ['missing file', 'nope.malloy'],
+      ['hidden-dir model', '.hidden/buried.malloy'],
     ])('rejects %s as model-not-found', (_label, handle) => {
       const res = resolveHandle(root, handle);
       expect(res).not.toHaveProperty('abs');

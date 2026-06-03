@@ -1,6 +1,6 @@
 /* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */
 
-import {MalloyError, GivenValue} from '@malloydata/malloy';
+import {MalloyError, GivenValue, QueryMaterializer} from '@malloydata/malloy';
 import {
   SourceInput,
   Problem,
@@ -61,66 +61,85 @@ export async function run(
   }
   const {model, rootUrl, runtime} = loadRes.loaded;
   const modelQueries = model.queries();
+  const materializer = runtime.loadModel(rootUrl);
 
-  try {
-    const materializer = runtime.loadModel(rootUrl);
-    let query;
-    if (selector.name) {
-      if (!modelQueries.named.includes(selector.name)) {
-        const available = {
-          queries: modelQueries.named,
-          runs: modelQueries.unnamed,
-        };
-        return {
-          ok: false,
-          problems: [
-            {
-              severity: 'error',
-              code: 'selector-not-found',
-              message: `No query named '${
-                selector.name
-              }'. Available: ${JSON.stringify(available)}`,
-              uri: rootUrl.href,
-            },
-          ],
-        };
-      }
-      query = materializer.loadQueryByName(selector.name);
-    } else if (typeof selector.index === 'number') {
-      if (selector.index < 0 || selector.index >= modelQueries.unnamed) {
-        return {
-          ok: false,
-          problems: [
-            {
-              severity: 'error',
-              code: 'selector-out-of-range',
-              message: `Index ${selector.index} out of range; file has ${modelQueries.unnamed} run: statement(s).`,
-              uri: rootUrl.href,
-            },
-          ],
-        };
-      }
-      query = materializer.loadQueryByIndex(selector.index);
-    } else {
-      if (modelQueries.unnamed === 0) {
-        return {
-          ok: false,
-          problems: [
-            {
-              severity: 'error',
-              code: 'no-run',
-              message:
-                'Source has no run: statement. Specify a named query via `name`, or add a run: to the source.',
-              uri: rootUrl.href,
-            },
-          ],
-        };
-      }
-      query = materializer.loadFinalQuery();
+  let query: QueryMaterializer;
+  if (selector.name) {
+    if (!modelQueries.named.includes(selector.name)) {
+      const available = {
+        queries: modelQueries.named,
+        runs: modelQueries.unnamed,
+      };
+      return {
+        ok: false,
+        problems: [
+          {
+            severity: 'error',
+            code: 'selector-not-found',
+            message: `No query named '${
+              selector.name
+            }'. Available: ${JSON.stringify(available)}`,
+            uri: rootUrl.href,
+          },
+        ],
+      };
     }
+    query = materializer.loadQueryByName(selector.name);
+  } else if (typeof selector.index === 'number') {
+    if (selector.index < 0 || selector.index >= modelQueries.unnamed) {
+      return {
+        ok: false,
+        problems: [
+          {
+            severity: 'error',
+            code: 'selector-out-of-range',
+            message: `Index ${selector.index} out of range; file has ${modelQueries.unnamed} run: statement(s).`,
+            uri: rootUrl.href,
+          },
+        ],
+      };
+    }
+    query = materializer.loadQueryByIndex(selector.index);
+  } else {
+    if (modelQueries.unnamed === 0) {
+      return {
+        ok: false,
+        problems: [
+          {
+            severity: 'error',
+            code: 'no-run',
+            message:
+              'Source has no run: statement. Specify a named query via `name`, or add a run: to the source.',
+            uri: rootUrl.href,
+          },
+        ],
+      };
+    }
+    query = materializer.loadFinalQuery();
+  }
 
-    const rowLimit = selector.rowLimit ?? DEFAULT_ROW_LIMIT;
-    const compileOpts = selector.givens ? {givens: selector.givens} : undefined;
+  return executeMaterializedQuery(
+    query,
+    selector.rowLimit ?? DEFAULT_ROW_LIMIT,
+    selector.givens,
+    loadRes.problems,
+    {nudge: p => nudgeIfFieldNotFound(p, input), uri: rootUrl.href}
+  );
+}
+
+/**
+ * Run a materialized query and shape the uniform RunResult. Shared by the open
+ * `run` and the restricted run path.
+ */
+export async function executeMaterializedQuery(
+  query: QueryMaterializer,
+  rowLimit: number,
+  givens: Record<string, GivenValue> | undefined,
+  loadProblems: Problem[],
+  opts: {nudge?: (p: Problem) => Problem; uri?: string} = {}
+): Promise<RunResult> {
+  const compileOpts = givens ? {givens} : undefined;
+  try {
     const t0 = Date.now();
     const sql = (await query.getSQL(compileOpts)).trim();
     const t1 = Date.now();
@@ -128,33 +147,26 @@ export async function run(
       query.run({rowLimit, ...compileOpts})
     );
     const t2 = Date.now();
-    const json = results.toJSON();
-    const rows = json.queryResult.result;
-    const truncated = rows.length === rowLimit;
+    const rows = results.toJSON().queryResult.result;
     return {
       ok: true,
       sql,
       rowCount: rows.length,
-      truncated,
+      truncated: rows.length === rowLimit,
       rows,
       compileTimeMS: t1 - t0,
       totalTimeMS: t2 - t0,
-      problems: loadRes.problems,
+      problems: loadProblems,
     };
   } catch (e) {
+    const nudge = opts.nudge ?? ((p: Problem) => p);
     if (e instanceof MalloyError) {
       return {
         ok: false,
-        problems: [
-          ...loadRes.problems,
-          ...mapProblems(e.problems).map(p => nudgeIfFieldNotFound(p, input)),
-        ],
+        problems: [...loadProblems, ...mapProblems(e.problems).map(nudge)],
       };
     }
-    return {
-      ok: false,
-      problems: [...loadRes.problems, errorProblem(e, rootUrl.href)],
-    };
+    return {ok: false, problems: [...loadProblems, errorProblem(e, opts.uri)]};
   }
 }
 

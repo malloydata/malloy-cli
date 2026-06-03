@@ -87,6 +87,32 @@ export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : `${error}`;
 }
 
+export function isMalloyFile(p: string): boolean {
+  return path.extname(p).toLowerCase() === '.malloy';
+}
+
+/** Path segments the .malloy walk skips: dotfiles/dirs and node_modules. */
+export function isHiddenPathSegment(name: string): boolean {
+  return name.startsWith('.') || name === 'node_modules';
+}
+
+export function findMalloyFiles(dir: string): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, {withFileTypes: true});
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const entry of entries) {
+    if (isHiddenPathSegment(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...findMalloyFiles(full));
+    else if (entry.isFile() && isMalloyFile(full)) out.push(full);
+  }
+  return out;
+}
+
 // Matches DuckDB's file-lock error. DuckDB doesn't expose a typed error code
 // for this; the message is the only signal.
 const DUCKDB_LOCK_ERROR = /Could not set lock on file/;
