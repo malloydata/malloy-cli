@@ -6,6 +6,13 @@ import {GivenValue} from '@malloydata/malloy';
 import {z} from 'zod';
 import {compile, listRuns} from './compile';
 import {run} from './run';
+import {
+  listModels,
+  describeModel,
+  compileRestricted,
+  runRestricted,
+  resolveModelRoot,
+} from './restricted';
 import {listTopics, getTopic} from './help';
 import {loadSkills, skillsDir} from './skills';
 import {malloyConfig} from '../config';
@@ -43,6 +50,12 @@ const uriSchema = z
 
 const sourceSchema = z.string().describe('Malloy source code.');
 
+const rowLimitSchema = z
+  .number()
+  .int()
+  .optional()
+  .describe('Maximum number of rows to return. Defaults to 10000.');
+
 const givensSchema = z
   .record(z.string(), z.unknown())
   .optional()
@@ -65,6 +78,27 @@ const baseUriSchema = z
     'Optional URI used to resolve relative imports in the inline source. ' +
       'Typically the file:// URI of the file the snippet will live next to. ' +
       'If omitted, imports must be absolute.'
+  );
+
+const modelSchema = z
+  .string()
+  .describe(
+    'Handle of a published model, as returned by `list_models` (a path ' +
+      'relative to the server\'s model root, e.g. "sales/orders.malloy"). ' +
+      'You cannot name an arbitrary file — only published models are ' +
+      'reachable.'
+  );
+
+const restrictedQuerySchema = z
+  .string()
+  .describe(
+    'Malloy query text to compile against the chosen model. May contain ' +
+      '`source:` / `query:` / `run:` statements and reference anything the ' +
+      'model already defines, plus `$NAME` givens it declared. May NOT use ' +
+      '`import`, declare `given:`, call `connection.table(...)` / ' +
+      '`connection.sql(...)`, use the `name!type(...)` raw-SQL form or the ' +
+      '`sql_*` functions, or set `##!` compiler flags — those are rejected ' +
+      'with code `restricted-construct-forbidden`.'
   );
 
 /**
@@ -90,6 +124,15 @@ function toContent(result: object) {
     content: [{type: 'text' as const, text: JSON.stringify(result, null, 2)}],
     structuredContent,
   };
+}
+
+// After every tool call, idle (not close) the connection cache so the next
+// call transparently reattaches with its schema cache intact while file
+// locks / pooled sockets are released between calls. Lets a co-running
+// DuckDB process (e.g., a VS Code extension or a separate CLI invocation)
+// acquire the same DB file.
+async function idleConnections(): Promise<void> {
+  await malloyConfig.shutdown('idle');
 }
 
 const SERVER_INSTRUCTIONS = `
@@ -160,24 +203,143 @@ It describes the .malloynb cell format, how to ask for the target file
 if one hasn't been specified, and what to append.
 `.trim();
 
-export async function runMcpServer(): Promise<void> {
-  // After every tool call, idle (not close) the connection cache so the next
-  // call transparently reattaches with its schema cache intact while file
-  // locks / pooled sockets are released between calls. Lets a co-running
-  // DuckDB process (e.g., a VS Code extension or a separate CLI invocation)
-  // acquire the same DB file.
-  async function idleConnections(): Promise<void> {
-    await malloyConfig.shutdown('idle');
-  }
+const RESTRICTED_INSTRUCTIONS = `
+This server exposes a curated set of Malloy models and lets you query them.
+You cannot open files by path, import other files, reach raw tables, or write
+SQL — only ask questions of the published models, in Malloy.
 
-  const server = new McpServer(
+## Workflow
+
+1. \`list_models\` — discover the models you can query. Each entry has a
+   \`handle\` (pass it as \`model\`) and a \`description\` from the model author.
+2. \`describe_model\` — inspect one model's curated surface: its sources with
+   dimensions / measures / views / joins, named queries, and givens. This is
+   how you learn what is queryable before writing anything.
+3. \`compile\` — validate your Malloy \`query\` against a model without running
+   it. Iterate on the returned \`problems[]\` until clean.
+4. \`run\` — execute the query and get SQL + rows.
+
+## What restricted query text may and may not do
+
+Your \`query\` may contain \`source:\`, \`query:\`, and \`run:\` statements, freely
+reference anything the model already defines (sources, measures, dimensions,
+views, joins), and reference \`$NAME\` givens the model declared (supply values
+via the \`givens\` map on \`run\`).
+
+It may NOT \`import\`, declare new \`given:\`s, call \`connection.table(...)\` or
+\`connection.sql(...)\`, use the \`name!type(...)\` raw-SQL form or the \`sql_*\`
+functions, or set \`##!\` compiler flags. These are rejected with code
+\`restricted-construct-forbidden\`. The model author already vouched for
+whatever the model's own definitions use, so a model field defined with
+\`connection.sql(...)\` is still fine to reference.
+
+## Always show the Malloy source and timing
+
+After every \`run\` or \`compile\`, show the user the Malloy query you submitted
+(even on error) and, on a successful run, \`totalTimeMS\` as
+"X ms total (Y ms compile)".
+
+When you need Malloy syntax, call \`language_help(topic)\` before guessing, and
+again after any compile error whose fix is not obvious.
+`.trim();
+
+/** Tools safe in any mode — they touch neither the filesystem nor connections. */
+function registerSharedTools(server: McpServer): void {
+  // ------------------------------------------------------------------
+  // prettify — reformat a Malloy source string.
+  // ------------------------------------------------------------------
+  server.registerTool(
+    'prettify',
     {
-      name: 'malloy-cli',
-      version: pkg.version ?? 'development',
+      title: 'Pretty-print Malloy source',
+      description:
+        'Reformat a Malloy source string. Returns the formatted source and ' +
+        'any parse errors (lexer + parser only — semantic errors are not ' +
+        'checked here; use `compile` for that). When `errors` is non-empty ' +
+        'the formatted output is best-effort and may not round-trip; fix the ' +
+        'parse errors first. Useful for cleaning up freshly-authored or ' +
+        'machine-generated Malloy before saving.',
+      inputSchema: {source: sourceSchema},
     },
-    {instructions: SERVER_INSTRUCTIONS}
+    async ({source}) => toContent(prettifyMalloy(source))
   );
 
+  // ------------------------------------------------------------------
+  // language_help — topic-indexed slice of the Malloy language reference.
+  // ------------------------------------------------------------------
+  server.registerTool(
+    'language_help',
+    {
+      title: 'Malloy language reference (by topic)',
+      description:
+        'Look up a section of the Malloy language reference by topic slug ' +
+        'or title. Call this before guessing syntax — especially for ' +
+        'pipelines, reduction vs projection, aggregate locality, ' +
+        'calculations/window functions, filtered aggregates, pick ' +
+        'expressions, time ranges, tags/annotations. Also call this after ' +
+        'any compile error whose fix is not obvious from the message — ' +
+        "problems[] entries carry a `help_topic` field when there's a " +
+        'natural match. Call with no topic to list the available topics.',
+      inputSchema: {
+        topic: z
+          .string()
+          .optional()
+          .describe(
+            'Topic slug or title to look up (case-insensitive; substrings ' +
+              'match). Omit to list all available topics.'
+          ),
+      },
+    },
+    async ({topic}) => {
+      if (!topic) {
+        return toContent({topics: listTopics()});
+      }
+      const hit = getTopic(topic);
+      if (!hit) {
+        return toContent({
+          error: `No topic matches '${topic}'.`,
+          topics: listTopics(),
+        });
+      }
+      return toContent({
+        slug: hit.slug,
+        title: hit.title,
+        body: hit.body,
+      });
+    }
+  );
+
+  // ------------------------------------------------------------------
+  // Skills: language-reference prompts + resources, no NL→Malloy tool.
+  // ------------------------------------------------------------------
+  const skills = loadSkills(skillsDir());
+  for (const skill of skills) {
+    server.registerPrompt(
+      skill.name,
+      {title: skill.name, description: skill.description},
+      () => ({
+        messages: [{role: 'user', content: {type: 'text', text: skill.body}}],
+      })
+    );
+    server.registerResource(
+      skill.name,
+      `malloy-skill://${skill.name}`,
+      {
+        title: skill.name,
+        description: skill.description,
+        mimeType: 'text/markdown',
+      },
+      async uri => ({
+        contents: [
+          {uri: uri.href, mimeType: 'text/markdown', text: skill.body},
+        ],
+      })
+    );
+  }
+}
+
+/** The open toolset: arbitrary file URIs and inline source (trusted operator). */
+function registerOpenTools(server: McpServer): void {
   // ------------------------------------------------------------------
   // compile_file — fetch and compile a .malloy file by URI.
   // ------------------------------------------------------------------
@@ -274,11 +436,7 @@ export async function runMcpServer(): Promise<void> {
           .int()
           .optional()
           .describe('0-based index into run: statements.'),
-        row_limit: z
-          .number()
-          .int()
-          .optional()
-          .describe('Maximum number of rows to return. Defaults to 10000.'),
+        row_limit: rowLimitSchema,
         givens: givensSchema,
       },
     },
@@ -309,11 +467,7 @@ export async function runMcpServer(): Promise<void> {
       inputSchema: {
         source: sourceSchema,
         base_uri: baseUriSchema,
-        row_limit: z
-          .number()
-          .int()
-          .optional()
-          .describe('Maximum number of rows to return. Defaults to 10000.'),
+        row_limit: rowLimitSchema,
         givens: givensSchema,
       },
     },
@@ -324,70 +478,6 @@ export async function runMcpServer(): Promise<void> {
       );
       await idleConnections();
       return toContent(result);
-    }
-  );
-
-  // ------------------------------------------------------------------
-  // prettify — reformat a Malloy source string.
-  // ------------------------------------------------------------------
-  server.registerTool(
-    'prettify',
-    {
-      title: 'Pretty-print Malloy source',
-      description:
-        'Reformat a Malloy source string. Returns the formatted source and ' +
-        'any parse errors (lexer + parser only — semantic errors are not ' +
-        'checked here; use `compile` for that). When `errors` is non-empty ' +
-        'the formatted output is best-effort and may not round-trip; fix the ' +
-        'parse errors first. Useful for cleaning up freshly-authored or ' +
-        'machine-generated Malloy before saving.',
-      inputSchema: {source: sourceSchema},
-    },
-    async ({source}) => toContent(prettifyMalloy(source))
-  );
-
-  // ------------------------------------------------------------------
-  // language_help — topic-indexed slice of the Malloy language reference.
-  // ------------------------------------------------------------------
-  server.registerTool(
-    'language_help',
-    {
-      title: 'Malloy language reference (by topic)',
-      description:
-        'Look up a section of the Malloy language reference by topic slug ' +
-        'or title. Call this before guessing syntax — especially for ' +
-        'pipelines, reduction vs projection, aggregate locality, ' +
-        'calculations/window functions, filtered aggregates, pick ' +
-        'expressions, time ranges, tags/annotations. Also call this after ' +
-        'any compile error whose fix is not obvious from the message — ' +
-        "problems[] entries carry a `help_topic` field when there's a " +
-        'natural match. Call with no topic to list the available topics.',
-      inputSchema: {
-        topic: z
-          .string()
-          .optional()
-          .describe(
-            'Topic slug or title to look up (case-insensitive; substrings ' +
-              'match). Omit to list all available topics.'
-          ),
-      },
-    },
-    async ({topic}) => {
-      if (!topic) {
-        return toContent({topics: listTopics()});
-      }
-      const hit = getTopic(topic);
-      if (!hit) {
-        return toContent({
-          error: `No topic matches '${topic}'.`,
-          topics: listTopics(),
-        });
-      }
-      return toContent({
-        slug: hit.slug,
-        title: hit.title,
-        body: hit.body,
-      });
     }
   );
 
@@ -415,34 +505,141 @@ export async function runMcpServer(): Promise<void> {
       return toContent(result);
     }
   );
+}
+
+/**
+ * The restricted toolset: an agent selects a published model by handle and
+ * submits restricted query text. No arbitrary URIs, no inline `import`.
+ */
+function registerRestrictedTools(server: McpServer, root: string): void {
+  // ------------------------------------------------------------------
+  // list_models — published models the agent may query.
+  // ------------------------------------------------------------------
+  server.registerTool(
+    'list_models',
+    {
+      title: 'List published Malloy models',
+      description:
+        'List the models this server exposes. Each entry has a `handle` ' +
+        '(pass it as `model` to describe_model / compile / run) and a ' +
+        '`description` written by the model author. These are the only ' +
+        'models you can query — you cannot open files by path or import ' +
+        'anything else.',
+      inputSchema: {},
+    },
+    async () => toContent({models: listModels(root)})
+  );
 
   // ------------------------------------------------------------------
-  // Skills: language-reference prompts + resources, no NL→Malloy tool.
+  // describe_model — curated surface of one published model.
   // ------------------------------------------------------------------
-  const skills = loadSkills(skillsDir());
-  for (const skill of skills) {
-    server.registerPrompt(
-      skill.name,
-      {title: skill.name, description: skill.description},
-      () => ({
-        messages: [{role: 'user', content: {type: 'text', text: skill.body}}],
-      })
-    );
-    server.registerResource(
-      skill.name,
-      `malloy-skill://${skill.name}`,
-      {
-        title: skill.name,
-        description: skill.description,
-        mimeType: 'text/markdown',
+  server.registerTool(
+    'describe_model',
+    {
+      title: 'Inspect a published model',
+      description:
+        'Return the curated semantic surface of a published model: sources ' +
+        '(with dimensions, measures, views, joins), named queries, and ' +
+        'givens. Pick `model` from `list_models`. This is how you learn ' +
+        'what is queryable before writing a restricted query — prefer it ' +
+        'over guessing field names.',
+      inputSchema: {
+        model: modelSchema,
+        expand: expandSchema,
+        emit_run_sql: emitRunSqlSchema,
       },
-      async uri => ({
-        contents: [
-          {uri: uri.href, mimeType: 'text/markdown', text: skill.body},
-        ],
-      })
-    );
+    },
+    async ({model, expand, emit_run_sql}) => {
+      const result = await describeModel(root, model, {
+        expand,
+        emitRunSql: emit_run_sql,
+      });
+      await idleConnections();
+      return toContent(result);
+    }
+  );
+
+  // ------------------------------------------------------------------
+  // compile — validate restricted query text against a model.
+  // ------------------------------------------------------------------
+  server.registerTool(
+    'compile',
+    {
+      title: 'Validate a restricted query against a model',
+      description:
+        'Compile (validate only, no execution) Malloy `query` text against ' +
+        'the published `model`. Returns `problems[]`; iterate until clean, ' +
+        'then `run`. Forbidden constructs (import, given: declarations, ' +
+        'connection.table/sql, name!type(...), the sql_* functions, ##! ' +
+        'flags) are rejected with code `restricted-construct-forbidden`.',
+      inputSchema: {model: modelSchema, query: restrictedQuerySchema},
+    },
+    async ({model, query}) => {
+      const result = await compileRestricted(root, model, query);
+      await idleConnections();
+      return toContent(result);
+    }
+  );
+
+  // ------------------------------------------------------------------
+  // run — execute restricted query text against a model.
+  // ------------------------------------------------------------------
+  server.registerTool(
+    'run',
+    {
+      title: 'Run a restricted query against a model',
+      description:
+        'Compile `query` against the published `model` in restricted mode ' +
+        "and execute it against the operator's configured connections. " +
+        'Returns the generated SQL and rows (default 10000, set row_limit ' +
+        'to override). Supply values for any `$NAME` givens the model ' +
+        'declares via the `givens` map. Same restrictions as `compile`.',
+      inputSchema: {
+        model: modelSchema,
+        query: restrictedQuerySchema,
+        row_limit: rowLimitSchema,
+        givens: givensSchema,
+      },
+    },
+    async ({model, query, row_limit, givens}) => {
+      const result = await runRestricted(root, model, query, {
+        rowLimit: row_limit,
+        givens: asGivens(givens),
+      });
+      await idleConnections();
+      return toContent(result);
+    }
+  );
+}
+
+export interface McpServerOptions {
+  /** Serve only curated models from `projectDir`, with restricted queries. */
+  restricted?: boolean;
+  /** The `-p DIR` project dir; the model root when `restricted` is set. */
+  projectDir?: string;
+}
+
+export async function runMcpServer(opts: McpServerOptions = {}): Promise<void> {
+  const root = opts.restricted ? resolveModelRoot(opts.projectDir) : undefined;
+
+  const server = new McpServer(
+    {
+      name: 'malloy-cli',
+      version: pkg.version ?? 'development',
+    },
+    {
+      instructions: opts.restricted
+        ? RESTRICTED_INSTRUCTIONS
+        : SERVER_INSTRUCTIONS,
+    }
+  );
+
+  if (root !== undefined) {
+    registerRestrictedTools(server, root);
+  } else {
+    registerOpenTools(server);
   }
+  registerSharedTools(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

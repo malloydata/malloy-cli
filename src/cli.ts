@@ -334,9 +334,25 @@ exits non-zero.`
 Exposes Malloy authoring capabilities (compile_malloy tool, bundled
 language-reference prompts) as a Model Context Protocol server. Intended to
 be spawned by an MCP client (Claude Code, Claude Desktop, etc.) — not run
-interactively. Reads JSON-RPC frames on stdin and writes replies on stdout.`
+interactively. Reads JSON-RPC frames on stdin and writes replies on stdout.
+
+With --restricted, the server exposes only the curated models under the
+-p DIR project dir (those carrying a ##|(mcp-description) marker). Clients
+select a model by handle and submit query text that is compiled in restricted
+mode — no import, no raw file/table access, no SQL escape hatches.`
     )
-    .action(mcpCommand);
+    .option(
+      '--restricted',
+      'serve only curated models under -p DIR; clients submit restricted ' +
+        'query text against a selected model (no import / raw URIs / SQL ' +
+        'escapes). Requires -p DIR.'
+    )
+    .action(opts =>
+      mcpCommand({
+        restricted: !!opts.restricted,
+        projectDir: cli.opts().projectDir,
+      })
+    );
 
   cli
     .command('third-party')

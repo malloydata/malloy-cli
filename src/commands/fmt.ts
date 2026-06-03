@@ -1,10 +1,9 @@
 /* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */
 
 import fs from 'fs';
-import path from 'path';
 import {prettifyMalloy, PrettifyError} from '../malloy/prettify';
 import {out} from '../log';
-import {exitWithError} from '../util';
+import {exitWithError, findMalloyFiles, isMalloyFile} from '../util';
 
 export interface FmtOptions {
   write?: true;
@@ -89,7 +88,7 @@ function collectFiles(paths: string[]): string[] {
     }
     const stat = fs.statSync(p);
     if (stat.isDirectory()) {
-      walk(p, acc);
+      acc.push(...findMalloyFiles(p));
     } else if (isMalloyFile(p)) {
       acc.push(p);
     } else {
@@ -97,22 +96,6 @@ function collectFiles(paths: string[]): string[] {
     }
   }
   return acc;
-}
-
-function walk(dir: string, acc: string[]): void {
-  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walk(full, acc);
-    } else if (entry.isFile() && isMalloyFile(full)) {
-      acc.push(full);
-    }
-  }
-}
-
-function isMalloyFile(p: string): boolean {
-  return path.extname(p).toLowerCase() === '.malloy';
 }
 
 function reportErrors(label: string, errors: PrettifyError[]): void {
