@@ -158,7 +158,16 @@ then dies at first DuckDB use with `Library not loaded`. The `pkg.assets` glob i
 
 ## Copyright headers
 
-Two styles coexist deliberately:
-- **New files:** short SPDX —
-  `/* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */`
-- **Existing files:** keep their original Google LLC header. Don't rewrite them.
+Every source file carries the canonical short SPDX header:
+
+```
+/*
+ * Copyright Contributors to the Malloy project
+ * SPDX-License-Identifier: MIT
+ */
+```
+
+(equivalent comment styles for other languages). New files use it as-is; don't
+reintroduce the old long-form Google header. The original `Copyright 2023 Google
+LLC` MIT notice is preserved verbatim in `LICENSE` under "HISTORICAL
+ATTRIBUTIONS & NOTICES" — per-file authorship lives in the git history.
