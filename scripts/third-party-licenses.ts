@@ -4,7 +4,6 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
 
 /*
  * This script produces a CSV useful for evaluating licenses for third-party software incuded in a binary, and
@@ -14,11 +13,11 @@
  */
 
 import {execSync} from 'child_process';
-// eslint-disable-next-line node/no-unpublished-import
+
 import axios from 'axios';
 import https from 'https';
 import fs from 'fs';
-// eslint-disable-next-line node/no-unpublished-import
+
 import {stringify} from 'csv-stringify';
 import {readPackageJson} from './utils/licenses';
 import path from 'path';

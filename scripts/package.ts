@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* eslint-disable no-console */
 import {defaultBuildDirectory, doBuild} from './build';
 import * as pkg from '@yao-pkg/pkg';
 import path from 'path';

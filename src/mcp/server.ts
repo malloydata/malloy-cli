@@ -18,7 +18,6 @@ import {loadSkills, skillsDir} from './skills';
 import {malloyConfig} from '../config';
 import {prettifyMalloy} from '../malloy/prettify';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const pkg = require('../../package.json');
 
 const expandSchema = z

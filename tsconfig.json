@@ -1,6 +1,8 @@
 {
   "exclude": ["**/node_modules"],
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "types": ["node", "jest"],
     "esModuleInterop": true,
     "noEmit": true,
     "module": "commonjs",
