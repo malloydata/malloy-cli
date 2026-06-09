@@ -145,9 +145,12 @@ export function getFilteredResultsLogger(
   outputs: StandardOutputType[] | 'json'
 ) {
   const sends = outputs;
+  const allowed = new Set<string>(sends === 'json' ? ['json'] : sends);
 
   const customizeOutput: TransformFunction = (info, _opts) => {
-    return sends.includes(info.type) ? info : false;
+    return typeof info.type === 'string' && allowed.has(info.type)
+      ? info
+      : false;
   };
 
   const logger = createWinstonLogger({
