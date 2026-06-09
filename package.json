@@ -76,7 +76,7 @@
     "@duckdb/node-bindings-win32-x64": "1.5.3-r.2"
   },
   "devDependencies": {
-    "@actions/core": "^1.11.1",
+    "@actions/core": "^3.0.1",
     "@actions/github": "^6.0.0",
     "@commander-js/extra-typings": "^12.1.0",
     "@duckdb/node-api": "1.5.3-r.2",
