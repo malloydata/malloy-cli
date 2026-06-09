@@ -66,7 +66,27 @@ export async function runMalloy(
             );
             break;
         }
-      } else query = modelMaterializer.loadFinalQuery();
+      } else {
+        // No query specified: default to the model's final query. A model
+        // with no queries at all isn't an error — compiling it still
+        // validates the model, and running it simply has nothing to do.
+        const model = await modelMaterializer.getModel();
+        const {named, unnamed} = model.queries();
+        if (named.length + unnamed === 0) {
+          if (options.compileOnly) {
+            // Compiling validates the model; with nothing to run that's a
+            // clean success.
+            resultsLog.malloy(
+              'Model compiled successfully (no queries to compile).'
+            );
+            return JSON.stringify(json);
+          }
+          // Asking to run a model with nothing to run is an error: report it
+          // to stderr and exit non-zero.
+          resultsLog.error('Nothing to run: this model has no queries.');
+        }
+        query = modelMaterializer.loadFinalQuery();
+      }
 
       const givensOpt = options.givens ? {givens: options.givens} : {};
       const sql = await query.getSQL(givensOpt);
