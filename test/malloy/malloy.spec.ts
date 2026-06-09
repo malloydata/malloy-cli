@@ -45,6 +45,23 @@ describe('Malloy', () => {
     // TODO
   });
 
+  describe('no queries', () => {
+    const fixture = path.resolve(
+      path.join(__dirname, '..', 'files', 'no_queries.malloy')
+    );
+
+    it('compiles a file with no queries without erroring', async () => {
+      const out = await runMalloy(fixture, {compileOnly: true, json: true});
+      expect(JSON.parse(out as string)).not.toHaveProperty('error');
+    });
+
+    it('errors when asked to run a file with no queries', async () => {
+      await expect(
+        runMalloy(fixture, {compileOnly: false, json: true})
+      ).rejects.toThrow('Nothing to run: this model has no queries.');
+    });
+  });
+
   describe('givens', () => {
     const fixture = path.resolve(
       path.join(__dirname, '..', 'files', 'givens_sql.malloy')
