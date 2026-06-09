@@ -210,9 +210,8 @@ export async function buildFiles(
       if (!(connName in connectionDigests)) {
         let connection: Connection;
         try {
-          connection = await malloyConfig.connections.lookupConnection(
-            connName
-          );
+          connection =
+            await malloyConfig.connections.lookupConnection(connName);
         } catch (e) {
           out(
             `  ${chalk.red('✗')} ${chalk.red(
@@ -317,9 +316,8 @@ export async function buildFiles(
         const startTime = Date.now();
         try {
           await withDuckdbLockRetry(async () => {
-            const connection = await malloyConfig.connections.lookupConnection(
-              connName
-            );
+            const connection =
+              await malloyConfig.connections.lookupConnection(connName);
             await createTableFromSelect(connection, source, tableName, sql);
           });
 

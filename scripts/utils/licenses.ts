@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* eslint-disable no-console */
 import fs from 'fs';
 
 export interface NpmPackage {

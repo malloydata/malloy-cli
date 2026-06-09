@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* eslint-disable no-console */
 import {build, BuildOptions, Plugin} from 'esbuild';
 import * as esbuild from 'esbuild';
 import * as path from 'path';

@@ -8,7 +8,7 @@ import {readPackageJson} from './utils/licenses';
 import fs from 'fs';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-console */
+
 let filePath: string;
 let seen: {[id: string]: boolean} = {};
 
@@ -47,8 +47,6 @@ function doDependencies(
   packageJson: any,
   includeDevDependencies = false
 ): void {
-  // eslint-disable-next-line no-prototype-builtins
-
   // eslint-disable-next-line no-prototype-builtins
   let dependencies = packageJson.hasOwnProperty('dependencies')
     ? packageJson.dependencies

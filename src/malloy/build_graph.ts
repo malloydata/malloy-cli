@@ -1,6 +1,6 @@
 /* Copyright Contributors to the Malloy project / SPDX-License-Identifier: MIT */
 
-import {type BuildNode} from '@malloydata/malloy';
+import {BuildNode} from '@malloydata/malloy';
 
 /**
  * Flatten a BuildNode tree into topological order (dependencies first).
