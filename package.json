@@ -73,7 +73,7 @@
     "@duckdb/node-bindings-linux-x64": "1.5.3-r.2",
     "@duckdb/node-bindings-linux-x64-musl": "1.5.3-r.2",
     "@duckdb/node-bindings-win32-arm64": "1.5.3-r.2",
-    "@duckdb/node-bindings-win32-x64": "1.5.3-r.2"
+    "@duckdb/node-bindings-win32-x64": "1.5.3-r.3"
   },
   "devDependencies": {
     "@actions/core": "^1.11.1",
