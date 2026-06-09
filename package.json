@@ -102,7 +102,7 @@
     "esbuild": "0.28.0",
     "eslint": "^8.32.0",
     "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-prettier": "^5.5.6",
     "gts": "^3.1.1",
     "jest": "^29.3.1",
     "jest-silent-reporter": "^0.6.0",
