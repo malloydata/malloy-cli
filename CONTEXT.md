@@ -5,7 +5,8 @@ Thin CLI on top of `@malloydata/malloy` and `@malloydata/malloy-connections`. Pu
 
 This file lists things that aren't obvious from reading the code: invariants, silent
 gotchas, decisions whose rationale isn't in any commit message, cross-cutting "don't do
-this" warnings. For layout, scripts, deps, etc. — read the tree.
+this" warnings. For layout, scripts, deps, etc. — read the tree. CI, release, and Dependabot
+specifics live in `.github/CONTEXT.md`.
 
 ## Build output filename quirk
 

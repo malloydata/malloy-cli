@@ -6,9 +6,24 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
+      duckdb:
+        patterns:
+          - "@duckdb/*"
+      toolchain:
+        patterns:
+          - "gts"
+          - "typescript"
+          - "eslint"
+          - "eslint-*"
+          - "@typescript-eslint/*"
+          - "prettier"
+        update-types:
+          - "major"
       minor-and-patch:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@duckdb/*"
         update-types:
           - "minor"
           - "patch"
