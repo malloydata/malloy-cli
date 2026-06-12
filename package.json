@@ -97,7 +97,7 @@
     "chalk": "^4.0.0",
     "commander": "^12.1.0",
     "csv-stringify": "^6.4.0",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "gts": "^7.0.0",
     "jest": "^30.4.2",
     "jest-silent-reporter": "^0.6.0",
