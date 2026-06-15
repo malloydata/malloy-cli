@@ -118,6 +118,15 @@ It is not a plain `npm update` — three steps in order:
    installed `@malloydata/db-duckdb`'s `@duckdb/node-api` wants. Keeping these in lockstep
    is what stops the standalone binary from loading a mismatched native lib.
 3. A final `npm install` to reconcile the lockfile.
+4. `npm run check-native` — fails if the re-resolved lockfile gained a native package
+   (lockfile entry with `os`/`cpu`, or `hasInstallScript`) not listed in
+   `scripts/approved-native-deps.json`. Re-resolution can float an unpinned transitive dep
+   to a version that ships a `.node` binary; esbuild can't bundle those, so `npm run build`
+   breaks and it only surfaces in CI (this is how `@databricks/sql` 1.16.0 broke the
+   0.0.411 bump). When it fires, pin the dep — upstream in malloy, which owns the connector,
+   or locally — and re-run; or, if the binary is genuinely wanted, externalize it in
+   `build.ts` and ship it like the DuckDB bindings, then `npm run approve-native` to record
+   it (the per-entry `note` documents why each is approved).
 
 `malloy-update-next` is the same against the `next` (pre-release) tag. After either, run
 `npm run lint && npm run build && npm run test-silent`; if you touched DuckDB, also
