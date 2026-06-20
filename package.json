@@ -68,21 +68,21 @@
     "winston"
   ],
   "optionalDependencies": {
-    "@duckdb/node-bindings-darwin-arm64": "1.5.3-r.2",
-    "@duckdb/node-bindings-darwin-x64": "1.5.3-r.2",
-    "@duckdb/node-bindings-linux-arm64": "1.5.3-r.2",
-    "@duckdb/node-bindings-linux-arm64-musl": "1.5.3-r.2",
-    "@duckdb/node-bindings-linux-x64": "1.5.3-r.2",
-    "@duckdb/node-bindings-linux-x64-musl": "1.5.3-r.2",
-    "@duckdb/node-bindings-win32-arm64": "1.5.3-r.2",
-    "@duckdb/node-bindings-win32-x64": "1.5.3-r.2"
+    "@duckdb/node-bindings-darwin-arm64": "1.5.3-r.3",
+    "@duckdb/node-bindings-darwin-x64": "1.5.3-r.3",
+    "@duckdb/node-bindings-linux-arm64": "1.5.3-r.3",
+    "@duckdb/node-bindings-linux-arm64-musl": "1.5.3-r.3",
+    "@duckdb/node-bindings-linux-x64": "1.5.3-r.3",
+    "@duckdb/node-bindings-linux-x64-musl": "1.5.3-r.3",
+    "@duckdb/node-bindings-win32-arm64": "1.5.3-r.3",
+    "@duckdb/node-bindings-win32-x64": "1.5.3-r.3"
   },
   "devDependencies": {
     "@actions/core": "^3.0.1",
     "@actions/github": "^9.1.1",
     "@commander-js/extra-typings": "^12.1.0",
-    "@duckdb/node-api": "1.5.3-r.2",
-    "@duckdb/node-bindings": "1.5.3-r.2",
+    "@duckdb/node-api": "1.5.3-r.3",
+    "@duckdb/node-bindings": "1.5.3-r.3",
     "@malloydata/db-bigquery": "0.0.415",
     "@malloydata/db-duckdb": "0.0.415",
     "@malloydata/db-postgres": "0.0.415",
