@@ -27,7 +27,11 @@ export const commonCLIConfig = (development = false): BuildOptions => {
     // Those are marked external so they're resolved at runtime.
     // The list is read from @duckdb/node-bindings/package.json so it
     // stays in sync automatically when duckdb updates.
-    external: [...getDuckDBExternals(), 'lz4'],
+    //
+    // pg-native is pg's optional native client (not installed); pg references
+    // it lazily. pg 8.7.3 (pinned by @malloydata/db-postgres) does a bare
+    // `require('pg-native')` that esbuild hard-errors on, so mark it external.
+    external: [...getDuckDBExternals(), 'lz4', 'pg-native'],
   };
 };
 
