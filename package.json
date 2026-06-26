@@ -80,7 +80,7 @@
   "devDependencies": {
     "@actions/core": "^3.0.1",
     "@actions/github": "^9.1.1",
-    "@commander-js/extra-typings": "^12.1.0",
+    "@commander-js/extra-typings": "^15.0.0",
     "@duckdb/node-api": "1.5.3-r.2",
     "@duckdb/node-bindings": "1.5.3-r.2",
     "@malloydata/db-bigquery": "0.0.420",
