@@ -17,13 +17,10 @@ import {
 } from './util';
 
 class VirtualURIFileHandler implements URLReader {
-  private uriReader: URLReader;
   private url: URL = new URL('malloy://internal');
   private contents: string = '';
 
-  constructor(uriReader: URLReader) {
-    this.uriReader = uriReader;
-  }
+  constructor(private uriReader: URLReader) {}
 
   public setVirtualFile(url: URL, contents: string): void {
     this.url = url;

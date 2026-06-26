@@ -21,7 +21,9 @@
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint .",
+    "pretest": "npm run lint",
     "test": "NODE_ENV=test jest --projects jest.config.js --runInBand",
+    "pretest-silent": "npm run lint",
     "test-silent": "NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest  --projects jest.config.js --runInBand --reporters jest-silent-reporter",
     "test-e2e": "npm run package-npm test > /dev/null 2>&1 && NODE_ENV=test jest --projects=jest-e2e.config.js --runInBand",
     "test-silent-e2e": "npm run package-npm test > /dev/null 2>&1 && NODE_ENV=test JEST_SILENT_REPORTER_SHOW_PATHS=true jest --projects=jest-e2e.config.js --runInBand --reporters jest-silent-reporter",
