@@ -95,12 +95,24 @@ function canonicalTableName(
 }
 
 /**
+ * One BuildID, more than one requested name. Only one can be honored, and
+ * honoring it silently is how a request for a second table gets lost.
+ */
+function conflictError(asked: Map<string, string[]>): string {
+  const conflict = [...asked]
+    .map(([name, askers]) => `'${name}' at ${askers.join(', ')}`)
+    .join(' and ');
+  return (
+    `one table, two names: ${conflict} — these sources compile to the ` +
+    'same SQL, so they share a build and can only produce one table'
+  );
+}
+
+/**
  * The table name for a target, from the `#@ persist name=` its sources carry.
  *
  * A target is one table and several sources routinely name it — `persist` is
- * inherited and `extend` doesn't change the SQL — so they can disagree, and
- * only one name can win. Honoring one silently is how a request for a second
- * table gets lost, so a disagreement is an error.
+ * inherited and `extend` doesn't change the SQL — so they can disagree.
  */
 function requestedName(target: BuildTarget): NameResult {
   const asked = new Map<string, string[]>();
@@ -117,14 +129,7 @@ function requestedName(target: BuildTarget): NameResult {
     };
   }
   if (asked.size > 1) {
-    const conflict = [...asked]
-      .map(([name, askers]) => `'${name}' at ${askers.join(', ')}`)
-      .join(' and ');
-    return {
-      error:
-        `one table, two names: ${conflict} — these sources compile to the ` +
-        'same SQL, so they share a build and can only produce one table',
-    };
+    return {error: conflictError(asked)};
   }
   return {name: [...asked.keys()][0]};
 }
@@ -217,6 +222,12 @@ export async function buildFiles(
 
   const buildManifest = manifest.buildManifest;
   const connectionDigests: Record<string, string> = {};
+  // What each BuildID has been named so far in this run. A BuildID is one
+  // table, but files are planned one at a time, so two files whose sources
+  // compile to the same SQL only meet here — and without this the second one
+  // finds the first one's manifest entry, reports "up to date", and its own
+  // name= is never built.
+  const claimed = new Map<string, {tableName: string; sites: string[]}>();
   let totalBuilt = 0;
   let totalUpToDate = 0;
   let totalErrors = 0;
@@ -316,6 +327,26 @@ export async function buildFiles(
           continue;
         }
         const tableName = named.name;
+
+        const sites = target.sources.map(declaredAt);
+        const prior = claimed.get(target.buildId);
+        if (prior && prior.tableName !== tableName) {
+          out(
+            `  ${chalk.red('✗')} ${label} ${chalk.dim(
+              `(${connName})`
+            )} — ${chalk.red(
+              conflictError(
+                new Map([
+                  [prior.tableName, prior.sites],
+                  [tableName, sites],
+                ])
+              )
+            )}`
+          );
+          totalErrors++;
+          continue;
+        }
+        claimed.set(target.buildId, {tableName, sites});
 
         const refreshKey = `${connName}:${tableName}`;
         const forceRefresh = options.refresh.has(refreshKey);

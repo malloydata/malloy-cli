@@ -78,10 +78,12 @@ CLI-specific conventions, in order of how-likely-to-bite-you:
   change a source's SQL, so several sources routinely share one `buildId` — core merges
   them into one `BuildTarget` with all of them in `target.sources`. Don't recompute the
   BuildID, dedupe, or sort: the target carries its own id and arrives in dependency order.
-- **`name=` is required, and every source on one target must agree.** The CLI uses it as
-  the destination table name. Missing → error; two different names on one table → error,
-  because only one can be honored and silently dropping the other loses a request for a
-  second table.
+- **`name=` is required, and every source sharing a BuildID must agree — across the whole
+  run.** The CLI uses it as the destination table name. Missing → error; two different
+  names on one table → error, because only one can be honored and silently dropping the
+  other loses a request for a second table. Files are planned one at a time, so two files
+  with identical SQL only meet in the run-wide claims map in `buildFiles`; without it the
+  second file reads the first's manifest entry as "up to date" and never builds its name.
 - **Build and record the canonical name.** `dialect.sqlValidateTableName()` returns it;
   it's the input verbatim for most dialects but not DuckDB's file-path form. Create one
   name and record another and the manifest points at a table nobody made.

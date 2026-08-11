@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import {buildFiles, BuildOptions} from '../../src/malloy/build';
-import {createBasicLogger, silenceOut} from '../../src/log';
+import * as logModule from '../../src/log';
 import '../../src/connections/connection_manager';
 import {loadConfig, malloyConfig} from '../../src/config';
 
@@ -45,6 +45,23 @@ async function runBuild(
     dryRun: false,
     ...options,
   });
+}
+
+/** Run a build and return what it printed, for asserting on error reports. */
+async function runBuildCapturing(
+  paths: string[],
+  options?: Partial<BuildOptions>
+): Promise<string> {
+  const lines: string[] = [];
+  const spy = jest.spyOn(logModule, 'out').mockImplementation(m => {
+    lines.push(m);
+  });
+  try {
+    await runBuild(paths, options);
+  } finally {
+    spy.mockRestore();
+  }
+  return lines.join('\n');
 }
 
 // Model with two persist sources
@@ -138,6 +155,23 @@ source: renamed is by_manufacturer extend {
 `;
 }
 
+// The same computation under a caller-chosen name. Two files built from this
+// share a BuildID, so they are one table however they are named.
+function modelNamed(name: string): string {
+  return `##! experimental.persistence
+
+source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
+  measure: recall_count is count()
+}
+
+#@ persist name=${name}
+source: by_manufacturer is recalls -> {
+  group_by: Manufacturer
+  aggregate: recall_count
+}
+`;
+}
+
 // Model with no persist sources
 function modelNoPersist(): string {
   return `##! experimental.persistence
@@ -159,8 +193,8 @@ function modelNoFlag(): string {
 describe('build command', () => {
   beforeAll(async () => {
     originalXDG = process.env['XDG_CONFIG_HOME'];
-    createBasicLogger();
-    silenceOut();
+    logModule.createBasicLogger();
+    logModule.silenceOut();
   });
 
   beforeEach(async () => {
@@ -347,10 +381,29 @@ describe('build command', () => {
     it('errors when two sources on one table ask for different names', async () => {
       const file = writeModel('test.malloy', modelConflictingNames());
 
-      await runBuild([file]);
+      const output = await runBuildCapturing([file]);
 
+      expect(output).toContain('one table, two names');
       const manifest = readManifest();
       expect(Object.keys(manifest.entries)).toHaveLength(0);
+    });
+
+    it('errors when two files name the same table differently', async () => {
+      // Files are planned one at a time, so this conflict is invisible to any
+      // single BuildTargets result: without a run-wide check the second file
+      // finds the first one's manifest entry and reports "up to date", and
+      // its own name= is never built.
+      const a = writeModel('a.malloy', modelNamed('table_a'));
+      const b = writeModel('b.malloy', modelNamed('table_b'));
+
+      const output = await runBuildCapturing([a, b]);
+
+      expect(output).toContain('one table, two names');
+      expect(output).not.toContain('up to date');
+      const manifest = readManifest();
+      expect(Object.values(manifest.entries).map(e => e.tableName)).toEqual([
+        'table_a',
+      ]);
     });
   });
 
