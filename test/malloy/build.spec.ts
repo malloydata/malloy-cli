@@ -47,7 +47,7 @@ async function runBuild(
   });
 }
 
-/** Run a build and return what it printed, for asserting on error reports. */
+/** Run a build and return what it printed, stripped of color. */
 async function runBuildCapturing(
   paths: string[],
   options?: Partial<BuildOptions>
@@ -61,7 +61,13 @@ async function runBuildCapturing(
   } finally {
     spy.mockRestore();
   }
-  return lines.join('\n');
+  // eslint-disable-next-line no-control-regex
+  return lines.join('\n').replace(/\[[0-9;]*m/g, '');
+}
+
+/** The per-target result lines, so a test can count what actually happened. */
+function builtLines(output: string): string[] {
+  return output.split('\n').filter(l => l.includes(' — built'));
 }
 
 // Model with two persist sources
@@ -167,6 +173,23 @@ source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
 #@ persist name=${name}
 source: by_manufacturer is recalls -> {
   group_by: Manufacturer
+  aggregate: recall_count
+}
+`;
+}
+
+// A named persist whose SQL varies with the grouping, so two of these are
+// two BuildIDs however they are named.
+function modelNamedGrouping(name: string, groupBy: string): string {
+  return `##! experimental.persistence
+
+source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
+  measure: recall_count is count()
+}
+
+#@ persist name=${name}
+source: grouped is recalls -> {
+  group_by: ${groupBy}
   aggregate: recall_count
 }
 `;
@@ -344,7 +367,15 @@ describe('build command', () => {
 
     it('a source and its extension are one table', async () => {
       const file = writeModel('test.malloy', modelInheritedPersist());
-      await runBuild([file]);
+
+      const output = await runBuildCapturing([file]);
+
+      // Both sources are reported on one line, against one build. Asserting
+      // only on the manifest would not show the merge: they share a BuildID
+      // either way, so a builder that walked them separately still ends up
+      // with one entry — after building the table twice.
+      expect(builtLines(output)).toHaveLength(1);
+      expect(builtLines(output)[0]).toContain('by_manufacturer, enriched');
 
       const manifest = readManifest();
       expect(Object.values(manifest.entries).map(e => e.tableName)).toEqual([
@@ -388,11 +419,9 @@ describe('build command', () => {
       expect(Object.keys(manifest.entries)).toHaveLength(0);
     });
 
+    // Both directions of the claim are cross-file: within one model they'd
+    // share a BuildTargets result, and the core would have merged them.
     it('errors when two files name the same table differently', async () => {
-      // Files are planned one at a time, so this conflict is invisible to any
-      // single BuildTargets result: without a run-wide check the second file
-      // finds the first one's manifest entry and reports "up to date", and
-      // its own name= is never built.
       const a = writeModel('a.malloy', modelNamed('table_a'));
       const b = writeModel('b.malloy', modelNamed('table_b'));
 
@@ -404,6 +433,24 @@ describe('build command', () => {
       expect(Object.values(manifest.entries).map(e => e.tableName)).toEqual([
         'table_a',
       ]);
+    });
+
+    it('errors when two files build different SQL under one name', async () => {
+      const a = writeModel(
+        'a.malloy',
+        modelNamedGrouping('foo', 'Manufacturer')
+      );
+      const b = writeModel(
+        'b.malloy',
+        modelNamedGrouping('foo', '`Recall Type`')
+      );
+
+      const output = await runBuildCapturing([a, b]);
+
+      expect(output).toContain('one name, two tables');
+      expect(builtLines(output)).toHaveLength(1);
+      const manifest = readManifest();
+      expect(Object.keys(manifest.entries)).toHaveLength(1);
     });
   });
 
@@ -427,6 +474,18 @@ describe('build command', () => {
       expect(names2).toContain('by_type');
       // BuildIDs should be the same (SQL didn't change)
       expect(Object.keys(manifest2.entries).sort()).toEqual(buildIds1.sort());
+    });
+
+    it('reports a refresh key that matched nothing', async () => {
+      const file = writeModel('test.malloy', modelV1());
+      await runBuild([file]);
+
+      const output = await runBuildCapturing([file], {
+        refresh: new Set(['duckdb:by_manufacturer', 'duckdb:nonesuch']),
+      });
+
+      expect(output).toContain('--refresh matched no table: duckdb:nonesuch');
+      expect(builtLines(output)).toHaveLength(1);
     });
   });
 

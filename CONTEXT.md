@@ -78,15 +78,21 @@ CLI-specific conventions, in order of how-likely-to-bite-you:
   change a source's SQL, so several sources routinely share one `buildId` — core merges
   them into one `BuildTarget` with all of them in `target.sources`. Don't recompute the
   BuildID, dedupe, or sort: the target carries its own id and arrives in dependency order.
-- **`name=` is required, and every source sharing a BuildID must agree — across the whole
-  run.** The CLI uses it as the destination table name. Missing → error; two different
-  names on one table → error, because only one can be honored and silently dropping the
-  other loses a request for a second table. Files are planned one at a time, so two files
-  with identical SQL only meet in the run-wide claims map in `buildFiles`; without it the
-  second file reads the first's manifest entry as "up to date" and never builds its name.
+- **`name=` is required, and BuildID ↔ table is a bijection for the whole run.** The CLI
+  uses `name=` as the destination table name; missing → error. `TableClaims` enforces both
+  directions and both are cross-file, since within one model core would have merged them:
+  one BuildID under two names → error (else the second file reads the first's manifest
+  entry as "up to date" and never builds its own name), and two BuildIDs under one name →
+  error (else both build and one silently overwrites the other, leaving two manifest
+  entries pointing at a table holding one of the two computations).
 - **Build and record the canonical name.** `dialect.sqlValidateTableName()` returns it;
-  it's the input verbatim for most dialects but not DuckDB's file-path form. Create one
-  name and record another and the manifest points at a table nobody made.
+  it's the input verbatim for most dialects but not DuckDB's file-path form. Core's
+  `Manifest.update` re-checks, so a mismatch surfaces as a confusing post-CREATE failure
+  rather than a bad entry — canonicalize once, up front, and both uses agree.
+- **`--refresh` keys on the table name, not the BuildID.** It's a user-facing flag and
+  users type names. A key matching nothing is reported, and a renamed source accepts
+  either its old or new name, because the manifest entry keeps the old one until the SQL
+  changes.
 - **DDL is `DROP TABLE IF EXISTS … ; CREATE TABLE … AS …`.** Fails when the user has
   CREATE but not DELETE — affects Trino/Presto via BigQuery proxy. See
   `createTableFromSelect`. Known limitation, no fix queued.

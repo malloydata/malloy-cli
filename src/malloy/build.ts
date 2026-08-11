@@ -81,8 +81,8 @@ type NameResult = {name: string} | {error: string};
 /**
  * A manifest entry has to hold a canonical table path for its dialect, so the
  * CREATE and the entry must both use the form `sqlValidateTableName` returns.
- * For most dialects that is the input verbatim; DuckDB quotes a file-style
- * path, and recording the raw text there names a table nobody created.
+ * For most dialects that is the input verbatim; DuckDB's file-path branch
+ * quotes it.
  */
 function canonicalTableName(
   source: PersistSource,
@@ -94,17 +94,26 @@ function canonicalTableName(
     : {error: `invalid persist name '${requested}': ${result.error}`};
 }
 
+/** A name somebody asked for, and where they asked for it. */
+interface NameClaim {
+  tableName: string;
+  sites: string[];
+}
+
+function askedFor(claim: NameClaim): string {
+  return `'${claim.tableName}' at ${claim.sites.join(', ')}`;
+}
+
 /**
- * One BuildID, more than one requested name. Only one can be honored, and
- * honoring it silently is how a request for a second table gets lost.
+ * More than one name for one BuildID. Only one can be honored, and honoring
+ * it silently is how a request for a second table gets lost.
  */
-function conflictError(asked: Map<string, string[]>): string {
-  const conflict = [...asked]
-    .map(([name, askers]) => `'${name}' at ${askers.join(', ')}`)
-    .join(' and ');
+function twoNamesError(claims: NameClaim[]): string {
   return (
-    `one table, two names: ${conflict} — these sources compile to the ` +
-    'same SQL, so they share a build and can only produce one table'
+    `one table, two names: ${claims.map(askedFor).join(' and ')} — these ` +
+    'sources compile to the same SQL, so they share a build and can only ' +
+    'produce one table. Give them one name, or make them different ' +
+    'computations.'
   );
 }
 
@@ -129,9 +138,54 @@ function requestedName(target: BuildTarget): NameResult {
     };
   }
   if (asked.size > 1) {
-    return {error: conflictError(asked)};
+    return {
+      error: twoNamesError(
+        [...asked].map(([tableName, sites]) => ({tableName, sites}))
+      ),
+    };
   }
   return {name: [...asked.keys()][0]};
+}
+
+/**
+ * Who has asked for what, for the length of a run.
+ *
+ * Within a run a BuildID names one table and a table is built by one BuildID,
+ * but `buildFiles` plans each file separately, so two files that violate
+ * either direction never appear in one `BuildTargets` result. Unchecked, the
+ * first way round leaves the second file reading the first's manifest entry
+ * as up to date so its own `name=` is never built; the second way round
+ * builds both, one silently overwriting the other under a name the manifest
+ * still points two entries at.
+ */
+class TableClaims {
+  private readonly byBuildId = new Map<string, NameClaim>();
+  private readonly byTable = new Map<string, NameClaim & {buildId: string}>();
+
+  /** Record a claim, or say why it can't be honored. */
+  claim(
+    buildId: string,
+    connectionName: string,
+    claim: NameClaim
+  ): string | undefined {
+    const sameBuild = this.byBuildId.get(buildId);
+    if (sameBuild && sameBuild.tableName !== claim.tableName) {
+      return twoNamesError([sameBuild, claim]);
+    }
+    const tableKey = `${connectionName}:${claim.tableName}`;
+    const sameTable = this.byTable.get(tableKey);
+    if (sameTable && sameTable.buildId !== buildId) {
+      return (
+        `one name, two tables: ${askedFor(claim)} and at ` +
+        `${sameTable.sites.join(', ')} — those sources compile to different ` +
+        'SQL, so building both would leave one overwriting the other. Give ' +
+        'them different names.'
+      );
+    }
+    this.byBuildId.set(buildId, claim);
+    this.byTable.set(tableKey, {...claim, buildId});
+    return undefined;
+  }
 }
 
 export interface BuildOptions {
@@ -222,12 +276,8 @@ export async function buildFiles(
 
   const buildManifest = manifest.buildManifest;
   const connectionDigests: Record<string, string> = {};
-  // What each BuildID has been named so far in this run. A BuildID is one
-  // table, but files are planned one at a time, so two files whose sources
-  // compile to the same SQL only meet here — and without this the second one
-  // finds the first one's manifest entry, reports "up to date", and its own
-  // name= is never built.
-  const claimed = new Map<string, {tableName: string; sites: string[]}>();
+  const claims = new TableClaims();
+  const refreshMatched = new Set<string>();
   let totalBuilt = 0;
   let totalUpToDate = 0;
   let totalErrors = 0;
@@ -328,28 +378,31 @@ export async function buildFiles(
         }
         const tableName = named.name;
 
-        const sites = target.sources.map(declaredAt);
-        const prior = claimed.get(target.buildId);
-        if (prior && prior.tableName !== tableName) {
+        const conflict = claims.claim(target.buildId, connName, {
+          tableName,
+          sites: target.sources.map(declaredAt),
+        });
+        if (conflict) {
           out(
             `  ${chalk.red('✗')} ${label} ${chalk.dim(
               `(${connName})`
-            )} — ${chalk.red(
-              conflictError(
-                new Map([
-                  [prior.tableName, prior.sites],
-                  [tableName, sites],
-                ])
-              )
-            )}`
+            )} — ${chalk.red(conflict)}`
           );
           totalErrors++;
           continue;
         }
-        claimed.set(target.buildId, {tableName, sites});
 
-        const refreshKey = `${connName}:${tableName}`;
-        const forceRefresh = options.refresh.has(refreshKey);
+        const existingEntry = buildManifest.entries[target.buildId];
+        // A rename leaves the entry under its old name until the SQL changes,
+        // so accept either name for --refresh: the one asked for now and the
+        // one the table was actually built under.
+        const refreshKeys = [`${connName}:${tableName}`];
+        if (existingEntry && existingEntry.tableName !== tableName) {
+          refreshKeys.push(`${connName}:${existingEntry.tableName}`);
+        }
+        const matched = refreshKeys.filter(k => options.refresh.has(k));
+        matched.forEach(k => refreshMatched.add(k));
+        const forceRefresh = matched.length > 0;
 
         // Already built and not in refresh list — skip, but only if the
         // table the manifest points to is still usable. The manifest can
@@ -358,7 +411,6 @@ export async function buildFiles(
         // trusting it blindly produced "build complete" with no data on
         // disk. We probe via a Malloy compile against the same connection
         // so this matches what query compilation will see.
-        const existingEntry = buildManifest.entries[target.buildId];
         if (existingEntry && !forceRefresh) {
           const usable = await manifestTableStillUsable(
             runtime,
@@ -432,6 +484,18 @@ export async function buildFiles(
         }
       }
     }
+  }
+
+  // A --refresh that names nothing built is almost always a typo or a name
+  // that has since changed, and the run otherwise reports "up to date" and
+  // looks like the refresh happened.
+  const unmatched = [...options.refresh].filter(k => !refreshMatched.has(k));
+  if (unmatched.length > 0) {
+    out(
+      `\n${chalk.yellow('!')} ${chalk.yellow(
+        `--refresh matched no table: ${unmatched.join(', ')}`
+      )}`
+    );
   }
 
   // Write manifest
