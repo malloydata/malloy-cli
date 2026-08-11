@@ -64,7 +64,7 @@ fields are preserved.
 ## Persistence (`build` command)
 
 Core gives three primitives — annotation (`#@ persist`), build plan
-(`model.getBuildPlan()`), and compile-time substitution via `BuildManifest`. The CLI is one
+(`runtime.getBuildTargets()`), and compile-time substitution via `BuildManifest`. The CLI is one
 opinionated implementation; the VS Code extension is the other (it consumes manifests the
 CLI writes). When changing behavior here, align with the primitives — don't reinvent
 dependency tracking or caching in the CLI layer.
@@ -73,8 +73,18 @@ CLI-specific conventions, in order of how-likely-to-bite-you:
 
 - **`#@ persist name=schema.table` silently fails** — `.` is a path separator in the tag
   parser. Dotted names must be quoted: `name="schema.table"`. Parse errors come back
-  through `getBuildPlan().tagParseLog`; the CLI prints them. Easy to miss in review.
-- **`name=` is required.** The CLI uses it as the destination table name. Missing → error.
+  through `getBuildTargets().tagParseLog`; the CLI prints them. Easy to miss in review.
+- **A target is a table, not a source.** `#@ persist` is inherited and `extend` doesn't
+  change a source's SQL, so several sources routinely share one `buildId` — core merges
+  them into one `BuildTarget` with all of them in `target.sources`. Don't recompute the
+  BuildID, dedupe, or sort: the target carries its own id and arrives in dependency order.
+- **`name=` is required, and every source on one target must agree.** The CLI uses it as
+  the destination table name. Missing → error; two different names on one table → error,
+  because only one can be honored and silently dropping the other loses a request for a
+  second table.
+- **Build and record the canonical name.** `dialect.sqlValidateTableName()` returns it;
+  it's the input verbatim for most dialects but not DuckDB's file-path form. Create one
+  name and record another and the manifest points at a table nobody made.
 - **DDL is `DROP TABLE IF EXISTS … ; CREATE TABLE … AS …`.** Fails when the user has
   CREATE but not DELETE — affects Trino/Presto via BigQuery proxy. See
   `createTableFromSelect`. Known limitation, no fix queued.

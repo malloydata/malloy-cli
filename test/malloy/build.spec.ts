@@ -107,6 +107,37 @@ source: by_manufacturer is recalls -> {
 `;
 }
 
+// A persisted source and an extension of it. `persist` is inherited and
+// `extend` doesn't change the SQL, so both map onto one table.
+function modelInheritedPersist(): string {
+  return `##! experimental.persistence
+
+source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
+  measure: recall_count is count()
+}
+
+#@ persist name=by_manufacturer
+source: by_manufacturer is recalls -> {
+  group_by: Manufacturer
+  aggregate: recall_count
+}
+
+source: enriched is by_manufacturer extend {
+  dimension: shouty is upper(Manufacturer)
+}
+`;
+}
+
+// Same, but the extension renames the table it inherited.
+function modelConflictingNames(): string {
+  return `${modelInheritedPersist()}
+#@ persist name=other_name
+source: renamed is by_manufacturer extend {
+  dimension: quiet is lower(Manufacturer)
+}
+`;
+}
+
 // Model with no persist sources
 function modelNoPersist(): string {
   return `##! experimental.persistence
@@ -277,6 +308,16 @@ describe('build command', () => {
       );
     });
 
+    it('a source and its extension are one table', async () => {
+      const file = writeModel('test.malloy', modelInheritedPersist());
+      await runBuild([file]);
+
+      const manifest = readManifest();
+      expect(Object.values(manifest.entries).map(e => e.tableName)).toEqual([
+        'by_manufacturer',
+      ]);
+    });
+
     it('rebuild same model is all up-to-date', async () => {
       const file = writeModel('test.malloy', modelV1());
       await runBuild([file]);
@@ -299,6 +340,15 @@ describe('build command', () => {
       await runBuild([file]);
 
       // No manifest should be written (no successful builds)
+      const manifest = readManifest();
+      expect(Object.keys(manifest.entries)).toHaveLength(0);
+    });
+
+    it('errors when two sources on one table ask for different names', async () => {
+      const file = writeModel('test.malloy', modelConflictingNames());
+
+      await runBuild([file]);
+
       const manifest = readManifest();
       expect(Object.keys(manifest.entries)).toHaveLength(0);
     });
