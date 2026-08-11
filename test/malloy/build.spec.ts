@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import {buildFiles, BuildOptions} from '../../src/malloy/build';
-import {createBasicLogger, silenceOut} from '../../src/log';
+import * as logModule from '../../src/log';
 import '../../src/connections/connection_manager';
 import {loadConfig, malloyConfig} from '../../src/config';
 
@@ -45,6 +45,29 @@ async function runBuild(
     dryRun: false,
     ...options,
   });
+}
+
+/** Run a build and return what it printed, stripped of color. */
+async function runBuildCapturing(
+  paths: string[],
+  options?: Partial<BuildOptions>
+): Promise<string> {
+  const lines: string[] = [];
+  const spy = jest.spyOn(logModule, 'out').mockImplementation(m => {
+    lines.push(m);
+  });
+  try {
+    await runBuild(paths, options);
+  } finally {
+    spy.mockRestore();
+  }
+  // eslint-disable-next-line no-control-regex
+  return lines.join('\n').replace(/\[[0-9;]*m/g, '');
+}
+
+/** The per-target result lines, so a test can count what actually happened. */
+function builtLines(output: string): string[] {
+  return output.split('\n').filter(l => l.includes(' — built'));
 }
 
 // Model with two persist sources
@@ -107,6 +130,71 @@ source: by_manufacturer is recalls -> {
 `;
 }
 
+// A persisted source and an extension of it. `persist` is inherited and
+// `extend` doesn't change the SQL, so both map onto one table.
+function modelInheritedPersist(): string {
+  return `##! experimental.persistence
+
+source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
+  measure: recall_count is count()
+}
+
+#@ persist name=by_manufacturer
+source: by_manufacturer is recalls -> {
+  group_by: Manufacturer
+  aggregate: recall_count
+}
+
+source: enriched is by_manufacturer extend {
+  dimension: shouty is upper(Manufacturer)
+}
+`;
+}
+
+// Same, but the extension renames the table it inherited.
+function modelConflictingNames(): string {
+  return `${modelInheritedPersist()}
+#@ persist name=other_name
+source: renamed is by_manufacturer extend {
+  dimension: quiet is lower(Manufacturer)
+}
+`;
+}
+
+// The same computation under a caller-chosen name. Two files built from this
+// share a BuildID, so they are one table however they are named.
+function modelNamed(name: string): string {
+  return `##! experimental.persistence
+
+source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
+  measure: recall_count is count()
+}
+
+#@ persist name=${name}
+source: by_manufacturer is recalls -> {
+  group_by: Manufacturer
+  aggregate: recall_count
+}
+`;
+}
+
+// A named persist whose SQL varies with the grouping, so two of these are
+// two BuildIDs however they are named.
+function modelNamedGrouping(name: string, groupBy: string): string {
+  return `##! experimental.persistence
+
+source: recalls is duckdb.table('${AUTO_RECALLS_CSV}') extend {
+  measure: recall_count is count()
+}
+
+#@ persist name=${name}
+source: grouped is recalls -> {
+  group_by: ${groupBy}
+  aggregate: recall_count
+}
+`;
+}
+
 // Model with no persist sources
 function modelNoPersist(): string {
   return `##! experimental.persistence
@@ -128,8 +216,8 @@ function modelNoFlag(): string {
 describe('build command', () => {
   beforeAll(async () => {
     originalXDG = process.env['XDG_CONFIG_HOME'];
-    createBasicLogger();
-    silenceOut();
+    logModule.createBasicLogger();
+    logModule.silenceOut();
   });
 
   beforeEach(async () => {
@@ -277,6 +365,24 @@ describe('build command', () => {
       );
     });
 
+    it('a source and its extension are one table', async () => {
+      const file = writeModel('test.malloy', modelInheritedPersist());
+
+      const output = await runBuildCapturing([file]);
+
+      // Both sources are reported on one line, against one build. Asserting
+      // only on the manifest would not show the merge: they share a BuildID
+      // either way, so a builder that walked them separately still ends up
+      // with one entry — after building the table twice.
+      expect(builtLines(output)).toHaveLength(1);
+      expect(builtLines(output)[0]).toContain('by_manufacturer, enriched');
+
+      const manifest = readManifest();
+      expect(Object.values(manifest.entries).map(e => e.tableName)).toEqual([
+        'by_manufacturer',
+      ]);
+    });
+
     it('rebuild same model is all up-to-date', async () => {
       const file = writeModel('test.malloy', modelV1());
       await runBuild([file]);
@@ -302,6 +408,50 @@ describe('build command', () => {
       const manifest = readManifest();
       expect(Object.keys(manifest.entries)).toHaveLength(0);
     });
+
+    it('errors when two sources on one table ask for different names', async () => {
+      const file = writeModel('test.malloy', modelConflictingNames());
+
+      const output = await runBuildCapturing([file]);
+
+      expect(output).toContain('one table, two names');
+      const manifest = readManifest();
+      expect(Object.keys(manifest.entries)).toHaveLength(0);
+    });
+
+    // Both directions of the claim are cross-file: within one model they'd
+    // share a BuildTargets result, and the core would have merged them.
+    it('errors when two files name the same table differently', async () => {
+      const a = writeModel('a.malloy', modelNamed('table_a'));
+      const b = writeModel('b.malloy', modelNamed('table_b'));
+
+      const output = await runBuildCapturing([a, b]);
+
+      expect(output).toContain('one table, two names');
+      expect(output).not.toContain('up to date');
+      const manifest = readManifest();
+      expect(Object.values(manifest.entries).map(e => e.tableName)).toEqual([
+        'table_a',
+      ]);
+    });
+
+    it('errors when two files build different SQL under one name', async () => {
+      const a = writeModel(
+        'a.malloy',
+        modelNamedGrouping('foo', 'Manufacturer')
+      );
+      const b = writeModel(
+        'b.malloy',
+        modelNamedGrouping('foo', '`Recall Type`')
+      );
+
+      const output = await runBuildCapturing([a, b]);
+
+      expect(output).toContain('one name, two tables');
+      expect(builtLines(output)).toHaveLength(1);
+      const manifest = readManifest();
+      expect(Object.keys(manifest.entries)).toHaveLength(1);
+    });
   });
 
   describe('refresh', () => {
@@ -324,6 +474,18 @@ describe('build command', () => {
       expect(names2).toContain('by_type');
       // BuildIDs should be the same (SQL didn't change)
       expect(Object.keys(manifest2.entries).sort()).toEqual(buildIds1.sort());
+    });
+
+    it('reports a refresh key that matched nothing', async () => {
+      const file = writeModel('test.malloy', modelV1());
+      await runBuild([file]);
+
+      const output = await runBuildCapturing([file], {
+        refresh: new Set(['duckdb:by_manufacturer', 'duckdb:nonesuch']),
+      });
+
+      expect(output).toContain('--refresh matched no table: duckdb:nonesuch');
+      expect(builtLines(output)).toHaveLength(1);
     });
   });
 
