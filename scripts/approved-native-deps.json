@@ -1,34 +1,34 @@
 {
   "@duckdb/node-bindings-darwin-arm64": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": "DuckDB native binding. Externalized in build.ts via getDuckDBExternals() and shipped as optionalDependencies by package-npm.ts; resolved at runtime, not bundled. (All @duckdb/node-bindings-* variants are handled the same way.)"
   },
   "@duckdb/node-bindings-darwin-x64": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@duckdb/node-bindings-linux-arm64": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@duckdb/node-bindings-linux-arm64-musl": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@duckdb/node-bindings-linux-x64": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@duckdb/node-bindings-linux-x64-musl": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@duckdb/node-bindings-win32-arm64": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@duckdb/node-bindings-win32-x64": {
-    "version": "1.5.3-r.2",
+    "version": "1.5.5-r.4",
     "note": ""
   },
   "@esbuild/aix-ppc64": {
@@ -224,7 +224,7 @@
     "note": ""
   },
   "esbuild": {
-    "version": "0.28.0",
+    "version": "0.28.1",
     "note": ""
   },
   "fsevents": {
