@@ -44,7 +44,7 @@ function getBuildMetadataSuffix(): string {
   }
 }
 
-const nodeTarget = 'node24';
+const nodeTarget = 'node26';
 const outputFolder = 'pkg/';
 
 async function packageCLI(
