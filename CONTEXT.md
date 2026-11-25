@@ -153,14 +153,13 @@ in lockstep — don't bump one in isolation.
 
 ## Packaging — Node version pin
 
-The repo, CI, and npm-publish all run on **Node 24** (`.node-version`, `engines: >=20`,
-the workflow `node-version` fields). The *standalone binary* embeds its own Node runtime,
-built with **`@yao-pkg/pkg`** (the maintained fork of the archived Vercel `pkg`) and a
-`node24` target in `scripts/package.ts`. yao-pkg requires Node ≥ 22 to *run* — moving the
-repo to Node 24 is what unblocked it; on Node 20 it hit an ESM-interop bug. The base
-runtime comes from `@yao-pkg/pkg-fetch`, which ships node24 binaries for all five targets
-(macos/linux/win × x64/arm64). Smoke-testing the built binary shows `process.version`
-`v24.15.0`.
+The repo, CI, and npm-publish run on the Node in `.node-version` (the current LTS);
+`engines` is `>=24`, matching `@malloydata/malloy`. The *standalone binary* embeds its own
+Node runtime, built with **`@yao-pkg/pkg`** (the maintained fork of the archived Vercel
+`pkg`) and the `nodeTarget` in `scripts/package.ts`, which tracks the same major. yao-pkg
+requires Node ≥ 22 to *run*. The base runtime comes from `@yao-pkg/pkg-fetch`, which ships
+binaries per Node major for all five targets (macos/linux/win × x64/arm64); check that the
+major you want is published there before moving `nodeTarget`.
 
 Cross-target builds (`--all-targets`, or any `--platform` ≠ host) need the matching
 DuckDB binding force-installed first — npm's `os`/`cpu` filters skip non-host
